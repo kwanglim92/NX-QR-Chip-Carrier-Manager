@@ -1,0 +1,9 @@
+__pycache__/
+*.pyc
+.claude/
+settings.json
+
+# 샘플 데이터 폴더
+P2601001_12M_AC160/
+P2601002_12M_AC160/
+P2602074_CDT-NCHR & AD-42-AS_QR(01.09)/

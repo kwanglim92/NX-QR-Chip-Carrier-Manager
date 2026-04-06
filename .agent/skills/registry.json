@@ -1,0 +1,478 @@
+{
+  "version": "2.0",
+  "updated": "2026-03-30",
+  "project": "Master Skills Template",
+  "total_skills": 19,
+  "total_source_files": 46,
+  "skills": [
+    {
+      "id": "00",
+      "folder_en": "00-skills-management",
+      "folder_ko": "00-스킬-관리",
+      "name": "Skills Management & Registry",
+      "description": "Manage, discover, and maintain the skills catalog.",
+      "version": "1.0",
+      "tags": [
+        "meta",
+        "management",
+        "registry"
+      ],
+      "dependencies": [
+        "16-verification-qa"
+      ],
+      "source_files": []
+    },
+    {
+      "id": "01",
+      "folder_en": "01-pyside6-dark-theme",
+      "folder_ko": "01-다크테마-GUI",
+      "name": "PySide6 Dark Theme GUI Framework",
+      "description": "Catppuccin Mocha dark theme with QSS, dynamic properties, Fusion engine, side panel toggle.",
+      "version": "1.1",
+      "tags": [
+        "gui",
+        "theme",
+        "pyside6",
+        "qss",
+        "catppuccin",
+        "panel-toggle",
+        "shortcut"
+      ],
+      "dependencies": [
+        "11-custom-qt-widgets",
+        "12-mvc-mixin-architecture"
+      ],
+      "source_files": [
+        "ui/theme.py",
+        "ui/color_helpers.py",
+        "main.py",
+        "ui/main_window.py",
+        "ui/dialogs/guide_dialog.py"
+      ]
+    },
+    {
+      "id": "02",
+      "folder_en": "02-matplotlib-static-charts",
+      "folder_ko": "02-정적-차트",
+      "name": "Matplotlib Static Charts",
+      "description": "Publication-quality static charts with Korean font, Qt embedding, memory management.",
+      "version": "1.0",
+      "tags": [
+        "chart",
+        "matplotlib",
+        "trend",
+        "heatmap",
+        "boxplot",
+        "histogram"
+      ],
+      "dependencies": [
+        "03-pyqtgraph-interactive-charts",
+        "05-wafer-map-die-system"
+      ],
+      "source_files": [
+        "charts/basic.py",
+        "charts/comparison.py",
+        "charts/wafer.py",
+        "ui/widgets/chart_widget.py"
+      ]
+    },
+    {
+      "id": "03",
+      "folder_en": "03-pyqtgraph-interactive-charts",
+      "folder_ko": "03-인터랙티브-차트",
+      "name": "PyQtGraph Interactive Charts",
+      "description": "High-performance interactive charts with crosshair, hover, dual-axis, scatter.",
+      "version": "1.0",
+      "tags": [
+        "chart",
+        "pyqtgraph",
+        "interactive",
+        "crosshair",
+        "scatter",
+        "pareto"
+      ],
+      "dependencies": [
+        "02-matplotlib-static-charts",
+        "11-custom-qt-widgets"
+      ],
+      "source_files": [
+        "charts/interactive.py",
+        "charts/interactive_widgets.py"
+      ]
+    },
+    {
+      "id": "04",
+      "folder_en": "04-3d-surface-opengl",
+      "folder_ko": "04-3D-서피스",
+      "name": "3D Surface Visualization (OpenGL)",
+      "description": "OpenGL 3D surface with colorbar, Z-scale, polynomial decomposition.",
+      "version": "1.0",
+      "tags": [
+        "3d",
+        "opengl",
+        "surface",
+        "curve-fit",
+        "pyqtgraph"
+      ],
+      "dependencies": [
+        "05-wafer-map-die-system",
+        "08-die-deviation-analysis"
+      ],
+      "source_files": [
+        "charts/surface3d.py"
+      ]
+    },
+    {
+      "id": "05",
+      "folder_en": "05-wafer-map-die-system",
+      "folder_ko": "05-웨이퍼맵-Die",
+      "name": "Wafer Map & Die Position System",
+      "description": "Wafer contour, vector map, die position, mini-map with click toggle.",
+      "version": "1.0",
+      "tags": [
+        "wafer",
+        "contour",
+        "vector",
+        "die-position",
+        "griddata",
+        "ckdtree"
+      ],
+      "dependencies": [
+        "08-die-deviation-analysis",
+        "02-matplotlib-static-charts"
+      ],
+      "source_files": [
+        "charts/wafer.py",
+        "core/die_analysis.py",
+        "ui/dialogs/repeat_contour_dialog.py"
+      ]
+    },
+    {
+      "id": "06",
+      "folder_en": "06-csv-raw-data-parser",
+      "folder_ko": "06-CSV-파서",
+      "name": "CSV Raw Data Parsing Engine",
+      "description": "Multi-encoding CSV parser with DLP bypass, meta-header separation, batch loading.",
+      "version": "1.0",
+      "tags": [
+        "csv",
+        "parser",
+        "encoding",
+        "dlp",
+        "batch-load",
+        "smartscan"
+      ],
+      "dependencies": [
+        "07-statistical-analysis-engine",
+        "15-multi-recipe-comparison"
+      ],
+      "source_files": [
+        "core/csv_loader.py"
+      ]
+    },
+    {
+      "id": "07",
+      "folder_en": "07-statistical-analysis-engine",
+      "folder_ko": "07-통계-엔진",
+      "name": "Statistical Analysis Engine",
+      "description": "Pure-Python statistics: mean, stdev, outliers, repeatability, Cpk.",
+      "version": "1.0",
+      "tags": [
+        "statistics",
+        "outlier",
+        "cpk",
+        "repeatability",
+        "trend"
+      ],
+      "dependencies": [
+        "06-csv-raw-data-parser",
+        "08-die-deviation-analysis"
+      ],
+      "source_files": [
+        "core/statistics.py"
+      ]
+    },
+    {
+      "id": "08",
+      "folder_en": "08-die-deviation-analysis",
+      "folder_ko": "08-Die-편차분석",
+      "name": "Die-Level Deviation Analysis",
+      "description": "Deviation matrix, affine transform, pareto, correlation, stabilization filter.",
+      "version": "1.0",
+      "tags": [
+        "die",
+        "deviation",
+        "affine",
+        "pareto",
+        "correlation",
+        "lstsq"
+      ],
+      "dependencies": [
+        "07-statistical-analysis-engine",
+        "05-wafer-map-die-system"
+      ],
+      "source_files": [
+        "core/die_analysis.py"
+      ]
+    },
+    {
+      "id": "09",
+      "folder_en": "09-data-export-pipeline",
+      "folder_ko": "09-데이터-내보내기",
+      "name": "Data Export Pipeline",
+      "description": "CSV/TSV, Excel multi-sheet (openpyxl), PDF multi-page (PdfPages).",
+      "version": "1.0",
+      "tags": [
+        "export",
+        "csv",
+        "excel",
+        "pdf",
+        "openpyxl",
+        "threading"
+      ],
+      "dependencies": [
+        "07-statistical-analysis-engine",
+        "12-mvc-mixin-architecture"
+      ],
+      "source_files": [
+        "core/exporter.py",
+        "core/pdf_generator.py",
+        "ui/controllers/export_controller.py"
+      ]
+    },
+    {
+      "id": "10",
+      "folder_en": "10-tiff-image-loader",
+      "folder_ko": "10-TIFF-로더",
+      "name": "TIFF Image Loader & Viewer",
+      "description": "PSPylib TIFF integration with metadata, 2D reshape, interactive viewer, line profile.",
+      "version": "1.0",
+      "tags": [
+        "tiff",
+        "pspylib",
+        "image",
+        "viewer",
+        "profile",
+        "pyqtgraph"
+      ],
+      "dependencies": [
+        "03-pyqtgraph-interactive-charts",
+        "12-mvc-mixin-architecture"
+      ],
+      "source_files": [
+        "core/tiff_loader.py",
+        "charts/interactive_widgets.py",
+        "ui/controllers/tiff_controller.py"
+      ]
+    },
+    {
+      "id": "11",
+      "folder_en": "11-custom-qt-widgets",
+      "folder_ko": "11-커스텀-위젯",
+      "name": "Custom Qt Widgets",
+      "description": "StatCard, CopyableTable, FlowLayout, ChartWidget, SystemLogger, color helpers.",
+      "version": "1.0",
+      "tags": [
+        "widget",
+        "pyside6",
+        "stat-card",
+        "table",
+        "flow-layout",
+        "logger"
+      ],
+      "dependencies": [
+        "01-pyside6-dark-theme",
+        "12-mvc-mixin-architecture"
+      ],
+      "source_files": [
+        "ui/widgets/stat_card.py",
+        "ui/widgets/copyable_table.py",
+        "ui/widgets/flow_layout.py",
+        "ui/widgets/chart_widget.py",
+        "ui/widgets/system_logger.py",
+        "ui/color_helpers.py"
+      ]
+    },
+    {
+      "id": "12",
+      "folder_en": "12-mvc-mixin-architecture",
+      "folder_ko": "12-MVC-Mixin-아키텍처",
+      "name": "MVC Mixin Architecture & UI Builder",
+      "description": "12-Mixin composition for QMainWindow with centralized UI builder and controller separation.",
+      "version": "1.0",
+      "tags": [
+        "architecture",
+        "mixin",
+        "mvc",
+        "ui-builder",
+        "controller",
+        "dialog"
+      ],
+      "dependencies": [
+        "01-pyside6-dark-theme",
+        "11-custom-qt-widgets",
+        "13-background-threading"
+      ],
+      "source_files": [
+        "main.py",
+        "ui/controllers/ui_builder_mixin.py",
+        "ui/controllers/scan_controller.py",
+        "ui/controllers/step_controller.py",
+        "ui/controllers/card_controller.py",
+        "ui/controllers/table_controller.py",
+        "ui/controllers/chart_controller.py",
+        "ui/controllers/xy_legend_controller.py",
+        "ui/controllers/die_filter_controller.py",
+        "ui/controllers/lot_filter_controller.py",
+        "ui/controllers/tiff_controller.py",
+        "ui/controllers/export_controller.py",
+        "ui/controllers/__init__.py",
+        "ui/dialogs/spec_config_dialog.py",
+        "ui/dialogs/repeat_contour_dialog.py",
+        "ui/dialogs/guide_dialog.py",
+        "ui/dialogs/__init__.py",
+        "ui/widgets/__init__.py",
+        "ui/workers/__init__.py",
+        "ui/__init__.py",
+        "charts/__init__.py",
+        "core/__init__.py"
+      ]
+    },
+    {
+      "id": "13",
+      "folder_en": "13-background-threading",
+      "folder_ko": "13-백그라운드-스레딩",
+      "name": "Background Threading & Data Pipeline",
+      "description": "QThread with Signal/Slot for non-blocking data loading and UI-safe updates.",
+      "version": "1.0",
+      "tags": [
+        "threading",
+        "qthread",
+        "signal",
+        "slot",
+        "async",
+        "pipeline"
+      ],
+      "dependencies": [
+        "12-mvc-mixin-architecture",
+        "06-csv-raw-data-parser"
+      ],
+      "source_files": [
+        "ui/workers/data_loader_thread.py",
+        "ui/controllers/scan_controller.py",
+        "ui/controllers/export_controller.py"
+      ]
+    },
+    {
+      "id": "14",
+      "folder_en": "14-settings-persistence",
+      "folder_ko": "14-설정-관리",
+      "name": "Settings Persistence System",
+      "description": "JSON settings with 3-stage merge, spec config, recent folder tracking.",
+      "version": "1.0",
+      "tags": [
+        "settings",
+        "json",
+        "persistence",
+        "spec",
+        "configuration"
+      ],
+      "dependencies": [
+        "12-mvc-mixin-architecture"
+      ],
+      "source_files": [
+        "core/settings.py",
+        "ui/dialogs/spec_config_dialog.py"
+      ]
+    },
+    {
+      "id": "15",
+      "folder_en": "15-multi-recipe-comparison",
+      "folder_ko": "15-멀티레시피-비교",
+      "name": "Multi-Recipe Comparison System",
+      "description": "Auto recipe detection, batch loading, cross-recipe statistics, comparison charts.",
+      "version": "1.0",
+      "tags": [
+        "recipe",
+        "comparison",
+        "batch",
+        "scanner",
+        "multi-step"
+      ],
+      "dependencies": [
+        "06-csv-raw-data-parser",
+        "07-statistical-analysis-engine",
+        "02-matplotlib-static-charts"
+      ],
+      "source_files": [
+        "core/recipe_scanner.py",
+        "charts/comparison.py",
+        "ui/workers/data_loader_thread.py"
+      ]
+    },
+    {
+      "id": "16",
+      "folder_en": "16-verification-qa",
+      "folder_ko": "16-검증-QA",
+      "name": "Verification & QA Skill",
+      "description": "6-layer verification: static, unit, runtime, visual, E2E, regression.",
+      "version": "1.0",
+      "tags": [
+        "meta",
+        "verification",
+        "qa",
+        "testing",
+        "checklist"
+      ],
+      "dependencies": [
+        "00-skills-management"
+      ],
+      "source_files": []
+    },
+    {
+      "id": "17",
+      "folder_en": "17-help-tooltip-button",
+      "folder_ko": "17-도움말-툴팁-버튼",
+      "name": "PySide6 Help Tooltip Button",
+      "description": "Reusable info button with click-to-show tooltip for dark-themed PySide6 apps.",
+      "version": "1.0",
+      "tags": [
+        "ui",
+        "pyside6",
+        "tooltip",
+        "help",
+        "button",
+        "pattern"
+      ],
+      "dependencies": [
+        "01-pyside6-dark-theme",
+        "11-custom-qt-widgets"
+      ],
+      "source_files": [
+        "ui/controllers/ui_builder_mixin.py"
+      ]
+    },
+    {
+      "id": "18",
+      "folder_en": "18-pyinstaller-build-pipeline",
+      "folder_ko": "18-빌드-파이프라인",
+      "name": "PyInstaller Build Pipeline",
+      "description": "Standard PyInstaller + Inno Setup build pipeline for PySide6 desktop applications.",
+      "version": "1.0",
+      "tags": [
+        "build",
+        "pyinstaller",
+        "packaging",
+        "inno-setup",
+        "exe"
+      ],
+      "dependencies": [
+        "01-pyside6-dark-theme"
+      ],
+      "source_files": [
+        "build.bat",
+        "build_all.bat"
+      ]
+    }
+  ]
+}
