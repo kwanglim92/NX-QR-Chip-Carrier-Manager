@@ -56,7 +56,9 @@ class ATXImportMixin:
         if not slot:
             return
 
-        # 이미지 표시
+        # 이미지 표시 + GroupBox 타이틀 업데이트
+        label = format_full_label(slot.slot_code)
+        self.atx_img_group.setTitle(f"FreqSweep 이미지 — {label}")
         self.atx_image_viewer.load_image(slot.image_path)
 
         # Drive 입력값 설정
@@ -65,8 +67,7 @@ class ATXImportMixin:
         else:
             self.atx_drive_input.setValue(0)
 
-        # ATX/Port/Slot 라벨
-        label = format_full_label(slot.slot_code)
+        # QR 입력 대상
         self.qr_input.set_target_label(label)
 
         self.logger.info(

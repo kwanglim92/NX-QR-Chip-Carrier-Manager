@@ -12,7 +12,7 @@ from PySide6.QtWidgets import (
 from src.core.models import MeasurementSet, SlotData
 from src.core.slot_mapper import parse_slot_code, slot_to_grid, grid_to_slot
 from src.ui.theme import FG2, ACCENT, BG, BG3, PURPLE
-from src.ui.widgets.measurement_card import MeasurementCard
+from src.ui.widgets.measurement_card import MeasurementCard, CARD_HEIGHT
 
 
 class SlotGridWidget(QWidget):
@@ -27,7 +27,7 @@ class SlotGridWidget(QWidget):
         outer.setContentsMargins(0, 0, 0, 0)
 
         self._title = QLabel("ATX 슬롯 그리드")
-        self._title.setStyleSheet(f"color: {ACCENT}; font-weight: bold; font-size: 14px;")
+        self._title.setStyleSheet(f"color: {ACCENT}; font-weight: bold; font-size: 15px;")
         outer.addWidget(self._title)
 
         # 스크롤 영역
@@ -73,7 +73,7 @@ class SlotGridWidget(QWidget):
         # Port 헤더
         header = QLabel(f"  Port {port_num}")
         header.setStyleSheet(
-            f"color: {PURPLE}; font-weight: bold; font-size: 13px; "
+            f"color: {PURPLE}; font-weight: bold; font-size: 15px; "
             f"padding: 4px 0;"
         )
         self._content_layout.addWidget(header)
@@ -84,9 +84,11 @@ class SlotGridWidget(QWidget):
         line.setStyleSheet(f"color: {BG3};")
         self._content_layout.addWidget(line)
 
-        # 4×3 그리드
+        # 4×3 그리드 — 열 균등 분배
         grid = QGridLayout()
         grid.setSpacing(6)
+        for c in range(4):
+            grid.setColumnStretch(c, 1)
 
         # 슬롯을 물리적 위치에 배치
         occupied = set()
@@ -105,17 +107,17 @@ class SlotGridWidget(QWidget):
             grid.addWidget(card, row, col)
             self._cards[slot.slot_index] = card
 
-        # 빈 셀 (사용하지 않는 슬롯) 플레이스홀더
+        # 빈 셀 — 카드와 동일한 크기 정책
         for r in range(3):
             for c in range(4):
                 if (r, c) not in occupied:
                     slot_num = grid_to_slot(r, c)
                     ph = QLabel(f"Slot {slot_num}")
                     ph.setAlignment(Qt.AlignCenter)
-                    ph.setFixedHeight(140)
-                    ph.setMinimumWidth(170)
+                    ph.setFixedHeight(CARD_HEIGHT)
+                    ph.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
                     ph.setStyleSheet(
-                        f"color: {FG2}; font-size: 15px; "
+                        f"color: {FG2}; font-size: 12px; "
                         f"border: 1px dashed {BG3}; border-radius: 6px;"
                     )
                     grid.addWidget(ph, r, c)

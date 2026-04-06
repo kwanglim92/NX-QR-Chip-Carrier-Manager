@@ -12,6 +12,7 @@ class SlotData:
     qr_id: str | None = None
     image_path: str | None = None
     source: str = "summary_csv"
+    probe_type: str | None = None
 
     @property
     def is_complete(self) -> bool:

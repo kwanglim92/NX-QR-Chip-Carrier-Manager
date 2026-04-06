@@ -11,7 +11,7 @@ ORANGE = '#fab387'
 PURPLE = '#cba6f7'
 
 DARK_STYLE = f"""
-QMainWindow, QWidget {{ background: {BG}; color: {FG}; font-family: 'Malgun Gothic'; font-size: 13px; }}
+QMainWindow, QWidget {{ background: {BG}; color: {FG}; font-family: 'Malgun Gothic'; font-size: 14px; }}
 QTabWidget::pane {{ border: 1px solid {BG3}; background: {BG}; }}
 QTabBar::tab {{
     background: {BG2}; color: {FG2}; padding: 6px 16px;
@@ -20,7 +20,7 @@ QTabBar::tab {{
 QTabBar::tab:selected {{ background: {BG}; color: {ACCENT}; border-bottom: 2px solid {ACCENT}; }}
 QPushButton {{
     background: {BG2}; color: {FG}; border: 1px solid {BG3};
-    border-radius: 4px; padding: 6px 14px; font-size: 13px;
+    border-radius: 4px; padding: 6px 14px; font-size: 14px;
 }}
 QPushButton:hover {{ background: {BG3}; }}
 QPushButton:pressed {{ background: {ACCENT}; color: {BG}; }}
@@ -28,13 +28,13 @@ QPushButton[accent="true"] {{ background: {ACCENT}; color: {BG}; font-weight: bo
 QPushButton[accent="true"]:hover {{ background: #a0c4ff; }}
 QLineEdit, QSpinBox, QDoubleSpinBox, QComboBox, QDateEdit {{
     background: {BG2}; color: {FG}; border: 1px solid {BG3};
-    border-radius: 4px; padding: 5px 8px; font-size: 13px;
+    border-radius: 4px; padding: 5px 8px; font-size: 14px;
 }}
 QLineEdit:focus, QSpinBox:focus, QDoubleSpinBox:focus {{
     border: 1px solid {ACCENT};
 }}
 QLabel {{ color: {FG}; }}
-QLabel[header="true"] {{ color: {PURPLE}; font-weight: bold; font-size: 14px; }}
+QLabel[header="true"] {{ color: {PURPLE}; font-weight: bold; font-size: 15px; }}
 QGroupBox {{
     color: {ACCENT}; border: 1px solid {BG3}; border-radius: 6px;
     margin-top: 8px; padding-top: 14px; font-weight: bold;
@@ -63,7 +63,11 @@ QFrame[card="true"] {{
     background: {BG2}; border: 1px solid {BG3}; border-radius: 6px;
 }}
 QFrame[card="true"][state="matched"] {{ border: 2px solid {GREEN}; }}
-QFrame[card="true"][state="selected"] {{ border: 2px solid {ACCENT}; }}
+QFrame[card="true"][state="selected"] {{
+    border: 2px solid {ACCENT};
+    border-left: 4px solid {ACCENT};
+    background: #2a2a50;
+}}
 QFrame[card="true"][state="loaded"] {{ border: 1px solid {ACCENT}; }}
 QFrame[card="true"][state="empty"] {{ border: 1px solid {BG3}; }}
 """

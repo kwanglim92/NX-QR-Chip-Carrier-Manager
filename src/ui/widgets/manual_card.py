@@ -1,36 +1,31 @@
-"""4×3 그리드에 표시되는 개별 슬롯 카드.
-
-상태:
-  - empty: 데이터 없음
-  - loaded: Freq/Q 로드됨 (Drive 또는 QR 미입력 → NOT PASS)
-  - matched: QR + Drive + Freq + Q 모두 완료 → PASS
-  - selected: 현재 선택됨
-"""
+"""수동 모드 카드 — 썸네일 + 측정값 + QR ID + 상태 뱃지."""
 from __future__ import annotations
 
 from PySide6.QtCore import Signal, Qt
-from PySide6.QtWidgets import QFrame, QVBoxLayout, QLabel, QHBoxLayout, QSizePolicy
+from PySide6.QtGui import QPixmap
+from PySide6.QtWidgets import (
+    QFrame, QHBoxLayout, QVBoxLayout, QLabel, QSizePolicy, QMenu,
+)
 
-from src.core.slot_mapper import parse_slot_code, format_full_label
-from src.ui.theme import BG2, FG, FG2, ACCENT, GREEN, RED, ORANGE
+from src.ui.theme import BG2, FG, FG2, ACCENT, GREEN, ORANGE
 
-# 카드 전용 폰트 (기존 대비 -20%)
 _FONT_BASE = 12
 _FONT_HEADER = 14
 _FONT_BADGE = 11
 _FONT_QR = 11
 
-CARD_HEIGHT = 120
-CARD_MIN_WIDTH = 150
+MANUAL_CARD_HEIGHT = 140
+THUMB_W, THUMB_H = 60, 45
 
 
-class MeasurementCard(QFrame):
-    clicked = Signal(int)  # slot_index
+class ManualCard(QFrame):
+    clicked = Signal(int)   # slot_index
+    removed = Signal(int)   # slot_index
 
-    def __init__(self, slot_index: int, slot_code: str, parent=None):
+    def __init__(self, slot_index: int, image_path: str, parent=None):
         super().__init__(parent)
         self.slot_index = slot_index
-        self.slot_code = slot_code
+        self.image_path = image_path
         self._has_freq = False
         self._has_drive = False
         self._has_qr = False
@@ -38,56 +33,74 @@ class MeasurementCard(QFrame):
         self.setProperty("card", "true")
         self.setProperty("state", "empty")
         self.setCursor(Qt.PointingHandCursor)
-        self.setFixedHeight(CARD_HEIGHT)
+        self.setFixedHeight(MANUAL_CARD_HEIGHT)
         self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        self.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.customContextMenuRequested.connect(self._show_context_menu)
 
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(10, 6, 8, 6)
-        layout.setSpacing(2)
+        root = QVBoxLayout(self)
+        root.setContentsMargins(8, 6, 8, 6)
+        root.setSpacing(2)
 
-        # 헤더: Slot 번호 + 상태 뱃지
-        header_layout = QHBoxLayout()
-        try:
-            info = parse_slot_code(slot_code)
-            header_text = f"Slot {info['slot']}"
-        except (ValueError, IndexError):
-            header_text = f"#{slot_index + 1}"
-        self._slot_label = QLabel(header_text)
-        self._slot_label.setStyleSheet(
+        # 헤더: 카드 번호 + 뱃지
+        header = QHBoxLayout()
+        self._num_label = QLabel(f"#{slot_index + 1}")
+        self._num_label.setStyleSheet(
             f"color: {ACCENT}; font-weight: bold; font-size: {_FONT_HEADER}px;"
         )
-        header_layout.addWidget(self._slot_label)
-        header_layout.addStretch()
+        header.addWidget(self._num_label)
+        header.addStretch()
 
-        self._badge = QLabel("")
+        self._badge = QLabel("EMPTY")
         self._badge.setAlignment(Qt.AlignCenter)
         self._badge.setFixedSize(70, 20)
         self._badge.setStyleSheet(
             f"background: {FG2}; color: {BG2}; border-radius: 10px; "
             f"font-size: {_FONT_BADGE}px; font-weight: bold;"
         )
-        header_layout.addWidget(self._badge)
-        layout.addLayout(header_layout)
+        header.addWidget(self._badge)
+        root.addLayout(header)
 
-        # 측정값
+        # 본문: 썸네일 + 측정값
+        body = QHBoxLayout()
+        body.setSpacing(8)
+
+        self._thumb = QLabel()
+        self._thumb.setFixedSize(THUMB_W, THUMB_H)
+        self._thumb.setAlignment(Qt.AlignCenter)
+        self._thumb.setStyleSheet("border: 1px solid #444; border-radius: 3px;")
+        body.addWidget(self._thumb)
+
+        info = QVBoxLayout()
+        info.setSpacing(1)
         self._freq_label = QLabel("Freq: -")
         self._freq_label.setStyleSheet(f"color: {FG}; font-size: {_FONT_BASE}px;")
-        layout.addWidget(self._freq_label)
-
-        self._q_label = QLabel("Q: -")
-        self._q_label.setStyleSheet(f"color: {FG}; font-size: {_FONT_BASE}px;")
-        layout.addWidget(self._q_label)
+        info.addWidget(self._freq_label)
 
         self._drive_label = QLabel("Drive: -")
         self._drive_label.setStyleSheet(f"color: {FG2}; font-size: {_FONT_BASE}px;")
-        layout.addWidget(self._drive_label)
+        info.addWidget(self._drive_label)
+
+        self._q_label = QLabel("Q: -")
+        self._q_label.setStyleSheet(f"color: {FG}; font-size: {_FONT_BASE}px;")
+        info.addWidget(self._q_label)
+
+        body.addLayout(info)
+        root.addLayout(body)
 
         # QR ID
         self._qr_label = QLabel("")
         self._qr_label.setStyleSheet(f"color: {GREEN}; font-size: {_FONT_QR}px;")
-        layout.addWidget(self._qr_label)
+        root.addWidget(self._qr_label)
 
-        self._update_badge()
+        # 썸네일 로드
+        self.set_thumbnail(image_path)
+
+    def set_thumbnail(self, path: str):
+        pm = QPixmap(path)
+        if not pm.isNull():
+            scaled = pm.scaled(THUMB_W, THUMB_H, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+            self._thumb.setPixmap(scaled)
 
     def update_data(self, frequency=None, q_factor=None, drive=None, qr_id=None):
         if frequency is not None:
@@ -146,13 +159,12 @@ class MeasurementCard(QFrame):
     def set_selected(self, selected: bool):
         if selected:
             self._set_state("selected")
-            # 선택 시 헤더 강조
-            self._slot_label.setStyleSheet(
+            self._num_label.setStyleSheet(
                 f"color: #ffffff; font-weight: bold; font-size: {_FONT_HEADER}px;"
             )
         else:
             self._update_state()
-            self._slot_label.setStyleSheet(
+            self._num_label.setStyleSheet(
                 f"color: {ACCENT}; font-weight: bold; font-size: {_FONT_HEADER}px;"
             )
 
@@ -163,3 +175,9 @@ class MeasurementCard(QFrame):
     def mousePressEvent(self, event):
         self.clicked.emit(self.slot_index)
         super().mousePressEvent(event)
+
+    def _show_context_menu(self, pos):
+        menu = QMenu(self)
+        action = menu.addAction("삭제")
+        if menu.exec(self.mapToGlobal(pos)) == action:
+            self.removed.emit(self.slot_index)

@@ -55,14 +55,55 @@ class QRMatchMixin:
             self.logger.ok("모든 슬롯 QR 매칭 완료!")
 
     def _match_qr_manual(self, qr_id: str):
-        idx = self.manual_current_idx
+        idx = self.selected_manual_index
+        if idx < 0:
+            self.qr_input.show_error("카드를 먼저 선택하세요")
+            return
+
         slot = self.measurement_set.find_slot_by_index(idx)
         if not slot:
             return
 
+        if slot.qr_id:
+            self.qr_input.show_error(f"#{idx + 1}에 이미 QR이 있습니다")
+            return
+
         slot.qr_id = qr_id
-        self.qr_input.show_success(f"이미지 {idx + 1} ← {qr_id}")
-        self.logger.ok(f"QR 매칭: 이미지 {idx + 1} = {qr_id}")
+
+        # 카드 업데이트
+        for grid in self._manual_grids.values():
+            if idx in grid._cards:
+                grid.update_card(
+                    idx,
+                    frequency=slot.frequency,
+                    q_factor=slot.q_factor,
+                    drive=slot.drive,
+                    qr_id=qr_id,
+                )
+                break
+
+        probe = slot.probe_type or "?"
+        self.qr_input.show_success(f"#{idx + 1} ({probe}) ← {qr_id}")
+        self.logger.ok(f"QR 매칭: #{idx + 1} ({probe}) = {qr_id}")
+
+        self._refresh_overview()
+
+        # 현재 탭 내 다음 미매칭 카드로 자동 이동
+        current_tab_idx = self.manual_tabs.currentIndex()
+        if current_tab_idx < self.manual_tabs.count() - 1:
+            probe_type = self.manual_tabs.tabText(current_tab_idx)
+            grid = self._manual_grids.get(probe_type)
+            if grid:
+                for s_idx in grid.get_slot_indices():
+                    if s_idx == idx:
+                        continue
+                    s = self.measurement_set.find_slot_by_index(s_idx)
+                    if s and s.qr_id is None:
+                        self._on_manual_card_selected(s_idx)
+                        return
+
+                # 현재 탭 모두 매칭 완료
+                self.logger.ok(f"'{probe_type}' 탭 QR 매칭 완료!")
 
     def _update_progress(self):
         if not self.measurement_set:

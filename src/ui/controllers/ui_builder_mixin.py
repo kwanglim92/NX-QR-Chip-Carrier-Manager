@@ -16,6 +16,7 @@ from src.ui.widgets.image_viewer import ImageViewer
 from src.ui.widgets.qr_input_widget import QRInputWidget
 from src.ui.widgets.csv_preview_table import CSVPreviewTable
 from src.ui.widgets.system_logger import SystemLogger
+from src.ui.widgets.manual_grid_widget import ManualGridWidget
 
 
 class UIBuilderMixin:
@@ -118,7 +119,8 @@ class UIBuilderMixin:
         left_layout.addWidget(folder_group)
 
         # 이미지 뷰어
-        img_group = QGroupBox("FreqSweep 이미지")
+        self.atx_img_group = QGroupBox("FreqSweep 이미지")
+        img_group = self.atx_img_group
         img_layout = QVBoxLayout(img_group)
         self.atx_image_viewer = ImageViewer()
         img_layout.addWidget(self.atx_image_viewer)
@@ -175,53 +177,19 @@ class UIBuilderMixin:
         page = QWidget()
         splitter = QSplitter(Qt.Horizontal)
 
-        # 좌측: 컨트롤
+        # ── 좌측 패널: 이미지 뷰어 + 입력 폼 ──
         left = QWidget()
         left_layout = QVBoxLayout(left)
         left_layout.setContentsMargins(4, 4, 4, 4)
 
-        folder_group = QGroupBox("수동 측정 폴더")
-        fg_layout = QVBoxLayout(folder_group)
+        # 이미지 뷰어
+        img_group = QGroupBox("Sweep 이미지")
+        img_layout = QVBoxLayout(img_group)
+        self.manual_image_viewer = ImageViewer()
+        img_layout.addWidget(self.manual_image_viewer)
+        left_layout.addWidget(img_group, 1)
 
-        folder_row = QHBoxLayout()
-        self.manual_folder_input = QLineEdit()
-        self.manual_folder_input.setReadOnly(True)
-        self.manual_folder_input.setPlaceholderText("폴더를 선택하세요...")
-        folder_row.addWidget(self.manual_folder_input)
-
-        self.btn_browse_manual = QPushButton("찾아보기")
-        self.btn_browse_manual.clicked.connect(self._browse_manual_folder)
-        folder_row.addWidget(self.btn_browse_manual)
-        fg_layout.addLayout(folder_row)
-
-        # 수동 모드 정보
-        manual_info = QFormLayout()
-        self.manual_probe_input = QLineEdit()
-        self.manual_probe_input.setPlaceholderText("예: CDT-NCHR")
-        manual_info.addRow("Probe Type:", self.manual_probe_input)
-        self.lbl_manual_count = QLabel("-")
-        manual_info.addRow("이미지 수:", self.lbl_manual_count)
-        fg_layout.addLayout(manual_info)
-
-        left_layout.addWidget(folder_group)
-
-        # 이미지 네비게이션
-        nav_layout = QHBoxLayout()
-        self.btn_prev_img = QPushButton("◀ 이전")
-        self.btn_prev_img.clicked.connect(self._prev_manual_image)
-        nav_layout.addWidget(self.btn_prev_img)
-
-        self.lbl_img_index = QLabel("0 / 0")
-        self.lbl_img_index.setAlignment(Qt.AlignCenter)
-        self.lbl_img_index.setStyleSheet(f"color: {ACCENT}; font-weight: bold; font-size: 14px;")
-        nav_layout.addWidget(self.lbl_img_index)
-
-        self.btn_next_img = QPushButton("다음 ▶")
-        self.btn_next_img.clicked.connect(self._next_manual_image)
-        nav_layout.addWidget(self.btn_next_img)
-        left_layout.addLayout(nav_layout)
-
-        # 데이터 입력 폼
+        # 측정값 입력 폼
         data_group = QGroupBox("측정값 입력")
         data_form = QFormLayout(data_group)
 
@@ -244,25 +212,67 @@ class UIBuilderMixin:
 
         left_layout.addWidget(data_group)
 
-        # 확인 버튼
-        self.btn_confirm_manual = QPushButton("확인 & 다음 >>")
-        self.btn_confirm_manual.setProperty("accent", "true")
-        self.btn_confirm_manual.clicked.connect(self._confirm_manual_entry)
-        left_layout.addWidget(self.btn_confirm_manual)
+        # 적용 버튼
+        self.btn_apply_manual = QPushButton("적용")
+        self.btn_apply_manual.setProperty("accent", "true")
+        self.btn_apply_manual.clicked.connect(self._apply_manual_entry)
+        left_layout.addWidget(self.btn_apply_manual)
 
-        left_layout.addStretch()
         splitter.addWidget(left)
 
-        # 우측: 이미지 뷰어
+        # ── 우측 패널: Probe Type 탭 + 카드 그리드 ──
         right = QWidget()
         right_layout = QVBoxLayout(right)
         right_layout.setContentsMargins(4, 4, 4, 4)
 
-        self.manual_image_viewer = ImageViewer()
-        right_layout.addWidget(self.manual_image_viewer, 1)
+        # 상단 컨트롤: 열 수 + 탭 추가/삭제
+        ctrl_row = QHBoxLayout()
+
+        ctrl_row.addWidget(QLabel("열 수:"))
+        self.manual_col_spin = QSpinBox()
+        self.manual_col_spin.setRange(1, 8)
+        self.manual_col_spin.setValue(4)
+        self.manual_col_spin.setFixedWidth(60)
+        self.manual_col_spin.valueChanged.connect(self._on_manual_columns_changed)
+        ctrl_row.addWidget(self.manual_col_spin)
+
+        ctrl_row.addStretch()
+
+        btn_load_images = QPushButton("불러오기")
+        btn_load_images.clicked.connect(self._browse_manual_images)
+        ctrl_row.addWidget(btn_load_images)
+
+        btn_add_tab = QPushButton("+ 탭 추가")
+        btn_add_tab.clicked.connect(self._add_probe_tab)
+        ctrl_row.addWidget(btn_add_tab)
+
+        btn_del_tab = QPushButton("탭 삭제")
+        btn_del_tab.clicked.connect(self._remove_current_probe_tab)
+        ctrl_row.addWidget(btn_del_tab)
+
+        btn_reset = QPushButton("초기화")
+        btn_reset.clicked.connect(self._reset_manual_all)
+        ctrl_row.addWidget(btn_reset)
+
+        right_layout.addLayout(ctrl_row)
+
+        # QTabWidget: Probe Type 탭들 + 전체 현황 탭
+        self.manual_tabs = QTabWidget()
+        right_layout.addWidget(self.manual_tabs, 1)
+
+        # 전체 현황 탭 (고정, 마지막)
+        overview_page = QWidget()
+        self._overview_layout = QVBoxLayout(overview_page)
+        self._overview_layout.setContentsMargins(12, 12, 12, 12)
+
+        overview_header = QLabel("전체 현황")
+        overview_header.setProperty("header", "true")
+        self._overview_layout.addWidget(overview_header)
+        self._overview_layout.addStretch()
+        self.manual_tabs.addTab(overview_page, "전체 현황")
 
         splitter.addWidget(right)
-        splitter.setSizes([350, 650])
+        splitter.setSizes([400, 600])
 
         page_layout = QVBoxLayout(page)
         page_layout.setContentsMargins(0, 0, 0, 0)
@@ -294,6 +304,11 @@ class UIBuilderMixin:
         self.btn_export_csv.setProperty("accent", "true")
         self.btn_export_csv.clicked.connect(self._export_csv)
         btn_row.addWidget(self.btn_export_csv)
+
+        self.btn_export_with_images = QPushButton("CSV + 이미지 저장")
+        self.btn_export_with_images.setProperty("accent", "true")
+        self.btn_export_with_images.clicked.connect(self._export_csv_with_images)
+        btn_row.addWidget(self.btn_export_with_images)
 
         layout.addLayout(btn_row)
 
