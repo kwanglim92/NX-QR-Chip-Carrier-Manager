@@ -8,6 +8,7 @@ from src.ui.controllers.atx_import_mixin import ATXImportMixin
 from src.ui.controllers.manual_import_mixin import ManualImportMixin
 from src.ui.controllers.qr_match_mixin import QRMatchMixin
 from src.ui.controllers.export_mixin import ExportMixin
+from src.ui.controllers.upload_mixin import UploadMixin
 
 
 class ChipCarrierManagerApp(
@@ -16,6 +17,7 @@ class ChipCarrierManagerApp(
     ManualImportMixin,
     QRMatchMixin,
     ExportMixin,
+    UploadMixin,
     QMainWindow,
 ):
     def __init__(self):
@@ -23,6 +25,7 @@ class ChipCarrierManagerApp(
         self._init_shared_state()
         self._build_ui()
         self._init_manual_state()
+        self._init_upload_state()
 
     def _init_shared_state(self):
         self.current_mode: str = "atx"

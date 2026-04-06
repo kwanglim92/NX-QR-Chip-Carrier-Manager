@@ -48,21 +48,21 @@ class UIBuilderMixin:
         # 상태 바
         self._statusbar = QStatusBar()
         self.setStatusBar(self._statusbar)
-        self._statusbar.showMessage("폴더를 선택하여 시작하세요")
+        self._statusbar.showMessage("Select a folder to start")
 
     def _build_toolbar(self, parent_layout):
         toolbar_layout = QHBoxLayout()
 
-        self.btn_atx_mode = QPushButton("ATX 모드")
+        self.btn_atx_mode = QPushButton("ATX Mode")
         self.btn_atx_mode.setProperty("accent", "true")
         self.btn_atx_mode.clicked.connect(lambda: self._switch_mode("atx"))
         toolbar_layout.addWidget(self.btn_atx_mode)
 
-        self.btn_manual_mode = QPushButton("수동 모드")
+        self.btn_manual_mode = QPushButton("Manual Mode")
         self.btn_manual_mode.clicked.connect(lambda: self._switch_mode("manual"))
         toolbar_layout.addWidget(self.btn_manual_mode)
 
-        self.btn_export_mode = QPushButton("CSV 내보내기")
+        self.btn_export_mode = QPushButton("CSV Export")
         self.btn_export_mode.clicked.connect(lambda: self._switch_mode("export"))
         toolbar_layout.addWidget(self.btn_export_mode)
 
@@ -92,16 +92,16 @@ class UIBuilderMixin:
         left_layout.setContentsMargins(4, 4, 4, 4)
 
         # 폴더 선택
-        folder_group = QGroupBox("ATX 결과 폴더")
+        folder_group = QGroupBox("ATX Result Folder")
         fg_layout = QVBoxLayout(folder_group)
 
         folder_row = QHBoxLayout()
         self.atx_folder_input = QLineEdit()
         self.atx_folder_input.setReadOnly(True)
-        self.atx_folder_input.setPlaceholderText("폴더를 선택하세요...")
+        self.atx_folder_input.setPlaceholderText("Select a folder...")
         folder_row.addWidget(self.atx_folder_input)
 
-        self.btn_browse_atx = QPushButton("찾아보기")
+        self.btn_browse_atx = QPushButton("Browse")
         self.btn_browse_atx.clicked.connect(self._browse_atx_folder)
         folder_row.addWidget(self.btn_browse_atx)
         fg_layout.addLayout(folder_row)
@@ -111,15 +111,15 @@ class UIBuilderMixin:
         self.lbl_po = QLabel("-")
         self.lbl_probe_type = QLabel("-")
         self.lbl_quantity = QLabel("-")
-        info_form.addRow("PO 번호:", self.lbl_po)
+        info_form.addRow("PO Number:", self.lbl_po)
         info_form.addRow("Probe Type:", self.lbl_probe_type)
-        info_form.addRow("수량:", self.lbl_quantity)
+        info_form.addRow("Quantity:", self.lbl_quantity)
         fg_layout.addLayout(info_form)
 
         left_layout.addWidget(folder_group)
 
         # 이미지 뷰어
-        self.atx_img_group = QGroupBox("FreqSweep 이미지")
+        self.atx_img_group = QGroupBox("FreqSweep Image")
         img_group = self.atx_img_group
         img_layout = QVBoxLayout(img_group)
         self.atx_image_viewer = ImageViewer()
@@ -135,7 +135,7 @@ class UIBuilderMixin:
         self.atx_drive_input.setSpecialValueText("-")
         drive_row.addWidget(self.atx_drive_input)
 
-        self.btn_apply_drive = QPushButton("적용")
+        self.btn_apply_drive = QPushButton("Apply")
         self.btn_apply_drive.clicked.connect(self._apply_drive)
         drive_row.addWidget(self.btn_apply_drive)
         img_layout.addLayout(drive_row)
@@ -143,7 +143,7 @@ class UIBuilderMixin:
         left_layout.addWidget(img_group, 1)
 
         # 로그
-        log_group = QGroupBox("로그")
+        log_group = QGroupBox("Log")
         log_layout = QVBoxLayout(log_group)
         self._log_te = QTextEdit()
         self._log_te.setMaximumHeight(150)
@@ -183,37 +183,38 @@ class UIBuilderMixin:
         left_layout.setContentsMargins(4, 4, 4, 4)
 
         # 이미지 뷰어
-        img_group = QGroupBox("Sweep 이미지")
+        img_group = QGroupBox("Sweep Image")
         img_layout = QVBoxLayout(img_group)
         self.manual_image_viewer = ImageViewer()
         img_layout.addWidget(self.manual_image_viewer)
         left_layout.addWidget(img_group, 1)
 
         # 측정값 입력 폼
-        data_group = QGroupBox("측정값 입력")
+        data_group = QGroupBox("Measurement Input")
         data_form = QFormLayout(data_group)
 
         self.manual_freq_input = QDoubleSpinBox()
         self.manual_freq_input.setRange(0, 9999)
         self.manual_freq_input.setDecimals(2)
-        self.manual_freq_input.setSuffix(" KHz")
-        data_form.addRow("Frequency:", self.manual_freq_input)
+        self.manual_freq_input.setSpecialValueText(" ")
+        data_form.addRow("Frequency (KHz):", self.manual_freq_input)
 
         self.manual_drive_input = QDoubleSpinBox()
         self.manual_drive_input.setRange(0, 100)
         self.manual_drive_input.setDecimals(2)
-        self.manual_drive_input.setSuffix(" %")
-        data_form.addRow("Drive:", self.manual_drive_input)
+        self.manual_drive_input.setSpecialValueText(" ")
+        data_form.addRow("Drive (%):", self.manual_drive_input)
 
         self.manual_q_input = QDoubleSpinBox()
         self.manual_q_input.setRange(0, 9999)
         self.manual_q_input.setDecimals(2)
+        self.manual_q_input.setSpecialValueText(" ")
         data_form.addRow("Q:", self.manual_q_input)
 
         left_layout.addWidget(data_group)
 
         # 적용 버튼
-        self.btn_apply_manual = QPushButton("적용")
+        self.btn_apply_manual = QPushButton("Apply")
         self.btn_apply_manual.setProperty("accent", "true")
         self.btn_apply_manual.clicked.connect(self._apply_manual_entry)
         left_layout.addWidget(self.btn_apply_manual)
@@ -228,7 +229,7 @@ class UIBuilderMixin:
         # 상단 컨트롤: 열 수 + 탭 추가/삭제
         ctrl_row = QHBoxLayout()
 
-        ctrl_row.addWidget(QLabel("열 수:"))
+        ctrl_row.addWidget(QLabel("Columns:"))
         self.manual_col_spin = QSpinBox()
         self.manual_col_spin.setRange(1, 8)
         self.manual_col_spin.setValue(4)
@@ -238,19 +239,19 @@ class UIBuilderMixin:
 
         ctrl_row.addStretch()
 
-        btn_load_images = QPushButton("불러오기")
+        btn_load_images = QPushButton("Load")
         btn_load_images.clicked.connect(self._browse_manual_images)
         ctrl_row.addWidget(btn_load_images)
 
-        btn_add_tab = QPushButton("+ 탭 추가")
+        btn_add_tab = QPushButton("+ Add Tab")
         btn_add_tab.clicked.connect(self._add_probe_tab)
         ctrl_row.addWidget(btn_add_tab)
 
-        btn_del_tab = QPushButton("탭 삭제")
+        btn_del_tab = QPushButton("Delete Tab")
         btn_del_tab.clicked.connect(self._remove_current_probe_tab)
         ctrl_row.addWidget(btn_del_tab)
 
-        btn_reset = QPushButton("초기화")
+        btn_reset = QPushButton("Reset")
         btn_reset.clicked.connect(self._reset_manual_all)
         ctrl_row.addWidget(btn_reset)
 
@@ -265,11 +266,11 @@ class UIBuilderMixin:
         self._overview_layout = QVBoxLayout(overview_page)
         self._overview_layout.setContentsMargins(12, 12, 12, 12)
 
-        overview_header = QLabel("전체 현황")
+        overview_header = QLabel("Overview")
         overview_header.setProperty("header", "true")
         self._overview_layout.addWidget(overview_header)
         self._overview_layout.addStretch()
-        self.manual_tabs.addTab(overview_page, "전체 현황")
+        self.manual_tabs.addTab(overview_page, "Overview")
 
         splitter.addWidget(right)
         splitter.setSizes([400, 600])
@@ -286,7 +287,7 @@ class UIBuilderMixin:
         layout = QVBoxLayout(page)
         layout.setContentsMargins(8, 8, 8, 8)
 
-        header = QLabel("CSV 미리보기 & 내보내기")
+        header = QLabel("CSV Preview & Export")
         header.setProperty("header", "true")
         layout.addWidget(header)
 
@@ -296,21 +297,75 @@ class UIBuilderMixin:
         btn_row = QHBoxLayout()
         btn_row.addStretch()
 
-        self.btn_refresh_preview = QPushButton("미리보기 새로고침")
+        self.btn_refresh_preview = QPushButton("Refresh Preview")
         self.btn_refresh_preview.clicked.connect(self._refresh_csv_preview)
         btn_row.addWidget(self.btn_refresh_preview)
 
-        self.btn_export_csv = QPushButton("CSV 저장")
+        self.btn_export_csv = QPushButton("Save CSV")
         self.btn_export_csv.setProperty("accent", "true")
         self.btn_export_csv.clicked.connect(self._export_csv)
         btn_row.addWidget(self.btn_export_csv)
 
-        self.btn_export_with_images = QPushButton("CSV + 이미지 저장")
+        self.btn_export_with_images = QPushButton("Save CSV + Images")
         self.btn_export_with_images.setProperty("accent", "true")
         self.btn_export_with_images.clicked.connect(self._export_csv_with_images)
         btn_row.addWidget(self.btn_export_with_images)
 
         layout.addLayout(btn_row)
+
+        # ── 서버 업로드 영역 ──
+        upload_group = QGroupBox("Server Upload")
+        ug_layout = QVBoxLayout(upload_group)
+
+        # 로그인 행
+        login_row = QHBoxLayout()
+        login_row.addWidget(QLabel("ID:"))
+        self.upload_id_input = QLineEdit()
+        self.upload_id_input.setFixedWidth(150)
+        self.upload_id_input.setPlaceholderText("Server ID")
+        login_row.addWidget(self.upload_id_input)
+
+        login_row.addWidget(QLabel("PW:"))
+        self.upload_pw_input = QLineEdit()
+        self.upload_pw_input.setFixedWidth(150)
+        self.upload_pw_input.setEchoMode(QLineEdit.Password)
+        self.upload_pw_input.setPlaceholderText("Password")
+        login_row.addWidget(self.upload_pw_input)
+
+        self.btn_login = QPushButton("Login")
+        self.btn_login.clicked.connect(self._do_login)
+        login_row.addWidget(self.btn_login)
+
+        self.upload_status_label = QLabel("○ Disconnected")
+        self.upload_status_label.setStyleSheet("color: #a6adc8;")
+        login_row.addWidget(self.upload_status_label)
+
+        login_row.addStretch()
+        ug_layout.addLayout(login_row)
+
+        # 업로드 버튼 행
+        upload_btn_row = QHBoxLayout()
+
+        self.btn_upload_csv = QPushButton("Upload CSV")
+        self.btn_upload_csv.setEnabled(False)
+        self.btn_upload_csv.clicked.connect(self._upload_csv_only)
+        upload_btn_row.addWidget(self.btn_upload_csv)
+
+        self.btn_upload_all = QPushButton("Upload CSV + Images")
+        self.btn_upload_all.setProperty("accent", "true")
+        self.btn_upload_all.setEnabled(False)
+        self.btn_upload_all.clicked.connect(self._upload_csv_with_images)
+        upload_btn_row.addWidget(self.btn_upload_all)
+
+        self.upload_progress = QProgressBar()
+        self.upload_progress.setFixedWidth(200)
+        self.upload_progress.setVisible(False)
+        upload_btn_row.addWidget(self.upload_progress)
+
+        upload_btn_row.addStretch()
+        ug_layout.addLayout(upload_btn_row)
+
+        layout.addWidget(upload_group)
 
         self.stack.addWidget(page)  # index 2
 
@@ -326,7 +381,7 @@ class UIBuilderMixin:
 
         self.progress_bar = QProgressBar()
         self.progress_bar.setFixedWidth(200)
-        self.progress_bar.setFormat("%v / %m 매칭")
+        self.progress_bar.setFormat("%v / %m matched")
         bottom_layout.addWidget(self.progress_bar)
 
         parent_layout.addWidget(bottom)

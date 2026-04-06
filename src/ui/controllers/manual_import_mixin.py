@@ -54,7 +54,7 @@ class ManualImportMixin:
         idx = self.manual_tabs.currentIndex()
         # 전체 현황 탭은 삭제 불가
         if idx == self.manual_tabs.count() - 1:
-            self.logger.warn("전체 현황 탭은 삭제할 수 없습니다")
+            self.logger.warn("Overview 탭은 삭제할 수 없습니다")
             return
 
         probe_type = self.manual_tabs.tabText(idx)
@@ -86,9 +86,13 @@ class ManualImportMixin:
 
     def _browse_manual_images(self):
         """현재 탭에 이미지를 파일 다이얼로그로 불러오기."""
+        if not self._manual_grids:
+            QMessageBox.warning(self, "Warning", "Probe Type 탭을 먼저 추가하세요.")
+            return
+
         idx = self.manual_tabs.currentIndex()
         if idx >= self.manual_tabs.count() - 1:
-            self.logger.warn("Probe Type 탭을 먼저 선택하세요")
+            QMessageBox.warning(self, "Warning", "Probe Type 탭을 선택하세요.")
             return
 
         probe_type = self.manual_tabs.tabText(idx)
@@ -298,8 +302,8 @@ class ManualImportMixin:
             from PySide6.QtWidgets import QLabel
             from src.ui.theme import GREEN, ORANGE, FG, ACCENT
 
-            status = "완료" if complete == total and total > 0 else "진행중"
-            color = GREEN if status == "완료" else ORANGE
+            status = "Done" if complete == total and total > 0 else "In Progress"
+            color = GREEN if status == "Done" else ORANGE
             lbl = QLabel(f"  {probe_type}: {complete}/{total} {status}")
             lbl.setStyleSheet(f"color: {color}; font-size: 14px; font-weight: bold;")
             self._overview_layout.addWidget(lbl)
@@ -314,7 +318,7 @@ class ManualImportMixin:
         self._overview_layout.addWidget(line)
 
         pct = round(complete_all / total_all * 100) if total_all > 0 else 0
-        summary = QLabel(f"  전체: {complete_all}/{total_all} ({pct}%)")
+        summary = QLabel(f"  Total: {complete_all}/{total_all} ({pct}%)")
         summary.setStyleSheet(f"color: {ACCENT}; font-size: 15px; font-weight: bold;")
         self._overview_layout.addWidget(summary)
         self._overview_layout.addStretch()

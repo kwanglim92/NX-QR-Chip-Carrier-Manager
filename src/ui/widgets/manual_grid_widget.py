@@ -45,7 +45,7 @@ class ManualGridWidget(QWidget):
         self._content_layout.addLayout(self._grid)
 
         # 드롭 안내 플레이스홀더
-        self._placeholder = QLabel("이미지를 여기에 드래그&드롭 하세요")
+        self._placeholder = QLabel("Drag & drop images here")
         self._placeholder.setAlignment(Qt.AlignCenter)
         self._placeholder.setMinimumHeight(80)
         self._placeholder.setStyleSheet(

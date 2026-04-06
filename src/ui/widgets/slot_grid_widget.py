@@ -26,7 +26,7 @@ class SlotGridWidget(QWidget):
         outer = QVBoxLayout(self)
         outer.setContentsMargins(0, 0, 0, 0)
 
-        self._title = QLabel("ATX 슬롯 그리드")
+        self._title = QLabel("ATX Slot Grid")
         self._title.setStyleSheet(f"color: {ACCENT}; font-weight: bold; font-size: 15px;")
         outer.addWidget(self._title)
 

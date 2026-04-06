@@ -15,12 +15,12 @@ class QRInputWidget(QWidget):
         layout = QHBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
 
-        icon = QLabel("📱")
-        icon.setStyleSheet("font-size: 18px;")
+        icon = QLabel("QR")
+        icon.setStyleSheet(f"font-size: 14px; font-weight: bold; color: {ACCENT};")
         layout.addWidget(icon)
 
         self._input = QLineEdit()
-        self._input.setPlaceholderText("QR 코드를 스캔하세요...")
+        self._input.setPlaceholderText("Scan QR code...")
         self._input.setStyleSheet(
             f"font-size: 14px; padding: 8px 12px; "
             f"background: {BG2}; border: 2px solid {ACCENT}; border-radius: 6px;"
@@ -40,7 +40,7 @@ class QRInputWidget(QWidget):
             self._input.clear()
 
     def set_target_label(self, label: str):
-        self._input.setPlaceholderText(f"QR 스캔 → {label}")
+        self._input.setPlaceholderText(f"QR Scan → {label}")
 
     def show_success(self, msg: str):
         self._status.setStyleSheet(f"color: {GREEN}; font-size: 12px;")

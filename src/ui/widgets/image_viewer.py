@@ -14,7 +14,7 @@ class ImageViewer(QWidget):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
 
-        self._label = QLabel("이미지를 선택하세요")
+        self._label = QLabel("Select an image")
         self._label.setAlignment(Qt.AlignCenter)
         self._label.setStyleSheet(
             f"background: {BG2}; color: {FG2}; border: 1px solid {BG3}; "
