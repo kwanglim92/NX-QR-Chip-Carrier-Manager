@@ -27,7 +27,6 @@ class ManualCard(QFrame):
         self.slot_index = slot_index
         self.image_path = image_path
         self._has_freq = False
-        self._has_drive = False
         self._has_qr = False
 
         self.setProperty("card", "true")
@@ -77,10 +76,6 @@ class ManualCard(QFrame):
         self._freq_label.setStyleSheet(f"color: {FG}; font-size: {_FONT_BASE}px;")
         info.addWidget(self._freq_label)
 
-        self._drive_label = QLabel("Drive: -")
-        self._drive_label.setStyleSheet(f"color: {FG2}; font-size: {_FONT_BASE}px;")
-        info.addWidget(self._drive_label)
-
         self._q_label = QLabel("Q: -")
         self._q_label.setStyleSheet(f"color: {FG}; font-size: {_FONT_BASE}px;")
         info.addWidget(self._q_label)
@@ -102,15 +97,12 @@ class ManualCard(QFrame):
             scaled = pm.scaled(THUMB_W, THUMB_H, Qt.KeepAspectRatio, Qt.SmoothTransformation)
             self._thumb.setPixmap(scaled)
 
-    def update_data(self, frequency=None, q_factor=None, drive=None, qr_id=None):
+    def update_data(self, frequency=None, q_factor=None, qr_id=None, **_kwargs):
         if frequency is not None:
             self._freq_label.setText(f"Freq: {round(frequency)} KHz")
             self._has_freq = True
         if q_factor is not None:
             self._q_label.setText(f"Q: {round(q_factor)}")
-        if drive is not None:
-            self._drive_label.setText(f"Drive: {drive:.2f}%")
-            self._has_drive = True
 
         if qr_id:
             self._qr_label.setText(f"QR: {qr_id}")
@@ -120,7 +112,7 @@ class ManualCard(QFrame):
         self._update_state()
 
     def _update_badge(self):
-        if self._has_freq and self._has_drive and self._has_qr:
+        if self._has_freq and self._has_qr:
             self._badge.setText("PASS")
             self._badge.setFixedWidth(70)
             self._badge.setStyleSheet(
@@ -128,14 +120,8 @@ class ManualCard(QFrame):
                 f"font-size: {_FONT_BADGE}px; font-weight: bold;"
             )
         elif self._has_freq:
-            missing = []
-            if not self._has_drive:
-                missing.append("Drive")
-            if not self._has_qr:
-                missing.append("QR")
-            text = ",".join(missing)
-            self._badge.setText(text)
-            self._badge.setFixedWidth(max(70, len(text) * 8 + 16))
+            self._badge.setText("QR")
+            self._badge.setFixedWidth(70)
             self._badge.setStyleSheet(
                 f"background: {ORANGE}; color: {BG2}; border-radius: 10px; "
                 f"font-size: {_FONT_BADGE}px; font-weight: bold;"
@@ -149,7 +135,7 @@ class ManualCard(QFrame):
             )
 
     def _update_state(self):
-        if self._has_freq and self._has_drive and self._has_qr:
+        if self._has_freq and self._has_qr:
             self._set_state("matched")
         elif self._has_freq:
             self._set_state("loaded")

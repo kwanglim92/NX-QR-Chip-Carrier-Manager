@@ -141,6 +141,7 @@ class ManualImportMixin:
         self.logger.ok(f"'{probe_type}' 탭에 {len(paths)}개 이미지 추가")
         self._refresh_overview()
         self._update_progress()
+        self._auto_save_to_db()
 
         if first_index is not None:
             self._on_manual_card_selected(first_index)
@@ -173,11 +174,6 @@ class ManualImportMixin:
             self.manual_freq_input.setValue(slot.frequency)
         else:
             self.manual_freq_input.setValue(0)
-
-        if slot.drive is not None:
-            self.manual_drive_input.setValue(slot.drive)
-        else:
-            self.manual_drive_input.setValue(0)
 
         if slot.q_factor is not None:
             self.manual_q_input.setValue(slot.q_factor)
@@ -221,7 +217,6 @@ class ManualImportMixin:
             return
 
         freq = self.manual_freq_input.value()
-        drive = self.manual_drive_input.value()
         q = self.manual_q_input.value()
 
         if freq <= 0 or q <= 0:
@@ -229,7 +224,6 @@ class ManualImportMixin:
             return
 
         slot.frequency = freq
-        slot.drive = drive  # 0도 유효값
         slot.q_factor = q
 
         # 카드 업데이트
@@ -237,18 +231,19 @@ class ManualImportMixin:
             if self.selected_manual_index in grid._cards:
                 grid.update_card(
                     self.selected_manual_index,
-                    frequency=freq, q_factor=q, drive=drive, qr_id=slot.qr_id,
+                    frequency=freq, q_factor=q, qr_id=slot.qr_id,
                 )
                 break
 
         probe = slot.probe_type or "?"
         self.logger.ok(
             f"#{slot.slot_index + 1} ({probe}): "
-            f"Freq={round(freq)} KHz, Drive={round(drive, 1)}%, Q={round(q)}"
+            f"Freq={round(freq)} KHz, Q={round(q)}"
         )
 
         self._refresh_overview()
         self._update_progress()
+        self._auto_save_to_db()
 
         # 현재 탭에서 다음 미입력 카드로 이동
         self._advance_to_next_empty()
@@ -355,7 +350,6 @@ class ManualImportMixin:
         # UI 리셋
         self.manual_image_viewer.clear()
         self.manual_freq_input.setValue(0)
-        self.manual_drive_input.setValue(0)
         self.manual_q_input.setValue(0)
 
         self._refresh_overview()

@@ -1,7 +1,7 @@
 """타겟 CSV 포맷 생성 + 이미지 리네임 내보내기.
 
 출력 형식:
-  QR ID,생산일자[YYYYMMDD],Frequency (KHz),Drive (%),Q,Probe Type
+  QR ID,생산일자[YYYYMMDD],Frequency (KHz),Q,Probe Type
 """
 from __future__ import annotations
 
@@ -13,7 +13,7 @@ from src.core.models import MeasurementSet
 
 def generate_csv_rows(ms: MeasurementSet) -> list[list[str]]:
     """MeasurementSet -> CSV 행 리스트 (헤더 포함)."""
-    header = ["QR ID", "생산일자[YYYYMMDD]", "Frequency (KHz)", "Drive (%)", "Q", "Probe Type"]
+    header = ["QR ID", "생산일자[YYYYMMDD]", "Frequency (KHz)", "Q", "Probe Type"]
     rows = [header]
 
     for slot in ms.slots:
@@ -24,7 +24,6 @@ def generate_csv_rows(ms: MeasurementSet) -> list[list[str]]:
             slot.qr_id,
             ms.production_date,
             slot.format_frequency(),
-            slot.format_drive(),
             slot.format_q(),
             probe,
         ])

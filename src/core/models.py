@@ -20,7 +20,6 @@ class SlotData:
             self.qr_id is not None,
             self.frequency is not None,
             self.q_factor is not None,
-            self.drive is not None,
         ])
 
     @property
@@ -35,11 +34,6 @@ class SlotData:
         if self.frequency is None:
             return "-"
         return str(round(self.frequency))
-
-    def format_drive(self) -> str:
-        if self.drive is None:
-            return "-"
-        return f"{round(self.drive, 1)}"
 
     def format_q(self) -> str:
         if self.q_factor is None:
@@ -56,6 +50,7 @@ class MeasurementSet:
     slots: list[SlotData] = field(default_factory=list)
     source_folder: str = ""
     mode: str = "atx"
+    db_id: int | None = None
 
     @property
     def matched_count(self) -> int:

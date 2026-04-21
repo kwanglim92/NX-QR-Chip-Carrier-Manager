@@ -36,6 +36,10 @@ class ATXImportMixin:
             self.logger.ok(f"{len(ms.slots)}개 슬롯 로드 완료")
             self.logger.info(f"PO: {ms.po_number} | Probe: {ms.probe_type}")
 
+            # DB 자동 저장
+            self._auto_save_to_db()
+            self._add_recent_folder(folder)
+
             # 첫 번째 슬롯 선택
             if ms.slots:
                 self._on_slot_selected(0)
@@ -61,39 +65,9 @@ class ATXImportMixin:
         self.atx_img_group.setTitle(f"FreqSweep 이미지 — {label}")
         self.atx_image_viewer.load_image(slot.image_path)
 
-        # Drive 입력값 설정
-        if slot.drive is not None:
-            self.atx_drive_input.setValue(slot.drive)
-        else:
-            self.atx_drive_input.setValue(0)
-
         # QR 입력 대상
         self.qr_input.set_target_label(label)
 
         self.logger.info(
             f"{label} 선택 — Freq: {slot.format_frequency()}, Q: {slot.format_q()}"
         )
-
-    def _apply_drive(self):
-        if not self.measurement_set:
-            return
-
-        slot = self.measurement_set.find_slot_by_index(self.selected_slot_index)
-        if not slot:
-            return
-
-        drive_val = self.atx_drive_input.value()
-        if drive_val <= 0:
-            return
-
-        slot.drive = drive_val
-        self.slot_grid.update_slot(slot)
-
-        label = format_full_label(slot.slot_code)
-        self.logger.ok(f"{label}: Drive = {drive_val:.2f}%")
-
-        # 다음 Drive 미입력 슬롯으로 자동 이동
-        for s in self.measurement_set.slots:
-            if s.drive is None and s.slot_index != self.selected_slot_index:
-                self._on_slot_selected(s.slot_index)
-                break

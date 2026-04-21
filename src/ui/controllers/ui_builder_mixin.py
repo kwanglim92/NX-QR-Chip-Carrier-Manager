@@ -7,16 +7,18 @@ from PySide6.QtWidgets import (
     QPushButton, QLineEdit, QDoubleSpinBox, QDateEdit,
     QGroupBox, QFormLayout, QTextEdit, QProgressBar,
     QStackedWidget, QToolBar, QStatusBar, QTabWidget,
-    QComboBox, QSpinBox,
+    QComboBox, QSpinBox, QToolButton, QMenu,
 )
 
 from src.ui.theme import ACCENT, FG, FG2, BG, BG2, BG3, GREEN, PURPLE
 from src.ui.widgets.slot_grid_widget import SlotGridWidget
 from src.ui.widgets.image_viewer import ImageViewer
 from src.ui.widgets.qr_input_widget import QRInputWidget
-from src.ui.widgets.csv_preview_table import CSVPreviewTable
 from src.ui.widgets.system_logger import SystemLogger
 from src.ui.widgets.manual_grid_widget import ManualGridWidget
+from src.ui.widgets.history_table import HistoryTable
+from src.ui.widgets.slot_detail_table import SlotDetailTable
+from src.ui.widgets.stats_dashboard import StatsDashboard
 
 
 class UIBuilderMixin:
@@ -41,6 +43,7 @@ class UIBuilderMixin:
         self._build_atx_page()
         self._build_manual_page()
         self._build_export_page()
+        self._build_history_page()
 
         # 하단: QR 입력 + 진행 상태
         self._build_bottom_bar(main_layout)
@@ -65,6 +68,10 @@ class UIBuilderMixin:
         self.btn_export_mode = QPushButton("CSV Export")
         self.btn_export_mode.clicked.connect(lambda: self._switch_mode("export"))
         toolbar_layout.addWidget(self.btn_export_mode)
+
+        self.btn_history_mode = QPushButton("History")
+        self.btn_history_mode.clicked.connect(lambda: self._switch_mode("history"))
+        toolbar_layout.addWidget(self.btn_history_mode)
 
         # 생산일자 — 모드 버튼 바로 우측
         toolbar_layout.addSpacing(20)
@@ -125,21 +132,6 @@ class UIBuilderMixin:
         self.atx_image_viewer = ImageViewer()
         img_layout.addWidget(self.atx_image_viewer)
 
-        # Drive 입력
-        drive_row = QHBoxLayout()
-        drive_row.addWidget(QLabel("Drive (%):"))
-        self.atx_drive_input = QDoubleSpinBox()
-        self.atx_drive_input.setRange(0, 100)
-        self.atx_drive_input.setDecimals(2)
-        self.atx_drive_input.setSingleStep(0.01)
-        self.atx_drive_input.setSpecialValueText("-")
-        drive_row.addWidget(self.atx_drive_input)
-
-        self.btn_apply_drive = QPushButton("Apply")
-        self.btn_apply_drive.clicked.connect(self._apply_drive)
-        drive_row.addWidget(self.btn_apply_drive)
-        img_layout.addLayout(drive_row)
-
         left_layout.addWidget(img_group, 1)
 
         # 로그
@@ -161,6 +153,7 @@ class UIBuilderMixin:
 
         self.slot_grid = SlotGridWidget()
         self.slot_grid.slot_clicked.connect(self._on_slot_selected)
+        self.slot_grid.slot_reset_qr.connect(self._on_slot_reset_qr)
         right_layout.addWidget(self.slot_grid, 1)
 
         splitter.addWidget(right)
@@ -198,12 +191,6 @@ class UIBuilderMixin:
         self.manual_freq_input.setDecimals(2)
         self.manual_freq_input.setSpecialValueText(" ")
         data_form.addRow("Frequency (KHz):", self.manual_freq_input)
-
-        self.manual_drive_input = QDoubleSpinBox()
-        self.manual_drive_input.setRange(0, 100)
-        self.manual_drive_input.setDecimals(2)
-        self.manual_drive_input.setSpecialValueText(" ")
-        data_form.addRow("Drive (%):", self.manual_drive_input)
 
         self.manual_q_input = QDoubleSpinBox()
         self.manual_q_input.setRange(0, 9999)
@@ -284,95 +271,256 @@ class UIBuilderMixin:
     # ─── CSV 내보내기 페이지 ───
     def _build_export_page(self):
         page = QWidget()
-        layout = QVBoxLayout(page)
-        layout.setContentsMargins(8, 8, 8, 8)
+        page_layout = QVBoxLayout(page)
+        page_layout.setContentsMargins(4, 4, 4, 4)
+        page_layout.setSpacing(4)
 
-        header = QLabel("CSV Preview & Export")
-        header.setProperty("header", "true")
-        layout.addWidget(header)
+        # ── Action Bar (상단) ──
+        action_bar = QHBoxLayout()
+        action_bar.setSpacing(8)
 
-        self.csv_preview = CSVPreviewTable()
-        layout.addWidget(self.csv_preview, 1)
+        self.lbl_export_status = QLabel("No data")
+        self.lbl_export_status.setStyleSheet(f"color: {FG2}; font-size: 13px;")
+        action_bar.addWidget(self.lbl_export_status)
 
-        btn_row = QHBoxLayout()
-        btn_row.addStretch()
+        self.export_progress_bar = QProgressBar()
+        self.export_progress_bar.setRange(0, 100)
+        self.export_progress_bar.setValue(0)
+        self.export_progress_bar.setFixedHeight(16)
+        self.export_progress_bar.setFixedWidth(200)
+        action_bar.addWidget(self.export_progress_bar)
 
-        self.btn_refresh_preview = QPushButton("Refresh Preview")
-        self.btn_refresh_preview.clicked.connect(self._refresh_csv_preview)
-        btn_row.addWidget(self.btn_refresh_preview)
+        action_bar.addStretch()
 
-        self.btn_export_csv = QPushButton("Save CSV")
-        self.btn_export_csv.setProperty("accent", "true")
-        self.btn_export_csv.clicked.connect(self._export_csv)
-        btn_row.addWidget(self.btn_export_csv)
+        # Save CSV 드롭다운
+        self.btn_save_csv = QToolButton()
+        self.btn_save_csv.setText(" Save CSV ")
+        self.btn_save_csv.setProperty("accent", "true")
+        self.btn_save_csv.setPopupMode(QToolButton.InstantPopup)
+        save_menu = QMenu(self.btn_save_csv)
+        save_menu.addAction("CSV Only", self._export_csv)
+        save_menu.addAction("CSV + Images", self._export_csv_with_images)
+        self.btn_save_csv.setMenu(save_menu)
+        action_bar.addWidget(self.btn_save_csv)
 
-        self.btn_export_with_images = QPushButton("Save CSV + Images")
-        self.btn_export_with_images.setProperty("accent", "true")
-        self.btn_export_with_images.clicked.connect(self._export_csv_with_images)
-        btn_row.addWidget(self.btn_export_with_images)
-
-        layout.addLayout(btn_row)
-
-        # ── 서버 업로드 영역 ──
-        upload_group = QGroupBox("Server Upload")
-        ug_layout = QVBoxLayout(upload_group)
-
-        # 로그인 행
-        login_row = QHBoxLayout()
-        login_row.addWidget(QLabel("ID:"))
-        self.upload_id_input = QLineEdit()
-        self.upload_id_input.setFixedWidth(150)
-        self.upload_id_input.setPlaceholderText("Server ID")
-        login_row.addWidget(self.upload_id_input)
-
-        login_row.addWidget(QLabel("PW:"))
-        self.upload_pw_input = QLineEdit()
-        self.upload_pw_input.setFixedWidth(150)
-        self.upload_pw_input.setEchoMode(QLineEdit.Password)
-        self.upload_pw_input.setPlaceholderText("Password")
-        login_row.addWidget(self.upload_pw_input)
-
-        self.btn_login = QPushButton("Login")
-        self.btn_login.clicked.connect(self._do_login)
-        login_row.addWidget(self.btn_login)
-
-        self.upload_status_label = QLabel("○ Disconnected")
-        self.upload_status_label.setStyleSheet("color: #a6adc8;")
-        login_row.addWidget(self.upload_status_label)
-
-        login_row.addStretch()
-        ug_layout.addLayout(login_row)
-
-        # 업로드 버튼 행
-        upload_btn_row = QHBoxLayout()
-
-        self.btn_upload_csv = QPushButton("Upload CSV")
-        self.btn_upload_csv.setEnabled(False)
-        self.btn_upload_csv.clicked.connect(self._upload_csv_only)
-        upload_btn_row.addWidget(self.btn_upload_csv)
-
-        self.btn_upload_all = QPushButton("Upload CSV + Images")
-        self.btn_upload_all.setProperty("accent", "true")
-        self.btn_upload_all.setEnabled(False)
-        self.btn_upload_all.clicked.connect(self._upload_csv_with_images)
-        upload_btn_row.addWidget(self.btn_upload_all)
+        # Upload 드롭다운
+        self.btn_upload = QToolButton()
+        self.btn_upload.setText(" Upload ")
+        self.btn_upload.setPopupMode(QToolButton.InstantPopup)
+        upload_menu = QMenu(self.btn_upload)
+        upload_menu.addAction("Upload CSV", self._upload_csv_only)
+        upload_menu.addAction("Upload CSV + Images", self._upload_csv_with_images)
+        self.btn_upload.setMenu(upload_menu)
+        action_bar.addWidget(self.btn_upload)
 
         self.upload_progress = QProgressBar()
-        self.upload_progress.setFixedWidth(200)
+        self.upload_progress.setFixedWidth(120)
+        self.upload_progress.setFixedHeight(16)
         self.upload_progress.setVisible(False)
-        upload_btn_row.addWidget(self.upload_progress)
+        action_bar.addWidget(self.upload_progress)
 
-        upload_btn_row.addStretch()
-        ug_layout.addLayout(upload_btn_row)
+        page_layout.addLayout(action_bar)
 
-        layout.addWidget(upload_group)
+        # ── 좌우 분할 ──
+        splitter = QSplitter(Qt.Horizontal)
+
+        # 좌측: 이미지 + 서버 상태
+        left = QWidget()
+        left.setMinimumWidth(280)
+        left_layout = QVBoxLayout(left)
+        left_layout.setContentsMargins(0, 0, 0, 0)
+
+        img_group = QGroupBox("Sweep Image")
+        img_layout = QVBoxLayout(img_group)
+        self.export_image_viewer = ImageViewer()
+        img_layout.addWidget(self.export_image_viewer)
+        left_layout.addWidget(img_group, 1)
+
+        # 서버 상태 행
+        server_row = QHBoxLayout()
+        self.lbl_server_status = QLabel("○ Disconnected")
+        self.lbl_server_status.setStyleSheet(f"color: {FG2};")
+        server_row.addWidget(self.lbl_server_status)
+        server_row.addStretch()
+
+        self.btn_server_toggle = QPushButton("Login")
+        self.btn_server_toggle.setFixedWidth(80)
+        self.btn_server_toggle.clicked.connect(self._do_login)
+        server_row.addWidget(self.btn_server_toggle)
+
+        left_layout.addLayout(server_row)
+
+        splitter.addWidget(left)
+
+        # 우측: 통합 슬롯 테이블
+        right = QWidget()
+        right.setMinimumWidth(400)
+        right_layout = QVBoxLayout(right)
+        right_layout.setContentsMargins(0, 0, 0, 0)
+
+        self.slot_detail_table = SlotDetailTable()
+        self.slot_detail_table.slot_selected.connect(self._on_slot_detail_selected)
+        right_layout.addWidget(self.slot_detail_table, 1)
+
+        splitter.addWidget(right)
+        splitter.setSizes([350, 650])
+
+        page_layout.addWidget(splitter, 1)
 
         self.stack.addWidget(page)  # index 2
 
+    # ─── 이력 페이지 ───
+    def _build_history_page(self):
+        page = QWidget()
+        layout = QVBoxLayout(page)
+        layout.setContentsMargins(8, 8, 8, 8)
+
+        header = QLabel("History")
+        header.setProperty("header", "true")
+        layout.addWidget(header)
+
+        # 탭: Records / Statistics
+        self.history_tabs = QTabWidget()
+
+        # ── Records 탭 ──
+        records_tab = QWidget()
+        records_layout = QVBoxLayout(records_tab)
+        records_layout.setContentsMargins(4, 8, 4, 4)
+
+        # 필터 행
+        filter_row = QHBoxLayout()
+        filter_row.addWidget(QLabel("Week:"))
+        self.history_week_combo = QComboBox()
+        self.history_week_combo.setFixedWidth(120)
+        self.history_week_combo.currentTextChanged.connect(
+            lambda: self._refresh_history()
+        )
+        filter_row.addWidget(self.history_week_combo)
+
+        filter_row.addSpacing(10)
+        filter_row.addWidget(QLabel("Search:"))
+        self.history_search_input = QLineEdit()
+        self.history_search_input.setPlaceholderText("PO / Probe Type...")
+        self.history_search_input.setFixedWidth(200)
+        self.history_search_input.returnPressed.connect(self._on_history_search)
+        filter_row.addWidget(self.history_search_input)
+
+        btn_search = QPushButton("Search")
+        btn_search.clicked.connect(self._on_history_search)
+        filter_row.addWidget(btn_search)
+
+        btn_refresh_history = QPushButton("Refresh")
+        btn_refresh_history.clicked.connect(self._refresh_history)
+        filter_row.addWidget(btn_refresh_history)
+
+        filter_row.addStretch()
+        records_layout.addLayout(filter_row)
+
+        # ── 상하 분할: 상단 PO 목록 / 하단 슬롯 상세 ──
+        history_splitter = QSplitter(Qt.Vertical)
+
+        # ── 상단: PO 목록 테이블 + 버튼 ──
+        top_widget = QWidget()
+        top_layout = QVBoxLayout(top_widget)
+        top_layout.setContentsMargins(0, 0, 0, 0)
+        top_layout.setSpacing(4)
+
+        self.history_table = HistoryTable()
+        self.history_table.selection_changed.connect(self._on_history_selection_changed)
+        self.history_table.row_selected.connect(self._on_history_row_selected)
+        top_layout.addWidget(self.history_table, 1)
+
+        # 버튼 행
+        history_btn_row = QHBoxLayout()
+
+        btn_load_record = QPushButton("Load Record")
+        btn_load_record.setProperty("accent", "true")
+        btn_load_record.clicked.connect(self._on_history_load)
+        history_btn_row.addWidget(btn_load_record)
+
+        btn_check_all = QPushButton("Check All")
+        btn_check_all.clicked.connect(lambda: self.history_table.check_all())
+        history_btn_row.addWidget(btn_check_all)
+
+        btn_uncheck = QPushButton("Uncheck All")
+        btn_uncheck.clicked.connect(lambda: self.history_table.uncheck_all())
+        history_btn_row.addWidget(btn_uncheck)
+
+        btn_delete_record = QPushButton("Delete")
+        btn_delete_record.clicked.connect(self._on_history_delete)
+        history_btn_row.addWidget(btn_delete_record)
+
+        self.lbl_selection_count = QLabel("")
+        history_btn_row.addWidget(self.lbl_selection_count)
+
+        history_btn_row.addStretch()
+
+        btn_backup = QPushButton("Backup DB")
+        btn_backup.clicked.connect(self._on_backup_db)
+        history_btn_row.addWidget(btn_backup)
+
+        btn_restore = QPushButton("Restore DB")
+        btn_restore.clicked.connect(self._on_restore_db)
+        history_btn_row.addWidget(btn_restore)
+
+        top_layout.addLayout(history_btn_row)
+        history_splitter.addWidget(top_widget)
+
+        # ── 하단: 슬롯 상세 패널 ──
+        detail_widget = QWidget()
+        detail_layout = QVBoxLayout(detail_widget)
+        detail_layout.setContentsMargins(0, 4, 0, 0)
+        detail_layout.setSpacing(4)
+
+        # 상세 헤더: PO 정보 + 폴더 열기 버튼
+        detail_header = QHBoxLayout()
+        self.lbl_detail_info = QLabel("Select a record to view details")
+        self.lbl_detail_info.setStyleSheet(
+            f"color: {ACCENT}; font-weight: bold; font-size: 14px;"
+        )
+        detail_header.addWidget(self.lbl_detail_info)
+        detail_header.addStretch()
+
+        self.btn_open_folder = QPushButton("Open Folder")
+        self.btn_open_folder.setFixedWidth(110)
+        self.btn_open_folder.clicked.connect(self._on_open_source_folder)
+        self.btn_open_folder.setEnabled(False)
+        detail_header.addWidget(self.btn_open_folder)
+
+        detail_layout.addLayout(detail_header)
+
+        # 좌우 분할: 이미지 뷰어 | 슬롯 테이블
+        detail_splitter = QSplitter(Qt.Horizontal)
+
+        self.history_image_viewer = ImageViewer()
+        detail_splitter.addWidget(self.history_image_viewer)
+
+        self.history_slot_table = SlotDetailTable()
+        self.history_slot_table.slot_selected.connect(self._on_history_slot_selected)
+        detail_splitter.addWidget(self.history_slot_table)
+
+        detail_splitter.setSizes([300, 500])
+        detail_layout.addWidget(detail_splitter, 1)
+
+        history_splitter.addWidget(detail_widget)
+        history_splitter.setSizes([300, 250])
+
+        records_layout.addWidget(history_splitter, 1)
+
+        self.history_tabs.addTab(records_tab, "Records")
+
+        # ── Statistics 탭 ──
+        self.stats_dashboard = StatsDashboard()
+        self.history_tabs.addTab(self.stats_dashboard, "Statistics")
+
+        layout.addWidget(self.history_tabs, 1)
+
+        self.stack.addWidget(page)  # index 3
+
     # ─── 하단 바: QR 입력 + 진행률 ───
     def _build_bottom_bar(self, parent_layout):
-        bottom = QWidget()
-        bottom_layout = QHBoxLayout(bottom)
+        self._bottom_bar = QWidget()
+        bottom_layout = QHBoxLayout(self._bottom_bar)
         bottom_layout.setContentsMargins(4, 4, 4, 4)
 
         self.qr_input = QRInputWidget()
@@ -384,19 +532,26 @@ class UIBuilderMixin:
         self.progress_bar.setFormat("%v / %m matched")
         bottom_layout.addWidget(self.progress_bar)
 
-        parent_layout.addWidget(bottom)
+        parent_layout.addWidget(self._bottom_bar)
 
     # ─── 모드 전환 ───
     def _switch_mode(self, mode: str):
-        modes = {"atx": 0, "manual": 1, "export": 2}
+        modes = {"atx": 0, "manual": 1, "export": 2, "history": 3}
         idx = modes.get(mode, 0)
         self.stack.setCurrentIndex(idx)
 
         for btn, m in [(self.btn_atx_mode, "atx"), (self.btn_manual_mode, "manual"),
-                       (self.btn_export_mode, "export")]:
+                       (self.btn_export_mode, "export"), (self.btn_history_mode, "history")]:
             btn.setProperty("accent", "true" if m == mode else "false")
             btn.style().polish(btn)
 
         self.current_mode = mode
+
+        # QR 바는 ATX/Manual 모드에서만 표시
+        self._bottom_bar.setVisible(mode in ("atx", "manual"))
+
         if mode == "export":
-            self._refresh_csv_preview()
+            self._refresh_export_view()
+        elif mode == "history":
+            if hasattr(self, '_db_conn'):
+                self._refresh_history()

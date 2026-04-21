@@ -1,4 +1,4 @@
-"""서버 업로드 컨트롤러 — 로그인 + CSV/이미지 업로드."""
+"""서버 업로드 컨트롤러 — 로그인 다이얼로그 + CSV/이미지 업로드."""
 from __future__ import annotations
 
 from pathlib import Path
@@ -7,12 +7,13 @@ from PySide6.QtCore import QThread, Signal, QObject
 from PySide6.QtWidgets import QMessageBox
 
 from src.core.server_uploader import ServerUploader, UploadResult
+from src.ui.widgets.login_dialog import LoginDialog
 
 
 class _UploadWorker(QObject):
     """백그라운드 업로드 스레드."""
     finished = Signal(UploadResult)
-    progress = Signal(str)  # 상태 메시지
+    progress = Signal(str)
 
     def __init__(self, uploader: ServerUploader, csv_path: str,
                  image_paths: list[str] | None, mode: str):
@@ -36,21 +37,26 @@ class UploadMixin:
     # ─── 로그인 ───
 
     def _do_login(self):
-        username = self.upload_id_input.text().strip()
-        password = self.upload_pw_input.text().strip()
-
-        if not username or not password:
-            self.logger.warn("ID와 비밀번호를 입력하세요")
+        """로그인 다이얼로그 팝업."""
+        if self._uploader.logged_in:
+            self._do_logout()
             return
 
-        self.btn_login.setEnabled(False)
-        self.upload_status_label.setText("Logging in...")
-        self.upload_status_label.setStyleSheet("color: #fab387;")
+        saved_id = self._settings.get("server_id", "") if hasattr(self, "_settings") else ""
+        dlg = LoginDialog(self, saved_id=saved_id)
+        creds = dlg.get_credentials()
+        if not creds:
+            return
+
+        username, password = creds
 
         try:
             success = self._uploader.login(username, password)
             if success:
                 self._update_login_status(True)
+                # 서버 ID 설정에 저장
+                if hasattr(self, "_settings"):
+                    self._settings["server_id"] = username
                 self.logger.ok(f"서버 로그인 성공: {username}")
             else:
                 self._update_login_status(False)
@@ -58,8 +64,6 @@ class UploadMixin:
         except Exception as e:
             self._update_login_status(False)
             self.logger.error(f"로그인 실패: {e}")
-        finally:
-            self.btn_login.setEnabled(True)
 
     def _do_logout(self):
         self._uploader.logout()
@@ -68,35 +72,32 @@ class UploadMixin:
 
     def _update_login_status(self, logged_in: bool):
         if logged_in:
-            self.upload_status_label.setText(f"● Connected ({self._uploader.username})")
-            self.upload_status_label.setStyleSheet("color: #a6e3a1;")
-            self.btn_login.setText("Logout")
-            self.btn_login.clicked.disconnect()
-            self.btn_login.clicked.connect(self._do_logout)
-            self.btn_upload_csv.setEnabled(True)
-            self.btn_upload_all.setEnabled(True)
+            self.lbl_server_status.setText(f"● Connected ({self._uploader.username})")
+            self.lbl_server_status.setStyleSheet("color: #a6e3a1;")
+            self.btn_server_toggle.setText("Logout")
         else:
-            self.upload_status_label.setText("○ Disconnected")
-            self.upload_status_label.setStyleSheet("color: #a6adc8;")
-            self.btn_login.setText("Login")
-            self.btn_login.clicked.disconnect()
-            self.btn_login.clicked.connect(self._do_login)
-            self.btn_upload_csv.setEnabled(False)
-            self.btn_upload_all.setEnabled(False)
+            self.lbl_server_status.setText("○ Disconnected")
+            self.lbl_server_status.setStyleSheet("color: #a6adc8;")
+            self.btn_server_toggle.setText("Login")
+
+    def _ensure_logged_in(self) -> bool:
+        """로그인 상태 확인. 안 됐으면 로그인 다이얼로그 자동 팝업."""
+        if self._uploader.logged_in:
+            return True
+        self._do_login()
+        return self._uploader.logged_in
 
     # ─── 업로드 ───
 
     def _upload_csv_only(self):
-        self._start_upload(with_images=False)
+        if self._ensure_logged_in():
+            self._start_upload(with_images=False)
 
     def _upload_csv_with_images(self):
-        self._start_upload(with_images=True)
+        if self._ensure_logged_in():
+            self._start_upload(with_images=True)
 
     def _start_upload(self, with_images: bool):
-        if not self._uploader.logged_in:
-            self.logger.warn("서버에 로그인하세요")
-            return
-
         if not self.measurement_set:
             self.logger.warn("내보낼 데이터가 없습니다")
             return
@@ -115,7 +116,7 @@ class UploadMixin:
                 return
 
         # 임시 CSV 생성
-        from src.core.csv_exporter import export_csv, generate_csv_rows
+        from src.core.csv_exporter import generate_csv_rows
         import tempfile, os
 
         rows = generate_csv_rows(self.measurement_set)
@@ -141,7 +142,6 @@ class UploadMixin:
                     if p.exists():
                         image_paths.append(str(p))
 
-        # 업로드 모드 선택
         mode = "upload"
 
         # 백그라운드 스레드로 업로드
@@ -158,9 +158,7 @@ class UploadMixin:
         )
         self._upload_worker.finished.connect(self._upload_thread.quit)
 
-        # UI 비활성화
-        self.btn_upload_csv.setEnabled(False)
-        self.btn_upload_all.setEnabled(False)
+        # UI: 업로드 진행 표시
         self.upload_progress.setVisible(True)
         self.upload_progress.setRange(0, 0)  # indeterminate
 
@@ -170,18 +168,13 @@ class UploadMixin:
         self.logger.info(message)
 
     def _on_upload_finished(self, result: UploadResult, csv_path: str):
-        # 임시 CSV 삭제
         import os
         try:
             os.unlink(csv_path)
         except OSError:
             pass
 
-        # UI 복원
         self.upload_progress.setVisible(False)
-        if self._uploader.logged_in:
-            self.btn_upload_csv.setEnabled(True)
-            self.btn_upload_all.setEnabled(True)
 
         if result.success:
             msg = f"업로드 성공: CSV"
@@ -190,6 +183,24 @@ class UploadMixin:
             msg += f"\n서버 응답: {result.message}"
             self.logger.ok(msg)
             self._statusbar.showMessage("서버 업로드 완료")
+
+            if self.measurement_set and self.measurement_set.db_id:
+                from src.core.database import update_upload_status
+                from datetime import datetime
+                update_upload_status(
+                    self._db_conn,
+                    self.measurement_set.db_id,
+                    "uploaded",
+                    datetime.now().isoformat(),
+                )
         else:
             self.logger.error(f"업로드 실패: {result.message}")
             self._statusbar.showMessage("서버 업로드 실패")
+
+            if self.measurement_set and self.measurement_set.db_id:
+                from src.core.database import update_upload_status
+                update_upload_status(
+                    self._db_conn,
+                    self.measurement_set.db_id,
+                    "failed",
+                )

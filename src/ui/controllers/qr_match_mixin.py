@@ -28,6 +28,7 @@ class QRMatchMixin:
             self._match_qr_manual(qr_id)
 
         self._update_progress()
+        self._auto_save_to_db()
         self.qr_input.focus_input()
 
     def _match_qr_atx(self, qr_id: str):
@@ -77,7 +78,6 @@ class QRMatchMixin:
                     idx,
                     frequency=slot.frequency,
                     q_factor=slot.q_factor,
-                    drive=slot.drive,
                     qr_id=qr_id,
                 )
                 break
@@ -104,6 +104,31 @@ class QRMatchMixin:
 
                 # 현재 탭 모두 매칭 완료
                 self.logger.ok(f"'{probe_type}' 탭 QR 매칭 완료!")
+
+    def _on_slot_reset_qr(self, slot_index: int):
+        """Reset QR ID on an ATX slot card."""
+        if not self.measurement_set:
+            return
+
+        slot = self.measurement_set.find_slot_by_index(slot_index)
+        if not slot or not slot.qr_id:
+            return
+
+        old_qr = slot.qr_id
+        slot.qr_id = None
+
+        card = self.slot_grid._cards.get(slot_index)
+        if card:
+            card.reset_qr_display()
+
+        try:
+            label = format_full_label(slot.slot_code)
+        except (ValueError, IndexError):
+            label = f"#{slot_index + 1}"
+        self.logger.info(f"QR reset: {label} (was {old_qr})")
+
+        self._update_progress()
+        self._auto_save_to_db()
 
     def _update_progress(self):
         if not self.measurement_set:

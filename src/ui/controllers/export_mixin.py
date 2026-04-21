@@ -1,4 +1,4 @@
-"""CSV 미리보기 + 저장 + 이미지 리네임 내보내기."""
+"""CSV 내보내기 + Action-First Export 탭 로직."""
 from __future__ import annotations
 
 from pathlib import Path
@@ -9,26 +9,26 @@ from src.core.csv_exporter import generate_csv_rows, export_csv, export_with_ima
 
 
 class ExportMixin:
-    def _refresh_csv_preview(self):
+    def _refresh_export_view(self):
+        """Export 탭 진입 시 슬롯 테이블 + 액션 바 갱신."""
         if not self.measurement_set:
-            self.logger.warn("내보낼 데이터가 없습니다")
+            self.lbl_export_status.setText("No data")
+            self.export_progress_bar.setValue(0)
+            self.slot_detail_table.load_slots([])
             return
 
-        # 생산일자 동기화
-        self.measurement_set.production_date = self.date_edit.date().toString("yyyyMMdd")
+        ms = self.measurement_set
+        ms.production_date = self.date_edit.date().toString("yyyyMMdd")
 
-        rows = generate_csv_rows(self.measurement_set)
-        self.csv_preview.load_rows(rows)
+        # 슬롯 테이블 갱신
+        self.slot_detail_table.load_slots(ms.slots, ms.probe_type)
 
-        data_count = len(rows) - 1  # 헤더 제외
-        self.logger.info(f"CSV 미리보기: {data_count}행")
-
-        # 미완성 슬롯 경고
-        incomplete = [s for s in self.measurement_set.slots if not s.is_complete]
-        if incomplete:
-            self.logger.warn(
-                f"{len(incomplete)}개 슬롯이 미완성 (QR/Freq/Q/Drive 누락)"
-            )
+        # 액션 바 상태
+        total = len(ms.slots)
+        complete = sum(1 for s in ms.slots if s.is_complete)
+        pct = int(complete / total * 100) if total > 0 else 0
+        self.lbl_export_status.setText(f"● {complete}/{total} Complete ({pct}%)")
+        self.export_progress_bar.setValue(pct)
 
     def _export_csv(self):
         if not self.measurement_set:
@@ -43,14 +43,13 @@ class ExportMixin:
             reply = QMessageBox.question(
                 self,
                 "미완성 데이터",
-                f"{len(incomplete)}개 슬롯의 데이터��� 불완전합니다.\n"
+                f"{len(incomplete)}개 슬롯의 데이터가 불완전합니다.\n"
                 "QR ID가 있는 슬롯만 내보내시겠습니까?",
                 QMessageBox.Yes | QMessageBox.No,
             )
             if reply != QMessageBox.Yes:
                 return
 
-        # 기본 파일명
         default_name = f"{self.measurement_set.po_number}_QR.csv"
         path, _ = QFileDialog.getSaveFileName(
             self, "CSV 저장", default_name, "CSV Files (*.csv)"
@@ -73,7 +72,6 @@ class ExportMixin:
 
         self.measurement_set.production_date = self.date_edit.date().toString("yyyyMMdd")
 
-        # 완성도 체크
         incomplete = [s for s in self.measurement_set.slots if not s.is_complete]
         if incomplete:
             reply = QMessageBox.question(
@@ -86,12 +84,10 @@ class ExportMixin:
             if reply != QMessageBox.Yes:
                 return
 
-        # 저장 위치 선택
         parent_dir = QFileDialog.getExistingDirectory(self, "저장할 위치 선택")
         if not parent_dir:
             return
 
-        # 폴더 이름 입력
         default_name = self.measurement_set.po_number or "export"
         folder_name, ok = QInputDialog.getText(
             self, "폴더 이름", "생성할 폴더 이름:", text=default_name
@@ -118,3 +114,18 @@ class ExportMixin:
     def _on_date_changed(self):
         if self.measurement_set:
             self.measurement_set.production_date = self.date_edit.date().toString("yyyyMMdd")
+            self._auto_save_to_db()
+
+    def _on_slot_detail_selected(self, slot_index: int):
+        """슬롯 행 클릭 → 이미지 미리보기."""
+        if not self.measurement_set:
+            return
+
+        slot = self.measurement_set.find_slot_by_index(slot_index)
+        if not slot:
+            return
+
+        if slot.image_path:
+            self.export_image_viewer.load_image(slot.image_path)
+        else:
+            self.export_image_viewer.clear()

@@ -2,14 +2,14 @@
 
 상태:
   - empty: 데이터 없음
-  - loaded: Freq/Q 로드됨 (Drive 또는 QR 미입력 → NOT PASS)
-  - matched: QR + Drive + Freq + Q 모두 완료 → PASS
+  - loaded: Freq/Q 로드됨 (QR 미입력 → NOT PASS)
+  - matched: QR + Freq + Q 모두 완료 → PASS
   - selected: 현재 선택됨
 """
 from __future__ import annotations
 
 from PySide6.QtCore import Signal, Qt
-from PySide6.QtWidgets import QFrame, QVBoxLayout, QLabel, QHBoxLayout, QSizePolicy
+from PySide6.QtWidgets import QFrame, QVBoxLayout, QLabel, QHBoxLayout, QSizePolicy, QMenu
 
 from src.core.slot_mapper import parse_slot_code, format_full_label
 from src.ui.theme import BG2, FG, FG2, ACCENT, GREEN, RED, ORANGE
@@ -25,19 +25,21 @@ CARD_MIN_WIDTH = 150
 
 
 class MeasurementCard(QFrame):
-    clicked = Signal(int)  # slot_index
+    clicked = Signal(int)    # slot_index
+    reset_qr = Signal(int)   # slot_index
 
     def __init__(self, slot_index: int, slot_code: str, parent=None):
         super().__init__(parent)
         self.slot_index = slot_index
         self.slot_code = slot_code
         self._has_freq = False
-        self._has_drive = False
         self._has_qr = False
 
         self.setProperty("card", "true")
         self.setProperty("state", "empty")
         self.setCursor(Qt.PointingHandCursor)
+        self.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.customContextMenuRequested.connect(self._show_context_menu)
         self.setFixedHeight(CARD_HEIGHT)
         self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
 
@@ -78,10 +80,6 @@ class MeasurementCard(QFrame):
         self._q_label.setStyleSheet(f"color: {FG}; font-size: {_FONT_BASE}px;")
         layout.addWidget(self._q_label)
 
-        self._drive_label = QLabel("Drive: -")
-        self._drive_label.setStyleSheet(f"color: {FG2}; font-size: {_FONT_BASE}px;")
-        layout.addWidget(self._drive_label)
-
         # QR ID
         self._qr_label = QLabel("")
         self._qr_label.setStyleSheet(f"color: {GREEN}; font-size: {_FONT_QR}px;")
@@ -89,15 +87,12 @@ class MeasurementCard(QFrame):
 
         self._update_badge()
 
-    def update_data(self, frequency=None, q_factor=None, drive=None, qr_id=None):
+    def update_data(self, frequency=None, q_factor=None, qr_id=None, **_kwargs):
         if frequency is not None:
             self._freq_label.setText(f"Freq: {round(frequency)} KHz")
             self._has_freq = True
         if q_factor is not None:
             self._q_label.setText(f"Q: {round(q_factor)}")
-        if drive is not None:
-            self._drive_label.setText(f"Drive: {drive:.2f}%")
-            self._has_drive = True
 
         if qr_id:
             self._qr_label.setText(f"QR: {qr_id}")
@@ -107,7 +102,7 @@ class MeasurementCard(QFrame):
         self._update_state()
 
     def _update_badge(self):
-        if self._has_freq and self._has_drive and self._has_qr:
+        if self._has_freq and self._has_qr:
             self._badge.setText("PASS")
             self._badge.setFixedWidth(70)
             self._badge.setStyleSheet(
@@ -115,14 +110,8 @@ class MeasurementCard(QFrame):
                 f"font-size: {_FONT_BADGE}px; font-weight: bold;"
             )
         elif self._has_freq:
-            missing = []
-            if not self._has_drive:
-                missing.append("Drive")
-            if not self._has_qr:
-                missing.append("QR")
-            text = ",".join(missing)
-            self._badge.setText(text)
-            self._badge.setFixedWidth(max(70, len(text) * 8 + 16))
+            self._badge.setText("QR")
+            self._badge.setFixedWidth(70)
             self._badge.setStyleSheet(
                 f"background: {ORANGE}; color: {BG2}; border-radius: 10px; "
                 f"font-size: {_FONT_BADGE}px; font-weight: bold;"
@@ -136,7 +125,7 @@ class MeasurementCard(QFrame):
             )
 
     def _update_state(self):
-        if self._has_freq and self._has_drive and self._has_qr:
+        if self._has_freq and self._has_qr:
             self._set_state("matched")
         elif self._has_freq:
             self._set_state("loaded")
@@ -159,6 +148,21 @@ class MeasurementCard(QFrame):
     def _set_state(self, state: str):
         self.setProperty("state", state)
         self.style().polish(self)
+
+    def reset_qr_display(self):
+        """Clear QR display and revert badge/state."""
+        self._qr_label.setText("")
+        self._has_qr = False
+        self._update_badge()
+        self._update_state()
+
+    def _show_context_menu(self, pos):
+        if not self._has_qr:
+            return
+        menu = QMenu(self)
+        action = menu.addAction("Reset QR")
+        if menu.exec(self.mapToGlobal(pos)) == action:
+            self.reset_qr.emit(self.slot_index)
 
     def mousePressEvent(self, event):
         self.clicked.emit(self.slot_index)
