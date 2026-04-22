@@ -62,8 +62,8 @@ def init_db(conn: sqlite3.Connection):
             iso_week        TEXT NOT NULL DEFAULT '',
             source_folder   TEXT NOT NULL DEFAULT '',
             mode            TEXT NOT NULL DEFAULT 'atx',
-            created_at      TEXT NOT NULL DEFAULT (datetime('now','localtime')),
-            updated_at      TEXT NOT NULL DEFAULT (datetime('now','localtime')),
+            created_at      TEXT NOT NULL DEFAULT '',
+            updated_at      TEXT NOT NULL DEFAULT '',
             uploaded_at     TEXT,
             upload_status   TEXT NOT NULL DEFAULT 'pending',
             notes           TEXT NOT NULL DEFAULT ''
@@ -254,8 +254,23 @@ def list_measurement_sets(
     conn: sqlite3.Connection,
     week: str | None = None,
     search: str | None = None,
+    probe_type: str | None = None,
+    upload_status: str | None = None,
 ) -> list[dict]:
-    """측정 세트 요약 목록 조회."""
+    """측정 세트 요약 목록 조회.
+
+    Parameters
+    ----------
+    week
+        ISO 주차 완전일치 필터 (예: "2026-W17"). None/"All"이면 무시.
+    search
+        부분일치 검색어. ``po_number``, ``probe_type``, 그리고 **슬롯의 ``qr_id``**
+        를 대상으로 OR 매칭.
+    probe_type
+        Probe Type 완전일치 필터. None이면 무시.
+    upload_status
+        업로드 상태 완전일치 필터 ("pending" | "uploaded" | "failed"). None이면 무시.
+    """
     query = """
         SELECT ms.*,
                COUNT(s.id) AS total_slots,
@@ -266,17 +281,28 @@ def list_measurement_sets(
         LEFT JOIN slots s ON s.measurement_set_id = ms.id
     """
     conditions = []
-    params = []
+    params: list = []
 
     if week and week != "All":
         conditions.append("ms.iso_week = ?")
         params.append(week)
 
+    if probe_type:
+        conditions.append("ms.probe_type = ?")
+        params.append(probe_type)
+
+    if upload_status:
+        conditions.append("ms.upload_status = ?")
+        params.append(upload_status)
+
     if search:
+        # QR ID는 slots 테이블에 있으므로 서브쿼리로 "QR ID 포함" 세트만 매칭
         conditions.append(
-            "(ms.po_number LIKE ? OR ms.probe_type LIKE ?)"
+            "(ms.po_number LIKE ? OR ms.probe_type LIKE ? OR "
+            "ms.id IN (SELECT measurement_set_id FROM slots WHERE qr_id LIKE ?))"
         )
-        params.extend([f"%{search}%", f"%{search}%"])
+        like = f"%{search}%"
+        params.extend([like, like, like])
 
     if conditions:
         query += " WHERE " + " AND ".join(conditions)
@@ -319,16 +345,15 @@ def list_weeks(conn: sqlite3.Connection) -> list[str]:
 # ─── 생산 통계 ───
 
 
-def get_production_stats(
-    conn: sqlite3.Connection,
-    period: str = "weekly",
-) -> list[dict]:
-    """Probe Type별 생산 통계.
+def _period_expr(period: str) -> str:
+    """기간 종류를 SQL 표현식으로 변환.
 
-    period: "weekly" | "monthly" | "quarterly" | "yearly"
-    반환: [{period_label, probe_type, set_count, slot_count, complete_slots}]
+    지원: "daily" | "weekly" | "monthly" | "quarterly" | "yearly"
+    ``production_date``는 "YYYYMMDD" 포맷이고 ``iso_week``는 "YYYY-Www".
+    PG 이관 시 이 함수만 교체하면 됨.
     """
     period_exprs = {
+        "daily": "ms.production_date",
         "weekly": "ms.iso_week",
         "monthly": "SUBSTR(ms.production_date, 1, 6)",
         "quarterly": (
@@ -342,7 +367,19 @@ def get_production_stats(
         ),
         "yearly": "SUBSTR(ms.production_date, 1, 4)",
     }
-    period_expr = period_exprs.get(period, period_exprs["weekly"])
+    return period_exprs.get(period, period_exprs["weekly"])
+
+
+def get_production_stats(
+    conn: sqlite3.Connection,
+    period: str = "weekly",
+) -> list[dict]:
+    """Probe Type별 생산 통계.
+
+    period: "daily" | "weekly" | "monthly" | "quarterly" | "yearly"
+    반환: [{period_label, probe_type, set_count, slot_count, complete_slots}]
+    """
+    period_expr = _period_expr(period)
 
     query = f"""
         SELECT
@@ -372,6 +409,41 @@ def get_production_stats(
     ]
 
 
+def get_today_stats(
+    conn: sqlite3.Connection, today: str | None = None
+) -> dict:
+    """오늘 생산 요약 (대시보드 Today 카드용).
+
+    Parameters
+    ----------
+    today
+        "YYYYMMDD" 문자열. None이면 시스템 로컬 날짜.
+    """
+    if today is None:
+        today = datetime.now().strftime("%Y%m%d")
+
+    row = conn.execute("""
+        SELECT
+            COUNT(DISTINCT ms.id) AS total_sets,
+            COUNT(s.id) AS total_slots,
+            SUM(CASE WHEN s.qr_id IS NOT NULL AND s.frequency IS NOT NULL
+                      AND s.q_factor IS NOT NULL
+                 THEN 1 ELSE 0 END) AS complete_slots
+        FROM measurement_sets ms
+        LEFT JOIN slots s ON s.measurement_set_id = ms.id
+        WHERE ms.production_date = ?
+    """, (today,)).fetchone()
+    total_slots = row["total_slots"] or 0
+    complete = row["complete_slots"] or 0
+    return {
+        "production_date": today,
+        "total_sets": row["total_sets"] or 0,
+        "total_slots": total_slots,
+        "complete_slots": complete,
+        "completion_rate": round(complete / total_slots * 100, 1) if total_slots > 0 else 0,
+    }
+
+
 def get_overall_stats(conn: sqlite3.Connection) -> dict:
     """전체 요약 통계."""
     row = conn.execute("""
@@ -399,21 +471,7 @@ def get_period_totals(
     period: str = "weekly",
 ) -> list[dict]:
     """기간별 전체 합산 (Probe Type 무관). 추세선/Peak/Trend용."""
-    period_exprs = {
-        "weekly": "ms.iso_week",
-        "monthly": "SUBSTR(ms.production_date, 1, 6)",
-        "quarterly": (
-            "SUBSTR(ms.production_date, 1, 4) || '-Q' || "
-            "CASE "
-            "  WHEN CAST(SUBSTR(ms.production_date, 5, 2) AS INTEGER) <= 3 THEN '1' "
-            "  WHEN CAST(SUBSTR(ms.production_date, 5, 2) AS INTEGER) <= 6 THEN '2' "
-            "  WHEN CAST(SUBSTR(ms.production_date, 5, 2) AS INTEGER) <= 9 THEN '3' "
-            "  ELSE '4' "
-            "END"
-        ),
-        "yearly": "SUBSTR(ms.production_date, 1, 4)",
-    }
-    period_expr = period_exprs.get(period, period_exprs["weekly"])
+    period_expr = _period_expr(period)
 
     query = f"""
         SELECT
@@ -479,33 +537,21 @@ def get_period_quality_stats(
 ) -> list[dict]:
     """기간별 Frequency/Q Factor 평균 및 표준편차. SPC 차트용.
 
-    SQLite에 STDEV가 없으므로 GROUP_CONCAT로 수집 후 Python에서 계산.
+    PG 이관 친화성: ``GROUP_CONCAT``은 SQLite/MySQL 전용(``STRING_AGG`` in PG).
+    원시 행만 DB에서 가져오고 기간 그룹핑 + 평균/표준편차는 Python
+    ``statistics``에서 수행. DB 벤더에 무관한 계산 경로.
     반환: [{period_label, freq_mean, freq_std, q_mean, q_std, sample_count}]
     """
     import statistics as _st
+    from collections import defaultdict
 
-    period_exprs = {
-        "weekly": "ms.iso_week",
-        "monthly": "SUBSTR(ms.production_date, 1, 6)",
-        "quarterly": (
-            "SUBSTR(ms.production_date, 1, 4) || '-Q' || "
-            "CASE "
-            "  WHEN CAST(SUBSTR(ms.production_date, 5, 2) AS INTEGER) <= 3 THEN '1' "
-            "  WHEN CAST(SUBSTR(ms.production_date, 5, 2) AS INTEGER) <= 6 THEN '2' "
-            "  WHEN CAST(SUBSTR(ms.production_date, 5, 2) AS INTEGER) <= 9 THEN '3' "
-            "  ELSE '4' "
-            "END"
-        ),
-        "yearly": "SUBSTR(ms.production_date, 1, 4)",
-    }
-    period_expr = period_exprs.get(period, period_exprs["weekly"])
+    period_expr = _period_expr(period)
 
     query = f"""
         SELECT
             {period_expr} AS period_label,
-            COUNT(s.id) AS sample_count,
-            GROUP_CONCAT(s.frequency) AS freq_values,
-            GROUP_CONCAT(s.q_factor) AS q_values
+            s.frequency   AS frequency,
+            s.q_factor    AS q_factor
         FROM measurement_sets ms
         JOIN slots s ON s.measurement_set_id = ms.id
         WHERE s.frequency IS NOT NULL AND s.q_factor IS NOT NULL
@@ -516,13 +562,23 @@ def get_period_quality_stats(
         query += " AND ms.probe_type = ?"
         params.append(probe_type)
 
-    query += " GROUP BY period_label ORDER BY period_label ASC"
+    query += " ORDER BY period_label ASC"
 
     rows = conn.execute(query, params).fetchall()
-    results = []
+
+    # Python-side grouping — DB 벤더 함수 의존 제거
+    grouped: dict[str, dict[str, list[float]]] = defaultdict(
+        lambda: {"freq": [], "q": []}
+    )
     for r in rows:
-        freq_vals = [float(v) for v in r["freq_values"].split(",")]
-        q_vals = [float(v) for v in r["q_values"].split(",")]
+        label = r["period_label"]
+        grouped[label]["freq"].append(float(r["frequency"]))
+        grouped[label]["q"].append(float(r["q_factor"]))
+
+    results = []
+    for label in sorted(grouped.keys()):
+        freq_vals = grouped[label]["freq"]
+        q_vals = grouped[label]["q"]
 
         freq_mean = _st.mean(freq_vals)
         q_mean = _st.mean(q_vals)
@@ -530,12 +586,12 @@ def get_period_quality_stats(
         q_std = _st.stdev(q_vals) if len(q_vals) >= 2 else 0.0
 
         results.append({
-            "period_label": r["period_label"],
+            "period_label": label,
             "freq_mean": round(freq_mean, 3),
             "freq_std": round(freq_std, 3),
             "q_mean": round(q_mean, 3),
             "q_std": round(q_std, 3),
-            "sample_count": r["sample_count"],
+            "sample_count": len(freq_vals),
         })
     return results
 
@@ -557,9 +613,14 @@ def update_upload_status(
 
 
 def save_setting(conn: sqlite3.Connection, key: str, value):
-    """설정 저장 (JSON 인코딩)."""
+    """설정 저장 (JSON 인코딩).
+
+    PostgreSQL 이관 친화성: ``INSERT OR REPLACE`` 대신 표준 SQL의
+    ``ON CONFLICT ... DO UPDATE``를 사용. SQLite 3.24+ / PG 9.5+ 공통.
+    """
     conn.execute(
-        "INSERT OR REPLACE INTO app_settings (key, value) VALUES (?, ?)",
+        "INSERT INTO app_settings (key, value) VALUES (?, ?) "
+        "ON CONFLICT(key) DO UPDATE SET value=excluded.value",
         (key, json.dumps(value, ensure_ascii=False)),
     )
     conn.commit()
@@ -569,7 +630,8 @@ def save_all_settings(conn: sqlite3.Connection, settings: dict):
     """모든 설정 일괄 저장."""
     for key, value in settings.items():
         conn.execute(
-            "INSERT OR REPLACE INTO app_settings (key, value) VALUES (?, ?)",
+            "INSERT INTO app_settings (key, value) VALUES (?, ?) "
+            "ON CONFLICT(key) DO UPDATE SET value=excluded.value",
             (key, json.dumps(value, ensure_ascii=False)),
         )
     conn.commit()
