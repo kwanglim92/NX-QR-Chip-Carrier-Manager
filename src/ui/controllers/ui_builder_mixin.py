@@ -22,6 +22,58 @@ from src.ui.widgets.stats_dashboard import StatsDashboard
 
 
 class UIBuilderMixin:
+    def _make_log_box(
+        self, max_h: int = 120, title: str = "Log"
+    ) -> tuple[QGroupBox, QTextEdit, QComboBox]:
+        """페이지별 로그 QTextEdit + 레벨 필터 QComboBox 묶음 생성 (통일 스타일).
+
+        반환된 QTextEdit 는 호출자가 ``self.logger.add_sink(te)`` 로 브로드캐스트에
+        등록해야 한다. 반환된 QComboBox 는 자동으로 ``set_sink_level`` 에 연결되어
+        사용자가 표시 레벨을 토글할 수 있다.
+
+        구성 (상→하):
+        - 그룹박스 제목
+        - 작은 레벨 필터 행: "Level: [All▾]"
+        - QTextEdit (최대 ``max_h`` 픽셀, 내부적으로 1000라인 자동 회전)
+        """
+        from src.ui.widgets.system_logger import LEVEL_PRESETS
+
+        grp = QGroupBox(title)
+        layout = QVBoxLayout(grp)
+        layout.setContentsMargins(6, 6, 6, 6)
+        layout.setSpacing(4)
+
+        # 레벨 필터 행
+        filter_row = QHBoxLayout()
+        filter_row.setContentsMargins(0, 0, 0, 0)
+        filter_row.setSpacing(4)
+        lbl = QLabel("Level:")
+        lbl.setStyleSheet(f"color: {FG2}; font-size: 11px;")
+        filter_row.addWidget(lbl)
+
+        combo = QComboBox()
+        combo.setFixedHeight(22)
+        combo.setFixedWidth(140)
+        for name in LEVEL_PRESETS.keys():
+            combo.addItem(name)
+        filter_row.addWidget(combo)
+        filter_row.addStretch()
+        layout.addLayout(filter_row)
+
+        te = QTextEdit()
+        te.setReadOnly(True)
+        te.setMaximumHeight(max_h)
+        layout.addWidget(te)
+
+        # QComboBox → SystemLogger.set_sink_level 연결
+        def _on_level_changed(preset_name: str):
+            tag = LEVEL_PRESETS.get(preset_name, "info")
+            if hasattr(self, "logger") and self.logger is not None:
+                self.logger.set_sink_level(te, tag)
+
+        combo.currentTextChanged.connect(_on_level_changed)
+        return grp, te, combo
+
     def _build_ui(self):
         self.setWindowTitle("NX QR Chip Carrier Manager")
         self.resize(1280, 800)
@@ -32,6 +84,10 @@ class UIBuilderMixin:
         main_layout = QVBoxLayout(central)
         main_layout.setContentsMargins(8, 4, 8, 4)
         main_layout.setSpacing(4)
+
+        # 전역 SystemLogger — 각 페이지 빌드 중 로그박스를 sink로 add
+        # (싱크 없이 먼저 생성되어도 _broadcast는 안전. 페이지 빌드 시 add_sink로 결선)
+        self.logger = SystemLogger()
 
         # 상단 모드 전환 바
         self._build_toolbar(main_layout)
@@ -86,6 +142,16 @@ class UIBuilderMixin:
 
         toolbar_layout.addStretch()
 
+        # F-14: 전역 ROI 캘리브레이터 진입점 — 모드와 무관하게 항상 접근 가능
+        self.btn_calibrate_global = QPushButton("🎯 Calibrate OCR")
+        self.btn_calibrate_global.setProperty("accent", "true")
+        self.btn_calibrate_global.setToolTip(
+            "OCR용 Frequency/Q 박스 좌표를 시각적으로 편집 (F-14)\n"
+            "Manual 모드에서 이미지 드롭 시 사용되는 영역을 조정합니다."
+        )
+        self.btn_calibrate_global.clicked.connect(self._open_roi_calibrator)
+        toolbar_layout.addWidget(self.btn_calibrate_global)
+
         parent_layout.addLayout(toolbar_layout)
 
     # ─── ATX 모드 페이지 ───
@@ -134,15 +200,11 @@ class UIBuilderMixin:
 
         left_layout.addWidget(img_group, 1)
 
-        # 로그
-        log_group = QGroupBox("Log")
-        log_layout = QVBoxLayout(log_group)
-        self._log_te = QTextEdit()
-        self._log_te.setMaximumHeight(150)
-        log_layout.addWidget(self._log_te)
-        left_layout.addWidget(log_group)
-
-        self.logger = SystemLogger(self._log_te)
+        # 로그 (통일 스타일 — 레벨 필터 + 1000라인 자동 회전)
+        atx_log_grp, atx_log_te, _atx_log_combo = self._make_log_box(max_h=150)
+        left_layout.addWidget(atx_log_grp)
+        self.logger.add_sink(atx_log_te)
+        self._log_te = atx_log_te  # 구 호환: 일부 유틸이 참조할 수 있어 보존
 
         splitter.addWidget(left)
 
@@ -206,6 +268,11 @@ class UIBuilderMixin:
         self.btn_apply_manual.clicked.connect(self._apply_manual_entry)
         left_layout.addWidget(self.btn_apply_manual)
 
+        # Manual 페이지 로그창 (OCR 결과 등을 즉시 확인)
+        manual_log_grp, manual_log_te, _manual_log_combo = self._make_log_box(max_h=120)
+        left_layout.addWidget(manual_log_grp)
+        self.logger.add_sink(manual_log_te)
+
         splitter.addWidget(left)
 
         # ── 우측 패널: Probe Type 탭 + 카드 그리드 ──
@@ -229,6 +296,8 @@ class UIBuilderMixin:
         btn_load_images = QPushButton("Load")
         btn_load_images.clicked.connect(self._browse_manual_images)
         ctrl_row.addWidget(btn_load_images)
+
+        # (Phase 7B) 기존 'Calibrate ROI…' 버튼은 전역 툴바 '🎯 Calibrate OCR'로 이동됨
 
         btn_add_tab = QPushButton("+ Add Tab")
         btn_add_tab.clicked.connect(self._add_probe_tab)
@@ -367,6 +436,11 @@ class UIBuilderMixin:
 
         page_layout.addWidget(splitter, 1)
 
+        # Export 페이지 로그창 (저장/업로드 결과 피드백)
+        export_log_grp, export_log_te, _export_log_combo = self._make_log_box(max_h=100)
+        page_layout.addWidget(export_log_grp)
+        self.logger.add_sink(export_log_te)
+
         self.stack.addWidget(page)  # index 2
 
     # ─── 이력 페이지 ───
@@ -398,10 +472,31 @@ class UIBuilderMixin:
         filter_row.addWidget(self.history_week_combo)
 
         filter_row.addSpacing(10)
+        filter_row.addWidget(QLabel("Probe:"))
+        self.history_probe_combo = QComboBox()
+        self.history_probe_combo.setFixedWidth(110)
+        self.history_probe_combo.addItem("All")
+        self.history_probe_combo.currentTextChanged.connect(
+            lambda: self._refresh_history()
+        )
+        filter_row.addWidget(self.history_probe_combo)
+
+        filter_row.addSpacing(10)
+        filter_row.addWidget(QLabel("Upload:"))
+        self.history_upload_combo = QComboBox()
+        self.history_upload_combo.setFixedWidth(110)
+        for label in ("All", "pending", "uploaded", "failed"):
+            self.history_upload_combo.addItem(label)
+        self.history_upload_combo.currentTextChanged.connect(
+            lambda: self._refresh_history()
+        )
+        filter_row.addWidget(self.history_upload_combo)
+
+        filter_row.addSpacing(10)
         filter_row.addWidget(QLabel("Search:"))
         self.history_search_input = QLineEdit()
-        self.history_search_input.setPlaceholderText("PO / Probe Type...")
-        self.history_search_input.setFixedWidth(200)
+        self.history_search_input.setPlaceholderText("PO / Probe / QR ID...")
+        self.history_search_input.setFixedWidth(220)
         self.history_search_input.returnPressed.connect(self._on_history_search)
         filter_row.addWidget(self.history_search_input)
 
@@ -455,11 +550,30 @@ class UIBuilderMixin:
 
         history_btn_row.addStretch()
 
-        btn_backup = QPushButton("Backup DB")
+        # ── F-18: JSONL + ZIP 번들 (이식 가능한 포맷) ──
+        btn_export_bundle = QPushButton("Export Bundle")
+        btn_export_bundle.setProperty("accent", "true")
+        btn_export_bundle.setToolTip(
+            "JSONL + ZIP 번들로 내보내기\n(기간 필터, 이미지 포함 옵션)"
+        )
+        btn_export_bundle.clicked.connect(self._on_export_bundle)
+        history_btn_row.addWidget(btn_export_bundle)
+
+        btn_import_bundle = QPushButton("Import Bundle")
+        btn_import_bundle.setToolTip(
+            "번들에서 가져오기\n(중복 정책: skip / overwrite / merge)"
+        )
+        btn_import_bundle.clicked.connect(self._on_import_bundle)
+        history_btn_row.addWidget(btn_import_bundle)
+
+        # ── Quick Backup: .db 단순 복사 (기존 기능 유지) ──
+        btn_backup = QPushButton("Quick Backup")
+        btn_backup.setToolTip("SQLite .db 파일 단순 복사 (로컬 백업용)")
         btn_backup.clicked.connect(self._on_backup_db)
         history_btn_row.addWidget(btn_backup)
 
-        btn_restore = QPushButton("Restore DB")
+        btn_restore = QPushButton("Quick Restore")
+        btn_restore.setToolTip("Quick Backup 파일로 DB 교체 (기존 데이터 덮어쓰기)")
         btn_restore.clicked.connect(self._on_restore_db)
         history_btn_row.addWidget(btn_restore)
 
@@ -503,7 +617,13 @@ class UIBuilderMixin:
         detail_layout.addWidget(detail_splitter, 1)
 
         history_splitter.addWidget(detail_widget)
-        history_splitter.setSizes([300, 250])
+
+        # History 페이지 로그창 (번들 Export/Import, 삭제/복원 결과 피드백)
+        history_log_grp, history_log_te, _history_log_combo = self._make_log_box(max_h=120)
+        history_splitter.addWidget(history_log_grp)
+        self.logger.add_sink(history_log_te)
+
+        history_splitter.setSizes([300, 250, 120])
 
         records_layout.addWidget(history_splitter, 1)
 

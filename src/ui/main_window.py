@@ -27,6 +27,7 @@ class ChipCarrierManagerApp(
     def __init__(self):
         super().__init__()
         self._init_db()
+        self._init_ocr()
         self._init_shared_state()
         self._init_settings()
         self._build_ui()
@@ -40,6 +41,11 @@ class ChipCarrierManagerApp(
         from src.core.database import get_connection, init_db
         self._db_conn = get_connection()
         init_db(self._db_conn)
+
+    def _init_ocr(self):
+        """F-14: 포터블 Tesseract 바이너리 설정 (없으면 OCR 조용히 비활성화)."""
+        from src.core.tesseract_setup import configure_tesseract
+        self._ocr_available = configure_tesseract()
 
     def _init_shared_state(self):
         self.current_mode: str = "atx"

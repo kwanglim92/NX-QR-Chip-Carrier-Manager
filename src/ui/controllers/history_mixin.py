@@ -11,20 +11,25 @@ from PySide6.QtWidgets import QFileDialog, QMessageBox
 from src.core.database import (
     list_measurement_sets, list_weeks, load_measurement_set,
     delete_measurement_set, export_db, import_db, get_connection, init_db,
-    get_production_stats, get_overall_stats, get_period_totals,
+    get_production_stats, get_overall_stats, get_today_stats, get_period_totals,
     get_slot_values, get_period_quality_stats, get_probe_type_list,
 )
+from src.core.bundle import (
+    export_bundle, preview_bundle, import_bundle, default_export_filename,
+)
+from src.ui.widgets.bundle_dialogs import BundleExportDialog, BundleImportDialog
 
 
 class HistoryMixin:
     def _init_history_state(self):
         """이력 패널 초기화."""
         self._refresh_week_list()
+        self._refresh_probe_list()
         self.stats_dashboard.period_changed.connect(self._refresh_stats)
         self.stats_dashboard.probe_filter_changed.connect(self._refresh_stats)
         self._detail_ms = None  # 현재 상세 패널에 표시 중인 MeasurementSet
 
-        # Probe Type 필터 초기화
+        # Probe Type 필터 초기화 (통계 대시보드용)
         probe_types = get_probe_type_list(self._db_conn)
         self.stats_dashboard.set_probe_types(probe_types)
 
@@ -37,21 +42,38 @@ class HistoryMixin:
         for w in weeks:
             self.history_week_combo.addItem(w)
 
+    def _refresh_probe_list(self):
+        """이력 필터용 Probe Type 드롭다운 갱신."""
+        probe_types = get_probe_type_list(self._db_conn)
+        current = self.history_probe_combo.currentText() if self.history_probe_combo.count() else "All"
+        self.history_probe_combo.blockSignals(True)
+        self.history_probe_combo.clear()
+        self.history_probe_combo.addItem("All")
+        for pt in probe_types:
+            self.history_probe_combo.addItem(pt)
+        idx = self.history_probe_combo.findText(current)
+        self.history_probe_combo.setCurrentIndex(idx if idx >= 0 else 0)
+        self.history_probe_combo.blockSignals(False)
+
     # ─── 이력 조회 ───
 
     def _refresh_history(self):
         week = self.history_week_combo.currentText()
+        probe = self.history_probe_combo.currentText()
+        upload = self.history_upload_combo.currentText()
         search = self.history_search_input.text().strip() or None
 
         records = list_measurement_sets(
             self._db_conn,
             week=week if week != "All" else None,
             search=search,
+            probe_type=probe if probe and probe != "All" else None,
+            upload_status=upload if upload and upload != "All" else None,
         )
         self.history_table.load_data(records)
         self._refresh_stats()
 
-        # 주차 목록 갱신 (시그널 차단하여 재귀 방지)
+        # 주차/Probe 목록 갱신 (시그널 차단하여 재귀 방지)
         current_week = self.history_week_combo.currentText()
         self.history_week_combo.blockSignals(True)
         self._refresh_week_list()
@@ -60,6 +82,8 @@ class HistoryMixin:
             self.history_week_combo.setCurrentIndex(idx)
         self.history_week_combo.blockSignals(False)
 
+        self._refresh_probe_list()
+
     def _refresh_stats(self):
         """통계 대시보드 갱신."""
         period = self.stats_dashboard.get_selected_period()
@@ -67,6 +91,7 @@ class HistoryMixin:
 
         stats = get_production_stats(self._db_conn, period=period)
         summary = get_overall_stats(self._db_conn)
+        today = get_today_stats(self._db_conn)
         period_totals = get_period_totals(self._db_conn, period=period)
         quality_stats = get_period_quality_stats(
             self._db_conn, period=period, probe_type=probe_filter
@@ -74,7 +99,8 @@ class HistoryMixin:
         slot_values = get_slot_values(self._db_conn, probe_type=probe_filter)
 
         self.stats_dashboard.load_stats(
-            stats, summary, period_totals, quality_stats, slot_values
+            stats, summary, period_totals, quality_stats, slot_values,
+            today=today,
         )
 
         # Probe Type 목록 갱신
@@ -263,8 +289,9 @@ class HistoryMixin:
             grid.deleteLater()
         self._manual_grids.clear()
 
-        while self.manual_tabs.count() > 1:
-            self.manual_tabs.removeTab(0)
+        # 뒤에서부터 제거: 마지막 Overview 탭은 남김
+        for i in reversed(range(self.manual_tabs.count() - 1)):
+            self.manual_tabs.removeTab(i)
 
         self._manual_slot_counter = 0
         self.selected_manual_index = -1
@@ -301,12 +328,95 @@ class HistoryMixin:
         self._clear_detail_panel()
         self.logger.info(f"{count}개 레코드 삭제됨")
 
-    # ─── 백업 ───
+    # ─── 번들 Export (F-18) ───
+
+    def _on_export_bundle(self):
+        """JSONL + ZIP 번들로 Export (다른 PC/DB로 이식용)."""
+        dlg = BundleExportDialog(self)
+        if dlg.exec() != dlg.Accepted:
+            return
+        date_from, date_to, include_images = dlg.get_options()
+
+        default_name = default_export_filename()
+        path, _ = QFileDialog.getSaveFileName(
+            self, "Export Bundle", default_name, "ZIP (*.zip)"
+        )
+        if not path:
+            return
+
+        try:
+            result = export_bundle(
+                self._db_conn, path,
+                date_from=date_from, date_to=date_to,
+                include_images=include_images,
+            )
+            self.logger.ok(
+                f"번들 생성 완료: {result['record_count']} 세트, "
+                f"{result['slot_count']} 슬롯, "
+                f"{result['image_count']} 이미지 → {result['zip_path']}"
+            )
+            self._statusbar.showMessage(f"Bundle exported: {result['record_count']} records")
+        except Exception as e:
+            self.logger.error(f"번들 Export 실패: {e}")
+
+    # ─── 번들 Import (F-18) ───
+
+    def _on_import_bundle(self):
+        """JSONL + ZIP 번들을 현재 DB로 병합."""
+        path, _ = QFileDialog.getOpenFileName(
+            self, "Import Bundle", "", "ZIP (*.zip)"
+        )
+        if not path:
+            return
+
+        preview = preview_bundle(path)
+        dlg = BundleImportDialog(preview, self)
+        if dlg.exec() != dlg.Accepted:
+            return
+
+        policy = dlg.get_policy()
+        extract_images = dlg.get_extract_images() and preview.images_included
+
+        extract_dir = None
+        if extract_images:
+            # DB 디렉터리 하위 images/imported_YYYYMMDD_HHMMSS/ 로 추출
+            from src.core.database import get_db_dir
+            ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+            extract_dir = str(get_db_dir() / "images" / f"imported_{ts}")
+
+        try:
+            result = import_bundle(
+                self._db_conn, path,
+                on_duplicate=policy,
+                images_extract_dir=extract_dir,
+            )
+        except Exception as e:
+            self.logger.error(f"번들 Import 실패: {e}")
+            return
+
+        if result.errors:
+            for err in result.errors:
+                self.logger.error(f"Import 오류: {err}")
+            return
+
+        self.logger.ok(
+            f"번들 Import 완료 ({policy}): "
+            f"imported={result.imported}, skipped={result.skipped}, "
+            f"overwritten={result.overwritten}, merged={result.merged}"
+        )
+        self._refresh_history()
+        self._statusbar.showMessage(
+            f"Bundle imported: +{result.imported} new, "
+            f"{result.skipped} skipped, {result.overwritten} overwritten, "
+            f"{result.merged} merged"
+        )
+
+    # ─── 백업 (기존 .db 복사 - Quick Backup) ───
 
     def _on_backup_db(self):
         default_name = f"chip_carrier_backup_{datetime.now().strftime('%Y%m%d')}.db"
         path, _ = QFileDialog.getSaveFileName(
-            self, "Backup Database", default_name, "SQLite DB (*.db)"
+            self, "Quick Backup Database", default_name, "SQLite DB (*.db)"
         )
         if not path:
             return
@@ -347,6 +457,11 @@ class HistoryMixin:
                 init_db(self._db_conn)
                 self._refresh_history()
                 self.logger.ok(f"DB 복원 완료: {path}")
+                # Phase 7A-A2: ROI 설정도 백업 시점 값으로 롤백됨을 안내
+                self.logger.warn(
+                    "Note: OCR ROI 설정도 백업 DB 시점 값으로 복원되었습니다. "
+                    "현재 이미지 해상도와 맞지 않으면 상단 🎯 Calibrate OCR 버튼으로 재조정하세요."
+                )
             else:
                 # 복원 실패 시 기존 DB 재연결
                 self._db_conn = get_connection()

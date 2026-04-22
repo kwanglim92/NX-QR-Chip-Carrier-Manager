@@ -1,11 +1,24 @@
 """수동 측정 워크플로우 — Probe Type 탭 + 드래그&드롭 카드 그리드."""
 from __future__ import annotations
 
-from PySide6.QtWidgets import QInputDialog, QMessageBox, QFileDialog
+import uuid
+
+from PySide6.QtCore import QThreadPool
+from PySide6.QtWidgets import QDialog, QInputDialog, QMessageBox, QFileDialog
 
 from src.core.models import MeasurementSet, SlotData
+from src.core.ocr_settings import (
+    load_roi_for,
+    save_roi_for,
+    resolution_key,
+)
+from src.core.ocr_worker import OcrRunnable
+from src.ui.dialogs.roi_calibrator import RoiCalibratorDialog
 from src.ui.widgets.manual_card import ManualCard
 from src.ui.widgets.manual_grid_widget import ManualGridWidget
+
+# Phase 7C: 동시 OCR 스레드 수 상한 (4개)
+_OCR_MAX_THREADS = 4
 
 
 class ManualImportMixin:
@@ -17,6 +30,12 @@ class ManualImportMixin:
         # MeasurementSet 초기화 (수동 모드)
         if not hasattr(self, 'measurement_set') or self.measurement_set is None:
             self.measurement_set = MeasurementSet(mode="manual")
+
+        # Phase 7C: 비동기 OCR 파이프라인
+        self._ocr_pool = QThreadPool()
+        self._ocr_pool.setMaxThreadCount(_OCR_MAX_THREADS)
+        # 배치별 추적: {batch_id: {"total", "done", "success", "probe_type", "unresolved_sizes"}}
+        self._ocr_batches: dict[str, dict] = {}
 
     # ─── 탭 관리 ───
 
@@ -81,11 +100,15 @@ class ManualImportMixin:
         self.logger.info(f"'{probe_type}' 탭 삭제됨")
         self._refresh_overview()
         self._update_progress()
+        # F-15: 삭제 연산도 DB에 즉시 반영 — 재시작 시 삭제된 슬롯 부활 방지
+        self._auto_save_to_db()
 
-    # ─── 이미지 불러오기 (파일 다이얼로그) ───
+    # ─── 이미지 불러오기 (파일/폴더 다이얼로그) ───
+
+    IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".bmp"}
 
     def _browse_manual_images(self):
-        """현재 탭에 이미지를 파일 다이얼로그로 불러오기."""
+        """현재 탭에 이미지를 파일 또는 폴더 다이얼로그로 불러오기."""
         if not self._manual_grids:
             QMessageBox.warning(self, "Warning", "Probe Type 탭을 먼저 추가하세요.")
             return
@@ -97,18 +120,56 @@ class ManualImportMixin:
 
         probe_type = self.manual_tabs.tabText(idx)
 
-        paths, _ = QFileDialog.getOpenFileNames(
-            self,
-            "이미지 불러오기",
-            "",
-            "이미지 파일 (*.jpg *.jpeg *.png *.bmp);;모든 파일 (*)",
-        )
+        box = QMessageBox(self)
+        box.setWindowTitle("이미지 불러오기")
+        box.setText("불러올 방식을 선택하세요.")
+        btn_files = box.addButton("파일 선택", QMessageBox.AcceptRole)
+        btn_folder = box.addButton("폴더 선택", QMessageBox.AcceptRole)
+        box.addButton("취소", QMessageBox.RejectRole)
+        box.exec()
+        clicked = box.clickedButton()
+
+        if clicked is btn_files:
+            paths, _ = QFileDialog.getOpenFileNames(
+                self,
+                "이미지 파일 선택",
+                "",
+                "이미지 파일 (*.jpg *.jpeg *.png *.bmp);;모든 파일 (*)",
+            )
+        elif clicked is btn_folder:
+            folder = QFileDialog.getExistingDirectory(self, "이미지 폴더 선택")
+            if not folder:
+                return
+            paths = self._scan_folder_for_images(folder)
+            if not paths:
+                QMessageBox.information(
+                    self, "알림", "선택한 폴더에서 이미지 파일을 찾을 수 없습니다."
+                )
+                return
+        else:
+            return
+
         if paths:
             self._on_images_dropped(probe_type, paths)
+
+    def _scan_folder_for_images(self, folder: str) -> list[str]:
+        """폴더 내 이미지 파일을 이름순으로 반환 (하위 폴더 미포함)."""
+        from pathlib import Path
+
+        return sorted(
+            str(p)
+            for p in Path(folder).iterdir()
+            if p.is_file() and p.suffix.lower() in self.IMAGE_EXTENSIONS
+        )
 
     # ─── 이미지 드롭 처리 ───
 
     def _on_images_dropped(self, probe_type: str, paths: list[str]):
+        """이미지 드롭 → pristine 카드 즉시 렌더 + 백그라운드 OCR 큐잉 (Phase 7C).
+
+        OCR은 ``QThreadPool`` 에 넣어 최대 4개 병렬 실행. 각 결과가 도착하면
+        ``_on_ocr_done`` 이 메인 스레드에서 호출되어 카드·SlotData·DB·로그를 갱신.
+        """
         if self.measurement_set.mode != "manual":
             self.measurement_set = MeasurementSet(mode="manual")
 
@@ -118,15 +179,55 @@ class ManualImportMixin:
         if not grid:
             return
 
+        # Phase 7A-A1: 이미지 해상도별 ROI 프로파일 조회 — 배치 내 동일 해상도 캐시
+        try:
+            from PIL import Image  # type: ignore
+        except ImportError:
+            Image = None  # type: ignore[assignment]
+
+        roi_cache: dict[str, object] = {}
+        unresolved_sizes: set[str] = set()
+
+        def _resolve_roi(image_path: str):
+            if Image is None or not hasattr(self, "_db_conn"):
+                return None
+            try:
+                with Image.open(image_path) as im:
+                    w, h = im.size
+            except (FileNotFoundError, OSError):
+                return None
+            key = resolution_key(w, h)
+            if key not in roi_cache:
+                roi_cache[key] = load_roi_for(self._db_conn, w, h)
+                if roi_cache[key] is None:
+                    unresolved_sizes.add(key)
+            return roi_cache[key]
+
+        # 배치 ID — 한 드롭의 결과를 모아 요약 로그를 찍기 위함
+        batch_id = uuid.uuid4().hex
+        self._ocr_batches[batch_id] = {
+            "total": len(paths),
+            "done": 0,
+            "success": 0,
+            "probe_type": probe_type,
+            "unresolved_sizes": unresolved_sizes,
+        }
+
+        # 1단계 (동기, 즉시 반영): pristine SlotData + 카드 렌더
         first_index = None
+        queued: list[tuple[int, str, object]] = []  # (idx, path, roi)
         for path in paths:
             idx = self._manual_slot_counter
             self._manual_slot_counter += 1
+
+            active_roi = _resolve_roi(path)
 
             slot = SlotData(
                 slot_index=idx,
                 slot_code=str(idx + 1),
                 image_path=path,
+                frequency=None,
+                q_factor=None,
                 source="manual_entry",
                 probe_type=probe_type,
             )
@@ -135,16 +236,105 @@ class ManualImportMixin:
             card = ManualCard(idx, path)
             grid.add_card(card)
 
+            queued.append((idx, path, active_roi))
             if first_index is None:
                 first_index = idx
 
-        self.logger.ok(f"'{probe_type}' 탭에 {len(paths)}개 이미지 추가")
+        self.logger.info(
+            f"'{probe_type}' 탭에 {len(paths)}개 이미지 추가 — OCR 백그라운드 시작 "
+            f"(스레드 {_OCR_MAX_THREADS}개 병렬)"
+        )
         self._refresh_overview()
         self._update_progress()
+        # pristine 상태를 DB에 저장 (OCR 완료 후 UPDATE로 값 반영)
         self._auto_save_to_db()
 
         if first_index is not None:
             self._on_manual_card_selected(first_index)
+
+        # 2단계 (비동기): OCR 작업 큐잉
+        for idx, path, active_roi in queued:
+            runnable = OcrRunnable(
+                slot_index=idx,
+                image_path=path,
+                roi=active_roi,
+                batch_id=batch_id,
+            )
+            # Qt가 메인 스레드 슬롯으로 queued delivery
+            runnable.signals.finished.connect(self._on_ocr_done)
+            self._ocr_pool.start(runnable)
+
+    def _on_ocr_done(self, slot_index: int, reading, batch_id: str) -> None:
+        """OCR 워커 완료 콜백 (메인 스레드에서 실행됨).
+
+        - SlotData · ManualCard 값 갱신
+        - 배치 카운터 증가, 모든 작업 완료 시 요약 로그 + DB 저장
+        """
+        # 배치가 여전히 유효한지 (리셋·탭 삭제 등으로 없어졌을 수 있음)
+        batch = self._ocr_batches.get(batch_id)
+        if batch is None:
+            return
+        if self.measurement_set is None:
+            return
+
+        slot = self.measurement_set.find_slot_by_index(slot_index)
+        if slot is not None:
+            # OCR 결과 반영 (None이면 pristine 유지)
+            if reading.frequency is not None:
+                slot.frequency = reading.frequency
+            if reading.q_factor is not None:
+                slot.q_factor = reading.q_factor
+
+            # 카드 UI 업데이트 — grid 탐색 (probe_type별)
+            if reading.frequency is not None or reading.q_factor is not None:
+                for grid in self._manual_grids.values():
+                    if slot_index in grid._cards:
+                        grid.update_card(
+                            slot_index,
+                            frequency=slot.frequency,
+                            q_factor=slot.q_factor,
+                            qr_id=slot.qr_id,
+                        )
+                        break
+
+        # 배치 카운터
+        batch["done"] += 1
+        if reading.frequency is not None or reading.q_factor is not None:
+            batch["success"] += 1
+
+        if batch["done"] >= batch["total"]:
+            # 배치 완료 — 요약 로그 + 최종 DB 저장
+            total = batch["total"]
+            success = batch["success"]
+            probe_type = batch["probe_type"]
+            unresolved = batch["unresolved_sizes"]
+
+            if success == total:
+                self.logger.ok(
+                    f"'{probe_type}' OCR 완료: {success}/{total} 전부 성공"
+                )
+            elif success > 0:
+                self.logger.ok(
+                    f"'{probe_type}' OCR 완료: {success}/{total} 일부 성공"
+                )
+            else:
+                self.logger.warn(
+                    f"'{probe_type}' OCR 완료: 0/{total} — 수기 입력으로 진행. "
+                    f"🎯 Calibrate OCR 로 좌표 재조정 또는 해상도 프로파일 추가 필요"
+                )
+
+            # Phase 7A-A1: 프로파일 없는 해상도 안내 (1회만)
+            for size_key in unresolved:
+                self.logger.warn(
+                    f"해상도 {size_key}에 저장된 ROI 프로파일 없음 → "
+                    f"코드 기본값({resolution_key(722, 479)} 기준) 사용 중. "
+                    f"🎯 Calibrate OCR 로 이 해상도의 프로파일을 생성하세요."
+                )
+
+            self._refresh_overview()
+            self._update_progress()
+            self._auto_save_to_db()
+            del self._ocr_batches[batch_id]
 
     # ─── 카드 선택/삭제 ───
 
@@ -204,6 +394,8 @@ class ManualImportMixin:
         self.logger.info(f"카드 #{slot_index + 1} 삭제됨")
         self._refresh_overview()
         self._update_progress()
+        # F-15: 카드 삭제도 DB에 즉시 반영
+        self._auto_save_to_db()
 
     # ─── 데이터 입력 ───
 
@@ -273,11 +465,20 @@ class ManualImportMixin:
         if not hasattr(self, '_overview_layout'):
             return
 
-        # 기존 내용 삭제
-        while self._overview_layout.count():
-            item = self._overview_layout.takeAt(0)
-            if item.widget():
-                item.widget().deleteLater()
+        # 기존 내용 역순 제거 (위젯/서브레이아웃/Spacer 모두 안전 처리)
+        for i in reversed(range(self._overview_layout.count())):
+            item = self._overview_layout.takeAt(i)
+            if item is None:
+                continue
+            widget = item.widget()
+            if widget is not None:
+                widget.setParent(None)
+                widget.deleteLater()
+            else:
+                sub_layout = item.layout()
+                if sub_layout is not None:
+                    sub_layout.deleteLater()
+            del item
 
         total_all = 0
         complete_all = 0
@@ -334,13 +535,14 @@ class ManualImportMixin:
         if reply != QMessageBox.Yes:
             return
 
-        # 모든 Probe Type 탭 제거 (전체 현황 탭 제외)
+        # 모든 Probe Type 탭 제거 (마지막 Overview 탭은 남김)
         for grid in self._manual_grids.values():
             grid.deleteLater()
         self._manual_grids.clear()
 
-        while self.manual_tabs.count() > 1:
-            self.manual_tabs.removeTab(0)
+        # 뒤에서부터 제거: 인덱스 시프트/이벤트 반복 방지
+        for i in reversed(range(self.manual_tabs.count() - 1)):
+            self.manual_tabs.removeTab(i)
 
         # 상태 리셋
         self._manual_slot_counter = 0
@@ -362,3 +564,61 @@ class ManualImportMixin:
     def _on_manual_columns_changed(self, n: int):
         for grid in self._manual_grids.values():
             grid.set_columns(n)
+
+    # ─── ROI Calibrator (F-14 / Phase 7A) ───
+
+    def _open_roi_calibrator(self):
+        """OCR ROI 좌표를 시각적으로 편집 (해상도별 프로파일 기반).
+
+        다이얼로그에서 Save 시 ``ocr_settings.save_roi_for(conn, W, H, roi)`` 로
+        저장된 참조 이미지의 해상도 프로파일에 저장.
+        """
+        # 현재 선택된 Manual 카드 이미지를 참조 이미지로 자동 로드 (있으면)
+        sample_image = None
+        if hasattr(self, "measurement_set") and self.measurement_set is not None:
+            if 0 <= self.selected_manual_index:
+                slot = self.measurement_set.find_slot_by_index(self.selected_manual_index)
+                if slot and slot.image_path:
+                    sample_image = slot.image_path
+
+        # 참조 이미지 해상도 기반으로 기존 프로파일 조회 (있으면 사전 로드)
+        current_roi = None
+        if sample_image and hasattr(self, "_db_conn"):
+            try:
+                from PIL import Image
+                with Image.open(sample_image) as im:
+                    w, h = im.size
+                current_roi = load_roi_for(self._db_conn, w, h)
+            except (ImportError, FileNotFoundError, OSError):
+                pass
+
+        dlg = RoiCalibratorDialog(
+            self,
+            initial_roi=current_roi,
+            sample_image=sample_image,
+        )
+        if dlg.exec() != QDialog.Accepted:
+            self.logger.info("ROI Calibrator 취소됨")
+            return
+
+        new_roi = dlg.result_roi()
+        resolution = dlg.result_resolution()
+
+        if resolution is None:
+            # 참조 이미지 없이 저장 시도 → 불가 (B3에서 이미 차단되지만 이중 방어)
+            self.logger.warn(
+                "ROI 저장 불가 — 참조 이미지 없이는 해상도를 결정할 수 없습니다."
+            )
+            return
+
+        w, h = resolution
+        try:
+            save_roi_for(self._db_conn, w, h, new_roi)
+        except Exception as e:
+            self.logger.error(f"ROI 저장 실패: {e}")
+            return
+
+        self.logger.ok(
+            f"ROI 업데이트 [{resolution_key(w, h)}]: "
+            f"freq={new_roi.get('frequency')}, q={new_roi.get('q_factor')}"
+        )
