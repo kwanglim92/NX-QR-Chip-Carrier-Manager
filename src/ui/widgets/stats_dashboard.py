@@ -28,8 +28,9 @@ class StatsDashboard(QWidget):
     period_changed = Signal()
     probe_filter_changed = Signal()
 
-    PERIODS = ["Weekly", "Monthly", "Quarterly", "Yearly"]
+    PERIODS = ["Daily", "Weekly", "Monthly", "Quarterly", "Yearly"]
     PERIOD_MAP = {
+        "Daily": "daily",
         "Weekly": "weekly",
         "Monthly": "monthly",
         "Quarterly": "quarterly",
@@ -74,7 +75,23 @@ class StatsDashboard(QWidget):
         filter_row.addStretch()
         layout.addLayout(filter_row)
 
-        # ── Summary cards (5) ──
+        # ── Today Summary (3 cards) ──
+        layout.addWidget(self._make_section_label("Today"))
+
+        today_row = QHBoxLayout()
+        today_row.setSpacing(8)
+        self._card_today_sets = self._make_summary_card("Today Sets", "0")
+        self._card_today_slots = self._make_summary_card("Today Slots", "0")
+        self._card_today_rate = self._make_summary_card("Today Complete %", "-")
+        for card in [self._card_today_sets, self._card_today_slots, self._card_today_rate]:
+            today_row.addWidget(card)
+        # 우측 여백 (5 카드 row와 너비 맞춤)
+        today_row.addStretch()
+        layout.addLayout(today_row)
+
+        # ── Overall Summary cards (5) ──
+        layout.addWidget(self._make_section_label("Overall"))
+
         cards_row = QHBoxLayout()
         cards_row.setSpacing(8)
 
@@ -231,8 +248,16 @@ class StatsDashboard(QWidget):
             self._probe_combo.setCurrentIndex(idx)
         self._probe_combo.blockSignals(False)
 
-    def load_stats(self, stats, summary, period_totals, quality_stats, slot_values):
-        """전체 대시보드 갱신."""
+    def load_stats(self, stats, summary, period_totals, quality_stats, slot_values,
+                   today=None):
+        """전체 대시보드 갱신.
+
+        Parameters
+        ----------
+        today
+            `get_today_stats()` 결과. None이면 Today 카드는 비움(기본값 표시).
+        """
+        self._update_today_cards(today)
         self._update_summary_cards(summary, period_totals, slot_values)
         self._draw_production_chart(period_totals)
         self._draw_stacked_chart(stats)
@@ -241,6 +266,27 @@ class StatsDashboard(QWidget):
         self._draw_freq_histogram(slot_values)
         self._draw_q_histogram(slot_values)
         self._update_table(stats)
+
+    # ─── Today Cards ───
+
+    def _update_today_cards(self, today):
+        """오늘 요약 카드 3개 갱신."""
+        if not today:
+            self._update_card_value(self._card_today_sets, "0")
+            self._update_card_value(self._card_today_slots, "0")
+            self._update_card_value(self._card_today_rate, "-")
+            return
+
+        self._update_card_value(self._card_today_sets, str(today.get("total_sets", 0)))
+        self._update_card_value(self._card_today_slots, str(today.get("total_slots", 0)))
+
+        rate = today.get("completion_rate", 0)
+        total = today.get("total_slots", 0)
+        if total == 0:
+            self._update_card_value(self._card_today_rate, "-")
+        else:
+            color = GREEN if rate >= 80 else (ORANGE if rate >= 50 else RED)
+            self._update_card_value(self._card_today_rate, f"{rate}%", color)
 
     # ─── Summary Cards ───
 
@@ -605,11 +651,23 @@ class StatsDashboard(QWidget):
 
     @staticmethod
     def _shorten_labels(labels: list[str]) -> list[str]:
+        """차트 x축 라벨 축약.
+
+        - "2026-W17"   (ISO week)    → "W17"
+        - "202604"     (YYYYMM)      → "04/26"
+        - "20260421"   (YYYYMMDD)    → "04/21"  (Daily)
+        - "2026-Q2"    (quarterly)   → "2026-Q2" (passthrough)
+        - "2026"       (yearly)      → "2026" (passthrough)
+        """
         result = []
         for lbl in labels:
             if "-W" in lbl:
                 result.append(lbl.split("-")[-1])
-            elif len(lbl) == 6:
+            elif len(lbl) == 8 and lbl.isdigit():
+                # Daily: YYYYMMDD → MM/DD
+                result.append(f"{lbl[4:6]}/{lbl[6:8]}")
+            elif len(lbl) == 6 and lbl.isdigit():
+                # Monthly: YYYYMM → MM/YY
                 result.append(f"{lbl[4:6]}/{lbl[2:4]}")
             else:
                 result.append(lbl)
