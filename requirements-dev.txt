@@ -1,0 +1,10 @@
+# 개발 의존성 — 실제 배포 산출물에는 포함되지 않음
+# 일반 설치: pip install -r requirements.txt
+# 개발 설치: pip install -r requirements.txt -r requirements-dev.txt
+
+# 테스트
+pytest>=7.0
+pytest-qt>=4.4
+
+# 배포 빌드 (Phase 8)
+pyinstaller>=6.0
