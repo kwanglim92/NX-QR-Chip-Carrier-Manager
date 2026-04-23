@@ -20,6 +20,22 @@
 - **한국어 skill**: `.agent/skills/skills-ko/{폴더명}/SKILL.md`
 - **영문 skill**: `.agent/skills/skills-en/{폴더명}/SKILL.md`
 
+## Git Workflow (크기 기준 자동 판단)
+
+단독 개발자 개인 리포이므로 PR은 **규모에 따라 선택적**. Claude는 작업 완료 시
+아래 기준으로 자동 판단:
+
+| 커밋 수 | 방식 | 흐름 |
+|:------:|------|------|
+| **1개** | main 직접 push | 커밋 → `git push origin main` |
+| **2–4개** | 로컬 branch + fast-forward merge | `feat/xxx` 브랜치 → 커밋들 → `main` 으로 checkout → `merge --ff-only` → `push` → feat 브랜치 삭제 |
+| **5개 이상** | PR 기반 | `feat/xxx` → push → GitHub PR → merge (revert 편의 + 이력 풍부) |
+
+**예외**:
+- 버그 수정·오타·문서 수정: 규모와 무관하게 **main 직접** (빠른 반영)
+- 실험적/파괴적 변경: 규모와 무관하게 **PR** (쉬운 revert)
+- 사용자가 명시적으로 방식 지정 시 그 지시를 우선
+
 ## Template Usage
 
 새 프로젝트에 적용할 때:
