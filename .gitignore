@@ -1,31 +1,87 @@
-__pycache__/
-*.pyc
-.claude/
-settings.json
+# =============================================================
+# MC QR Code Chip Carrier Manager — .gitignore
+# =============================================================
 
-# CWM / 템플릿
+# ---- Python ----
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyc
+*.pyo
+*.pyd
+
+# ---- Test / Coverage ----
+.pytest_cache/
+pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.nox/
+coverage.xml
+*.cover
+
+# ---- Packaging ----
+*.egg
+*.egg-info/
+.eggs/
+*.manifest
+pip-log.txt
+pip-delete-this-directory.txt
+
+# ---- Virtualenv ----
+.venv/
+venv/
+env/
+ENV/
+.python-version
+
+# ---- IDE / Editor ----
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+*.bak
+
+# ---- OS ----
+.DS_Store
+Thumbs.db
+desktop.ini
+ehthumbs.db
+$RECYCLE.BIN/
+
+# ---- Claude Code / Agent 도구 ----
+.claude/
 .cwm/
 .omc/
+.agent/
+
+# ---- 개발 환경 템플릿 ----
 dev_sys_template/
 
-# 샘플 데이터 폴더
+# ---- 로컬 설정 ----
+settings.json
+
+# ---- 샘플 데이터 ----
+data/
 P2601001_12M_AC160/
 P2601002_12M_AC160/
 P2602074_CDT-NCHR & AD-42-AS_QR(01.09)/
 
-# F-14: Tesseract 포터블 바이너리 (LFS 또는 인스톨러 에셋으로 분리)
-# third_party 디렉터리 구조와 LICENSE 파일은 커밋, 바이너리는 제외
+# ---- Tesseract 포터블 바이너리 (디렉터리 구조/README/LICENSE 만 커밋) ----
 third_party/tesseract/*.exe
 third_party/tesseract/*.dll
 third_party/tesseract/tessdata/
 
-# Phase 8: PyInstaller / Inno Setup 빌드 산출물
+# ---- PyInstaller / Inno Setup 빌드 산출물 ----
 build/
 dist/
 Output/
 *.spec.bak
+build.log
 
-# 개발 테스트 임시 파일
+# ---- 개발 테스트 임시 파일 ----
 _phase*_smoke_test.py
-pytest_cache/
-.pytest_cache/
+_tmp_*.py
+debug_*.py
