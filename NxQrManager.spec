@@ -92,7 +92,8 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    icon=None,               # 아이콘 확보 시 경로 지정 (e.g. "assets/app.ico")
+    icon=str(ROOT / "assets" / "icons" / "icon_lotcard_ref.ico"),
+    # ↑ image.png (1254×1254) → 멀티 해상도 ICO (16/32/48/64/128/256)
     contents_directory=".",  # PyInstaller 6.x: _internal/ 대신 루트에 배치
                               # — tesseract_setup._project_root() 가 sys.executable.parent 를
                               # 루트로 해석하므로 third_party/tesseract/ 가 같은 상대 경로에 있어야 함
