@@ -1,4 +1,4 @@
-"""NX QR Chip Carrier Manager — Entry Point."""
+"""MC QR Code Chip Carrier Manager — Entry Point."""
 import sys
 
 from PySide6.QtWidgets import QApplication

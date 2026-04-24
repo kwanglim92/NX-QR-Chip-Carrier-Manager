@@ -1,13 +1,13 @@
 # -*- mode: python ; coding: utf-8 -*-
-"""PyInstaller 빌드 사양 — NX QR Chip Carrier Manager (Phase 8).
+"""PyInstaller 빌드 사양 — MC QR Code Chip Carrier Manager.
 
 빌드 명령:
-    pyinstaller --noconfirm --clean NxQrManager.spec
+    pyinstaller --noconfirm --clean McQrManager.spec
 
 산출물:
-    dist/NxQrManager/         ← onedir 모드 (권장)
-    dist/NxQrManager/NxQrManager.exe
-    dist/NxQrManager/third_party/tesseract/tesseract.exe  (포터블 동봉)
+    dist/McQrManager/         ← onedir 모드 (권장)
+    dist/McQrManager/McQrManager.exe
+    dist/McQrManager/third_party/tesseract/tesseract.exe  (포터블 동봉)
 
 주의:
 - ``third_party/tesseract/`` 전체가 ``datas`` 로 번들됨. 실제 파일이 준비되지
@@ -25,7 +25,7 @@ block_cipher = None
 ROOT = Path(SPECPATH) if "SPECPATH" in globals() else Path.cwd()
 
 # 번들할 데이터 파일/디렉터리 (source, dest) 튜플
-# - third_party/tesseract/*  → dist/NxQrManager/third_party/tesseract/
+# - third_party/tesseract/*  → dist/McQrManager/third_party/tesseract/
 #   tesseract_setup._project_root() 가 sys.executable.parent 를 루트로 잡으므로
 #   번들 내부 구조와 개발 경로 구조가 동일하게 유지된다.
 datas = [
@@ -81,7 +81,7 @@ exe = EXE(
     a.scripts,
     [],
     exclude_binaries=True,
-    name="NxQrManager",
+    name="McQrManager",
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
@@ -107,5 +107,5 @@ coll = COLLECT(
     strip=False,
     upx=False,
     upx_exclude=[],
-    name="NxQrManager",
+    name="McQrManager",
 )

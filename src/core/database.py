@@ -12,11 +12,11 @@ from src.core.models import MeasurementSet, SlotData
 
 SCHEMA_VERSION = 1
 DB_FILENAME = "chip_carrier.db"
-APP_DIR_NAME = "NXQRChipCarrierManager"
+APP_DIR_NAME = "MCQRCodeChipCarrier"
 
 
 def get_db_dir() -> Path:
-    """DB 디렉토리 경로 반환 (%LOCALAPPDATA%/NXQRChipCarrierManager/)."""
+    """DB 디렉토리 경로 반환 (%LOCALAPPDATA%/MCQRCodeChipCarrier/)."""
     local_app_data = os.environ.get("LOCALAPPDATA")
     if local_app_data:
         base = Path(local_app_data)

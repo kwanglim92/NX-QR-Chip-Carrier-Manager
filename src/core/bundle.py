@@ -235,7 +235,7 @@ def export_bundle(
                 "date_from": date_from,
                 "date_to": date_to,
             },
-            "producer": "NX QR Chip Carrier Manager",
+            "producer": "MC QR Code Chip Carrier Manager",
         }
         (tmp_path / MANIFEST_NAME).write_text(
             json.dumps(manifest, ensure_ascii=False, indent=2),

@@ -31,7 +31,7 @@ chip_carrier_export_20260421.zip
     "date_from": "20260415",
     "date_to": "20260421"
   },
-  "producer": "NX QR Chip Carrier Manager"
+  "producer": "MC QR Code Chip Carrier Manager"
 }
 ```
 

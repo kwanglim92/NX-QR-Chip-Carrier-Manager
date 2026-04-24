@@ -1,6 +1,6 @@
 """Phase 8 회귀 테스트 — 빌드 산출물 구조 검증 (선택적).
 
-``dist/NxQrManager/`` 가 존재하면 Tesseract 번들과 주요 파일이 올바른 위치에
+``dist/McQrManager/`` 가 존재하면 Tesseract 번들과 주요 파일이 올바른 위치에
 있는지 확인. ``build.bat`` 미실행 환경에서는 전체 모듈이 skip 된다.
 
 CI/개발 환경에서 모두 안전하게 실행 가능.
@@ -12,7 +12,7 @@ from pathlib import Path
 import pytest
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
-DIST_DIR = PROJECT_ROOT / "dist" / "NxQrManager"
+DIST_DIR = PROJECT_ROOT / "dist" / "McQrManager"
 
 
 @pytest.fixture(scope="module")
@@ -20,7 +20,7 @@ def dist_available():
     """dist 빌드 산출물이 없으면 모듈 전체 skip."""
     if not DIST_DIR.exists():
         pytest.skip(
-            "dist/NxQrManager/ 없음 — build.bat 미실행 상태. "
+            "dist/McQrManager/ 없음 — build.bat 미실행 상태. "
             "이 테스트는 PyInstaller 빌드 후에 실행되는 회귀용."
         )
     return DIST_DIR
@@ -28,7 +28,7 @@ def dist_available():
 
 class TestBuildLayout:
     def test_main_exe_exists(self, dist_available):
-        assert (dist_available / "NxQrManager.exe").exists()
+        assert (dist_available / "McQrManager.exe").exists()
 
     def test_pyside6_bundled(self, dist_available):
         assert (dist_available / "PySide6").is_dir()
@@ -83,7 +83,7 @@ class TestFrozenPathResolution:
         from src.core.tesseract_setup import _project_root
         import sys
 
-        exe_path = dist_available / "NxQrManager.exe"
+        exe_path = dist_available / "McQrManager.exe"
         assert exe_path.exists()
 
         # frozen 모드 강제 시뮬레이션

@@ -75,7 +75,7 @@ class UIBuilderMixin:
         return grp, te, combo
 
     def _build_ui(self):
-        self.setWindowTitle("NX QR Chip Carrier Manager")
+        self.setWindowTitle("MC QR Code Chip Carrier Manager")
         self.resize(1280, 800)
 
         # 중앙 위젯
