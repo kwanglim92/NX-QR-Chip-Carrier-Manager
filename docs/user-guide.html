@@ -1,0 +1,963 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>MC QR Code Chip Carrier Manager — 사용자 가이드</title>
+<style>
+  /* ===== Catppuccin Mocha palette ===== */
+  :root {
+    --base:    #1e1e2e;
+    --mantle:  #181825;
+    --crust:   #11111b;
+    --surface0:#313244;
+    --surface1:#45475a;
+    --surface2:#585b70;
+    --overlay0:#6c7086;
+    --overlay1:#7f849c;
+    --text:    #cdd6f4;
+    --subtext:#a6adc8;
+    --blue:   #89b4fa;
+    --sapphire:#74c7ec;
+    --sky:    #89dceb;
+    --green:  #a6e3a1;
+    --yellow: #f9e2af;
+    --peach:  #fab387;
+    --red:    #f38ba8;
+    --mauve:  #cba6f7;
+    --pink:   #f5c2e7;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    padding: 0;
+    font-family: "Segoe UI", "Malgun Gothic", "맑은 고딕", -apple-system,
+                 BlinkMacSystemFont, sans-serif;
+    font-size: 15px;
+    line-height: 1.65;
+    color: #222;
+    background: #f7f7fa;
+  }
+
+  /* ===== Layout ===== */
+  .wrapper {
+    display: grid;
+    grid-template-columns: 260px 1fr;
+    max-width: 1400px;
+    margin: 0 auto;
+    min-height: 100vh;
+  }
+
+  /* ===== Sidebar TOC ===== */
+  nav#toc {
+    position: sticky;
+    top: 0;
+    align-self: start;
+    height: 100vh;
+    overflow-y: auto;
+    padding: 24px 16px;
+    background: var(--base);
+    color: var(--text);
+    border-right: 1px solid var(--surface1);
+  }
+
+  nav#toc h2 {
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--subtext);
+    margin: 0 0 14px 0;
+  }
+
+  nav#toc ol {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    counter-reset: toc;
+  }
+
+  nav#toc li {
+    counter-increment: toc;
+    margin: 4px 0;
+  }
+
+  nav#toc li::before {
+    content: counter(toc) ". ";
+    color: var(--overlay1);
+    font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+    font-size: 12px;
+  }
+
+  nav#toc a {
+    color: var(--text);
+    text-decoration: none;
+    font-size: 14px;
+    padding: 2px 4px;
+    border-radius: 4px;
+    transition: background 0.15s, color 0.15s;
+  }
+
+  nav#toc a:hover {
+    background: var(--surface1);
+    color: var(--blue);
+  }
+
+  nav#toc .badge {
+    display: inline-block;
+    font-size: 11px;
+    padding: 0 6px;
+    margin-left: 6px;
+    border-radius: 9px;
+    background: var(--mauve);
+    color: var(--base);
+  }
+
+  /* ===== Main ===== */
+  main {
+    padding: 40px 56px 80px 56px;
+    max-width: 920px;
+  }
+
+  header.hero {
+    border-bottom: 2px solid #e4e4e9;
+    padding-bottom: 20px;
+    margin-bottom: 36px;
+  }
+  header.hero h1 {
+    font-size: 34px;
+    margin: 0 0 6px 0;
+    color: #1a1a2e;
+  }
+  header.hero .subtitle {
+    color: #666;
+    font-size: 15px;
+  }
+  header.hero .meta {
+    margin-top: 10px;
+    font-size: 13px;
+    color: #888;
+  }
+
+  section {
+    margin-bottom: 54px;
+    scroll-margin-top: 20px;
+  }
+
+  h2 {
+    font-size: 24px;
+    margin-top: 48px;
+    margin-bottom: 18px;
+    color: #2a2a4a;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #e4e4e9;
+  }
+  h3 {
+    font-size: 18px;
+    margin-top: 28px;
+    margin-bottom: 12px;
+    color: #3a3a5a;
+  }
+  h4 {
+    font-size: 15px;
+    margin-top: 20px;
+    margin-bottom: 8px;
+    color: #4a4a6a;
+  }
+
+  p { margin: 10px 0; }
+
+  ul, ol { padding-left: 24px; }
+  li { margin: 6px 0; }
+
+  code {
+    font-family: ui-monospace, SFMono-Regular, Consolas, "Courier New", monospace;
+    font-size: 13px;
+    background: #f0f0f5;
+    padding: 1px 5px;
+    border-radius: 3px;
+    color: #4b0082;
+  }
+
+  pre {
+    background: var(--mantle);
+    color: var(--text);
+    padding: 14px 18px;
+    border-radius: 6px;
+    overflow-x: auto;
+    font-size: 13px;
+    line-height: 1.55;
+    border-left: 3px solid var(--blue);
+  }
+  pre code {
+    background: none;
+    color: inherit;
+    padding: 0;
+  }
+
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 16px 0;
+    font-size: 14px;
+  }
+  th {
+    background: #e8eaf0;
+    padding: 10px 12px;
+    text-align: left;
+    font-weight: 600;
+    border: 1px solid #d4d6dc;
+  }
+  td {
+    padding: 8px 12px;
+    border: 1px solid #e4e6ec;
+    vertical-align: top;
+  }
+  tr:nth-child(even) { background: #f9f9fc; }
+
+  /* ===== Notice boxes ===== */
+  .tip, .warning, .danger, .note, .step {
+    border-left: 4px solid;
+    padding: 12px 18px;
+    margin: 14px 0;
+    border-radius: 0 4px 4px 0;
+    font-size: 14px;
+  }
+  .tip {
+    background: #eaf7ea;
+    border-color: #5cb85c;
+  }
+  .tip::before { content: "💡 팁"; font-weight: 700; display: block; margin-bottom: 4px; color: #2d7a2d; }
+  .warning {
+    background: #fff4dc;
+    border-color: #f0ad4e;
+  }
+  .warning::before { content: "⚠️ 주의"; font-weight: 700; display: block; margin-bottom: 4px; color: #a06d00; }
+  .danger {
+    background: #fde8ea;
+    border-color: #d9534f;
+  }
+  .danger::before { content: "🚨 데이터 손실 위험"; font-weight: 700; display: block; margin-bottom: 4px; color: #a62a27; }
+  .note {
+    background: #eef5ff;
+    border-color: #5bc0de;
+  }
+  .note::before { content: "ℹ️ 참고"; font-weight: 700; display: block; margin-bottom: 4px; color: #1e6091; }
+
+  /* ===== Step list ===== */
+  ol.steps {
+    counter-reset: step;
+    list-style: none;
+    padding: 0;
+    margin: 18px 0;
+  }
+  ol.steps > li {
+    counter-increment: step;
+    position: relative;
+    padding: 14px 14px 14px 54px;
+    margin: 12px 0;
+    background: #fff;
+    border: 1px solid #e4e6ec;
+    border-radius: 6px;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  }
+  ol.steps > li::before {
+    content: counter(step);
+    position: absolute;
+    left: 14px;
+    top: 14px;
+    width: 28px;
+    height: 28px;
+    background: var(--blue);
+    color: white;
+    font-weight: 700;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+  }
+  ol.steps > li strong {
+    display: block;
+    margin-bottom: 4px;
+    color: #2a2a4a;
+  }
+
+  /* ===== Screenshot placeholder ===== */
+  figure.screenshot {
+    margin: 18px 0;
+    padding: 0;
+  }
+  .screenshot-placeholder {
+    border: 2px dashed #b4b6bc;
+    border-radius: 6px;
+    background: repeating-linear-gradient(
+      45deg,
+      #f4f4f8,
+      #f4f4f8 10px,
+      #ebebef 10px,
+      #ebebef 20px
+    );
+    min-height: 180px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #777;
+    font-size: 13px;
+    text-align: center;
+    padding: 20px;
+  }
+  figcaption {
+    font-size: 12px;
+    color: #888;
+    text-align: center;
+    margin-top: 6px;
+    font-style: italic;
+  }
+
+  /* ===== Key combinations ===== */
+  kbd {
+    display: inline-block;
+    padding: 2px 7px;
+    font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+    font-size: 12px;
+    background: #fff;
+    border: 1px solid #c4c6cc;
+    border-bottom-width: 2px;
+    border-radius: 3px;
+    box-shadow: 0 1px 0 rgba(0, 0, 0, 0.1);
+    color: #333;
+  }
+
+  a { color: var(--blue); }
+  a:hover { text-decoration: underline; color: var(--sapphire); }
+
+  /* ===== Print styles ===== */
+  @media print {
+    nav#toc { display: none; }
+    .wrapper { grid-template-columns: 1fr; }
+    main { padding: 0; max-width: 100%; }
+    section { page-break-before: always; }
+    section:first-of-type { page-break-before: auto; }
+    header.hero { page-break-after: avoid; }
+    pre, ol.steps > li { page-break-inside: avoid; }
+    a { color: inherit; text-decoration: none; }
+    .screenshot-placeholder { min-height: 100px; }
+  }
+
+  /* ===== Responsive ===== */
+  @media (max-width: 900px) {
+    .wrapper { grid-template-columns: 1fr; }
+    nav#toc {
+      position: static;
+      height: auto;
+      border-right: none;
+      border-bottom: 1px solid var(--surface1);
+    }
+    main { padding: 24px; }
+  }
+</style>
+</head>
+<body>
+<div class="wrapper">
+
+<nav id="toc">
+  <h2>목차</h2>
+  <ol>
+    <li><a href="#s1">제품 개요</a></li>
+    <li><a href="#s2">설치</a></li>
+    <li><a href="#s3">첫 실행</a></li>
+    <li><a href="#s4">ATX 모드</a></li>
+    <li><a href="#s5">Manual 모드 (OCR)</a></li>
+    <li><a href="#s6">History 이력 조회</a></li>
+    <li><a href="#s7">Dashboard 대시보드</a></li>
+    <li><a href="#s8">Export / Import</a></li>
+    <li><a href="#s9">설정</a></li>
+    <li><a href="#s10">트러블슈팅</a></li>
+    <li><a href="#s11">FAQ</a></li>
+    <li><a href="#s12">1.0.0 → 2.0.0 마이그레이션</a><span class="badge">부록</span></li>
+  </ol>
+</nav>
+
+<main>
+
+<header class="hero">
+  <h1>MC QR Code Chip Carrier Manager</h1>
+  <div class="subtitle">칩 캐리어 측정 이력 관리 — 사용자 가이드</div>
+  <div class="meta">v2.0 · 2026-04-24 · 공장 측정 오퍼레이터·품질 관리자 대상</div>
+</header>
+
+<!-- ================================================================== -->
+<section id="s1">
+<h2>1. 제품 개요</h2>
+
+<p><strong>MC QR Code Chip Carrier Manager</strong> 는 반도체 측정 공장에서 칩 캐리어의 측정 이력을 체계적으로 관리하는 Windows 데스크톱 프로그램입니다.</p>
+
+<h3>이 프로그램이 해결해 주는 문제</h3>
+<table>
+  <tr><th style="width: 30%;">기존 방식의 문제</th><th>이 프로그램의 해결</th></tr>
+  <tr>
+    <td>ATX 장비가 슬롯마다 <code>summary_*.csv</code> 를 쏟아내 한 로트의 전체 상태 파악이 어려움</td>
+    <td>폴더 하나만 지정하면 12슬롯이 한 화면에 자동 정렬</td>
+  </tr>
+  <tr>
+    <td>로트카드 Manual 측정 값을 눈으로 읽어 수기 입력 → 오탈자 빈발</td>
+    <td>이미지 드래그 한 번에 OCR 로 Frequency / Q-factor 자동 입력</td>
+  </tr>
+  <tr>
+    <td>이력이 각 PC 의 Excel 파일에 흩어져 일일 생산량 집계가 번거로움</td>
+    <td>SQLite DB 에 자동 저장 → Dashboard 로 즉시 집계</td>
+  </tr>
+  <tr>
+    <td>다른 PC 로 데이터를 이전하려면 Excel 을 수작업으로 합쳐야 함</td>
+    <td>Export 번들(ZIP) 로 한 파일에 묶어 USB 전송 → Import 로 병합</td>
+  </tr>
+</table>
+
+<h3>누가 쓰는가</h3>
+<ul>
+  <li><strong>공장 측정 오퍼레이터</strong> — ATX 결과 Import, Manual 로트카드 OCR, 저장</li>
+  <li><strong>품질 관리자</strong> — Dashboard 생산량 모니터링, Export 번들 배포</li>
+  <li><strong>IT 담당자</strong> — 인스톨러 배포, PC 간 데이터 이전</li>
+</ul>
+
+<h3>언제 쓰는가</h3>
+<ul>
+  <li>ATX 장비로 측정 직후 → 폴더 Import 로 12슬롯 일괄 등록</li>
+  <li>로트카드로 Manual 측정 시 → 이미지 드롭으로 OCR 자동 입력</li>
+  <li>일간·주간 보고서 작성 전 → Dashboard 로 통계 확인</li>
+  <li>PC 교체·백업·본사 취합 → Export 번들 생성·공유</li>
+</ul>
+
+<figure class="screenshot">
+  <div class="screenshot-placeholder">[스크린샷: 메인 윈도우 — 4탭 (ATX / Manual / History / Dashboard) 개요]</div>
+  <figcaption>그림 1-1. 프로그램 메인 화면 전체 구조</figcaption>
+</figure>
+
+<div class="tip">
+모든 기능은 <strong>오프라인에서도 동작</strong> 합니다. 네트워크가 필요한 것은 "서버 업로드" 기능 하나뿐입니다.
+</div>
+
+</section>
+
+<!-- ================================================================== -->
+<section id="s2">
+<h2>2. 설치</h2>
+
+<h3>시스템 요구사항</h3>
+<ul>
+  <li>Windows 10 / 11 (64-bit)</li>
+  <li>여유 공간 약 <strong>600 MB</strong> (Tesseract OCR 엔진 포함)</li>
+  <li>관리자 권한 <strong>불필요</strong> (사용자 권한으로 설치)</li>
+  <li>인터넷 연결 <strong>불필요</strong> (서버 업로드 기능 제외)</li>
+</ul>
+
+<h3>설치 단계</h3>
+
+<ol class="steps">
+  <li>
+    <strong>설치 파일 실행</strong>
+    <p>IT 담당자에게 받은 <code>McQrManager-Setup-2.0.0.exe</code> 파일을 더블클릭합니다.</p>
+  </li>
+  <li>
+    <strong>SmartScreen 경고 대응 (처음 설치 시)</strong>
+    <p>"Windows에서 PC를 보호했습니다" 창이 뜨면 <strong>"추가 정보"</strong> → <strong>"실행"</strong> 순서로 클릭합니다. (코드 서명 인증서 도입 전까지 표시되는 정상적인 메시지입니다.)</p>
+    <figure class="screenshot">
+      <div class="screenshot-placeholder">[스크린샷: SmartScreen 경고 창 — "추가 정보" 링크]</div>
+    </figure>
+  </li>
+  <li>
+    <strong>언어 선택</strong>
+    <p>"한국어" 또는 "English" 중 선택 후 <strong>확인</strong>.</p>
+  </li>
+  <li>
+    <strong>설치 경로 선택</strong>
+    <p>기본값 <code>C:\Program Files\McQrManager\</code> 권장. 특별한 이유가 없다면 그대로 <strong>다음</strong>.</p>
+  </li>
+  <li>
+    <strong>추가 작업 선택</strong>
+    <p><em>바탕화면 아이콘 만들기</em> 체크박스 — 필요 시 선택. 기본은 해제 상태.</p>
+  </li>
+  <li>
+    <strong>설치 진행</strong>
+    <p><strong>설치</strong> 클릭 → 1~2 분 대기. 진행률 바가 100% 에 도달하면 완료.</p>
+  </li>
+  <li>
+    <strong>완료</strong>
+    <p><em>MC QR Code Chip Carrier Manager 실행</em> 체크박스가 선택된 상태로 <strong>마침</strong> 클릭 → 첫 실행으로 이어집니다.</p>
+  </li>
+</ol>
+
+<div class="note">
+이 프로그램은 <strong>VC++ Redistributable 등 별도 설치 불필요</strong>합니다. Tesseract OCR 엔진까지 모두 포함되어 있습니다.
+</div>
+
+</section>
+
+<!-- ================================================================== -->
+<section id="s3">
+<h2>3. 첫 실행</h2>
+
+<ol class="steps">
+  <li>
+    <strong>로그인 다이얼로그</strong>
+    <p>사용자 이름을 입력하고 <strong>확인</strong>. 이 이름은 이후 모든 측정 기록에 "작업자"로 저장됩니다.</p>
+    <figure class="screenshot">
+      <div class="screenshot-placeholder">[스크린샷: 로그인 다이얼로그]</div>
+    </figure>
+  </li>
+  <li>
+    <strong>DB 자동 생성</strong>
+    <p>최초 실행 시 <code>%LOCALAPPDATA%\MCQRCodeChipCarrier\chip_carrier.db</code> 가 자동으로 생성됩니다. 사용자가 따로 할 일은 없습니다.</p>
+  </li>
+  <li>
+    <strong>메인 윈도우 — 4개 탭 투어</strong>
+    <p>상단의 4개 탭을 한 번씩 눌러보세요.</p>
+    <ul>
+      <li><strong>ATX</strong> — 측정 장비의 summary CSV 폴더를 Import 하는 화면</li>
+      <li><strong>Manual</strong> — 로트카드 이미지를 드래그 앤 드롭하여 OCR 로 값 입력</li>
+      <li><strong>History</strong> — 과거 측정 이력을 필터·검색</li>
+      <li><strong>Dashboard</strong> — Today 카드 + 기간별 차트</li>
+    </ul>
+  </li>
+</ol>
+
+</section>
+
+<!-- ================================================================== -->
+<section id="s4">
+<h2>4. ATX 모드 — 측정 장비 결과 자동 Import</h2>
+
+<p>ATX 장비가 생성한 <code>summary_*.csv</code> 파일이 들어있는 폴더를 지정하면 12슬롯을 한 번에 등록합니다.</p>
+
+<ol class="steps">
+  <li>
+    <strong>ATX 탭 진입 → "Import ATX Folder" 버튼 클릭</strong>
+    <figure class="screenshot">
+      <div class="screenshot-placeholder">[스크린샷: ATX 탭의 Import 버튼 위치]</div>
+    </figure>
+  </li>
+  <li>
+    <strong>폴더 선택</strong>
+    <p>측정 장비가 결과를 저장한 폴더를 선택합니다. 안에 <code>summary_1.csv ~ summary_12.csv</code> 같은 파일들이 있어야 합니다.</p>
+  </li>
+  <li>
+    <strong>메타 입력</strong>
+    <p>좌측 입력 패널에서:</p>
+    <ul>
+      <li><strong>PO 번호</strong> (필수) — 로트 식별자</li>
+      <li><strong>주문 수량</strong></li>
+      <li><strong>프로브 유형</strong> (드롭다운)</li>
+      <li><strong>생산 일자</strong> (기본: 오늘)</li>
+    </ul>
+  </li>
+  <li>
+    <strong>QR 스캐너로 슬롯별 QR 등록</strong>
+    <p>각 슬롯 카드에 QR 코드 입력 칸이 있습니다. USB QR 스캐너로 순서대로 스캔하면 자동으로 다음 슬롯으로 이동합니다.</p>
+    <figure class="screenshot">
+      <div class="screenshot-placeholder">[스크린샷: 12슬롯 카드 + QR 입력 필드]</div>
+    </figure>
+  </li>
+  <li>
+    <strong>저장 또는 업로드</strong>
+    <ul>
+      <li><strong>Save</strong> — 로컬 DB 저장 (오프라인 OK)</li>
+      <li><strong>Upload</strong> — 서버 전송 (네트워크 필요)</li>
+    </ul>
+    <p>둘 다 History 탭에 즉시 반영됩니다.</p>
+  </li>
+</ol>
+
+<h3>자주 발생하는 트러블</h3>
+<table>
+  <tr><th style="width: 40%;">증상</th><th>원인 / 해결</th></tr>
+  <tr>
+    <td>"summary CSV 를 찾을 수 없음"</td>
+    <td>잘못된 폴더 선택. <code>summary_1.csv</code> 등이 있는지 탐색기로 직접 확인.</td>
+  </tr>
+  <tr>
+    <td>슬롯 수가 12개가 아님 (예: 11개)</td>
+    <td>일부 summary 파일 누락. 장비에서 해당 슬롯 재측정.</td>
+  </tr>
+  <tr>
+    <td>QR 스캐너로 스캔했는데 반응 없음</td>
+    <td>QR 입력 칸에 포커스가 있는지 확인. 첫 칸을 마우스로 클릭 후 스캔.</td>
+  </tr>
+</table>
+
+</section>
+
+<!-- ================================================================== -->
+<section id="s5">
+<h2>5. Manual 모드 — 로트카드 OCR 자동 입력</h2>
+
+<p>로트카드 사진/스캔 이미지를 드래그 앤 드롭하면 Frequency / Q-factor 값을 자동으로 읽어옵니다.</p>
+
+<ol class="steps">
+  <li>
+    <strong>Manual 탭 진입</strong>
+    <figure class="screenshot">
+      <div class="screenshot-placeholder">[스크린샷: Manual 탭 초기 화면 — 드롭존]</div>
+    </figure>
+  </li>
+  <li>
+    <strong>로트카드 이미지 드래그 앤 드롭</strong>
+    <p>탐색기에서 JPG / PNG 파일을 중앙의 드롭 영역으로 끌어다 놓습니다. 여러 장을 한 번에 드롭해도 됩니다 (배치 처리).</p>
+    <div class="tip">
+    여러 해상도 이미지를 한꺼번에 드롭해도 OK. 각 이미지의 해상도에 맞는 ROI 프로파일이 자동으로 선택됩니다.
+    </div>
+  </li>
+  <li>
+    <strong>OCR 자동 실행 (비동기)</strong>
+    <p>배경 스레드 4개가 동시에 OCR 을 수행합니다. 20장 드롭해도 UI 가 멈추지 않습니다. 진행 중엔 각 카드 하단에 스피너가 돕니다.</p>
+  </li>
+  <li>
+    <strong>결과 확인 + 교정</strong>
+    <p>OCR 이 끝나면 Frequency / Q-factor 칸에 숫자가 자동 입력됩니다.</p>
+    <ul>
+      <li>값이 맞으면 그대로 두세요.</li>
+      <li>값이 틀렸으면 직접 수정 가능합니다.</li>
+      <li>OCR 이 실패한 카드는 빈 칸으로 남습니다 (경고 없음) → 수기 입력.</li>
+    </ul>
+  </li>
+  <li>
+    <strong>QR 스캐너로 각 카드에 QR 등록</strong>
+    <p>ATX 모드와 동일하게 순서대로 스캔.</p>
+  </li>
+  <li>
+    <strong>Save → History 에 반영</strong>
+  </li>
+</ol>
+
+<h3>5.1 ROI Calibrator (해상도 다른 로트카드 추가 시)</h3>
+
+<p>기본 제공 프로파일에 없는 새 해상도의 로트카드를 사용할 때, OCR 이 제대로 되지 않으면 ROI(관심 영역)를 직접 설정합니다.</p>
+
+<ol class="steps">
+  <li>
+    <strong>메뉴 → Tools → ROI Calibrator 열기</strong>
+    <figure class="screenshot">
+      <div class="screenshot-placeholder">[스크린샷: ROI Calibrator 다이얼로그 — QGraphicsView + 드래그 박스]</div>
+    </figure>
+  </li>
+  <li>
+    <strong>샘플 이미지 로드</strong>
+    <p><em>Load Image…</em> 버튼으로 문제가 된 해상도의 로트카드 한 장을 불러옵니다.</p>
+  </li>
+  <li>
+    <strong>ROI 박스를 드래그해서 숫자 영역으로 이동</strong>
+    <p>파란 박스는 Frequency, 빨간 박스는 Q-factor. 각각 숫자가 표시되는 정확한 사각형 영역으로 이동·리사이즈.</p>
+  </li>
+  <li>
+    <strong>Test OCR 버튼으로 확인</strong>
+    <p>추출된 값이 카드에 적힌 숫자와 일치하는지 확인.</p>
+  </li>
+  <li>
+    <strong>Save Profile 클릭</strong>
+    <p>해당 해상도 기준으로 ROI 가 DB(`app_settings.ocr_roi`)에 저장됩니다. 다음부터 같은 해상도 이미지를 드롭하면 자동 적용.</p>
+  </li>
+</ol>
+
+<div class="note">
+OCR 정확도는 이미지 품질에 크게 좌우됩니다. 초점이 흐리거나 조명이 너무 어두우면 실패할 수 있습니다. 카메라·스캐너 설정을 균일하게 유지하세요.
+</div>
+
+</section>
+
+<!-- ================================================================== -->
+<section id="s6">
+<h2>6. History — 측정 이력 조회</h2>
+
+<ol class="steps">
+  <li>
+    <strong>History 탭 진입</strong>
+    <figure class="screenshot">
+      <div class="screenshot-placeholder">[스크린샷: History 탭 전체 — 상단 필터 + 하단 테이블]</div>
+    </figure>
+  </li>
+  <li>
+    <strong>필터 설정</strong>
+    <ul>
+      <li><strong>날짜 범위</strong> — 캘린더 위젯으로 시작/종료일 선택</li>
+      <li><strong>PO 번호</strong> — 부분 일치 검색</li>
+      <li><strong>Probe Type</strong> — 드롭다운</li>
+      <li><strong>Upload Status</strong> — pending / uploaded / failed</li>
+      <li><strong>QR 코드</strong> — 특정 QR 로 검색</li>
+    </ul>
+  </li>
+  <li>
+    <strong>정렬</strong>
+    <p>컬럼 헤더 클릭으로 정렬. 기본은 최신순 (<code>production_date DESC</code>).</p>
+  </li>
+  <li>
+    <strong>행 더블클릭 → 슬롯 상세</strong>
+    <p>측정 세트를 더블클릭하면 12슬롯의 QR / Freq / Drive / Q 값이 테이블 형태로 표시됩니다.</p>
+  </li>
+  <li>
+    <strong>업로드 실패 건 재전송</strong>
+    <p>"Upload Status = failed" 로 필터 → 행 선택 → 우클릭 → <em>Retry Upload</em>.</p>
+  </li>
+</ol>
+
+</section>
+
+<!-- ================================================================== -->
+<section id="s7">
+<h2>7. Dashboard — 생산량 대시보드</h2>
+
+<figure class="screenshot">
+  <div class="screenshot-placeholder">[스크린샷: Dashboard 전체 — 상단 Today 카드 + 기간 스위치 + 4종 차트]</div>
+</figure>
+
+<h3>7.1 상단 — Today 카드</h3>
+<ul>
+  <li><strong>Today Sets</strong> — 오늘 측정한 세트(로트) 수</li>
+  <li><strong>Today Slots</strong> — 오늘 측정한 슬롯 총 개수</li>
+  <li><strong>Today Complete %</strong> — QR 입력 완료율</li>
+  <li><strong>Today Pending</strong> — 업로드 대기 세트 수</li>
+</ul>
+
+<h3>7.2 기간 스위치</h3>
+<p>대시보드 상단의 토글 버튼:</p>
+<table>
+  <tr><th>기간</th><th>집계 단위</th></tr>
+  <tr><td>Daily</td><td>일자별 (YYYY-MM-DD)</td></tr>
+  <tr><td>Weekly</td><td>ISO 주차 (YYYY-W##)</td></tr>
+  <tr><td>Monthly</td><td>월별 (YYYY-MM)</td></tr>
+  <tr><td>Quarterly</td><td>분기 (YYYY-Q#)</td></tr>
+  <tr><td>Yearly</td><td>연도</td></tr>
+</table>
+
+<h3>7.3 차트 4종 해석</h3>
+<ol>
+  <li><strong>시계열 바 차트</strong> (좌상) — 선택한 기간의 세트 수 추이</li>
+  <li><strong>업로드 상태 파이</strong> (우상) — pending/uploaded/failed 비율</li>
+  <li><strong>프로브 유형별 누적 바</strong> (좌하) — Probe Type 별 슬롯 합계</li>
+  <li><strong>주간 히트맵</strong> (우하) — 요일 × 시간대 생산 분포</li>
+</ol>
+
+<div class="tip">
+차트는 <strong>필터 조건이 History 탭과 연동</strong>됩니다. History 에서 특정 PO 로 필터한 뒤 Dashboard 로 이동하면 해당 PO 데이터만 집계됩니다.
+</div>
+
+</section>
+
+<!-- ================================================================== -->
+<section id="s8">
+<h2>8. Export / Import — 번들로 데이터 이전</h2>
+
+<p>측정 이력을 ZIP 파일 한 개로 묶어 다른 PC 에 전송할 수 있습니다.</p>
+
+<h3>8.1 Export — 번들 생성</h3>
+
+<ol class="steps">
+  <li>
+    <strong>메뉴 → File → Export Bundle</strong>
+  </li>
+  <li>
+    <strong>필터 지정</strong>
+    <ul>
+      <li>전체 데이터 / 특정 기간 / 특정 PO 선택</li>
+      <li><em>이미지 포함</em> 체크박스 — Manual 로트카드 이미지도 함께 내보낼지</li>
+    </ul>
+  </li>
+  <li>
+    <strong>저장 경로 선택</strong>
+    <p>기본 파일명: <code>chip_carrier_export_YYYYMMDD.zip</code></p>
+  </li>
+  <li>
+    <strong>Export 클릭 → 완료 메시지</strong>
+  </li>
+</ol>
+
+<h3>8.2 Import — 번들 불러오기</h3>
+
+<ol class="steps">
+  <li>
+    <strong>메뉴 → File → Import Bundle</strong>
+  </li>
+  <li>
+    <strong>ZIP 파일 선택</strong>
+  </li>
+  <li>
+    <strong>미리보기 확인</strong>
+    <p>스키마 버전 / 레코드 수 / 날짜 범위 / 이미지 포함 여부가 표시됩니다.</p>
+  </li>
+  <li>
+    <strong>중복 정책 선택</strong>
+    <table>
+      <tr><th>정책</th><th>동작</th></tr>
+      <tr><td><strong>Skip</strong> (기본)</td><td>같은 QR 이 이미 있으면 건너뜀. 새 데이터만 추가.</td></tr>
+      <tr><td><strong>Overwrite</strong></td><td>같은 QR 이 있으면 기존 레코드를 번들 데이터로 덮어쓰기.</td></tr>
+      <tr><td><strong>Merge</strong></td><td>세트는 유지하고 누락된 슬롯만 번들에서 채움.</td></tr>
+    </table>
+  </li>
+  <li>
+    <strong>Import 실행</strong>
+    <p>진행률 표시 후 완료 메시지. History 에 즉시 반영.</p>
+  </li>
+</ol>
+
+<h3>8.3 사용 시나리오</h3>
+<ul>
+  <li><strong>백업</strong> — 주 1회 전체 Export → NAS/USB 보관</li>
+  <li><strong>PC 교체</strong> — 구 PC 에서 Export → 신 PC 에서 Import (Overwrite)</li>
+  <li><strong>본사 취합</strong> — 각 공장 PC 에서 Export → 본사 PC 에서 Merge 로 통합</li>
+</ul>
+
+<div class="warning">
+Export 번들은 JSONL + ZIP 으로 열어볼 수 있으나 <strong>수동 편집하지 마세요</strong>. 스키마 검증에 실패할 수 있습니다. 상세 스키마는 <code>docs/export_schema.md</code> 참조.
+</div>
+
+</section>
+
+<!-- ================================================================== -->
+<section id="s9">
+<h2>9. 설정</h2>
+
+<p>메뉴 → Edit → Settings (또는 <kbd>Ctrl</kbd>+<kbd>,</kbd>)</p>
+
+<h3>주요 항목</h3>
+<ul>
+  <li><strong>사용자 이름</strong> — 로그인 시 입력한 이름 변경</li>
+  <li><strong>서버 업로드 URL</strong> — 회사 내부 서버 엔드포인트</li>
+  <li><strong>OCR ROI 프로파일</strong> — <em>Calibrate…</em> 버튼으로 Calibrator 진입 (§5.1 참조)</li>
+  <li><strong>로그 레벨</strong> — All / Warnings+ / Errors only</li>
+  <li><strong>DB 경로</strong> (읽기 전용) — <code>%LOCALAPPDATA%\MCQRCodeChipCarrier\chip_carrier.db</code></li>
+</ul>
+
+<div class="note">
+설정은 DB 의 <code>app_settings</code> 테이블에 저장되므로 앱 재시작 후에도 유지됩니다. 업그레이드해도 보존됩니다.
+</div>
+
+</section>
+
+<!-- ================================================================== -->
+<section id="s10">
+<h2>10. 트러블슈팅</h2>
+
+<h3>Q1. OCR 이 전부 실패해요</h3>
+<ol>
+  <li>이미지 해상도가 기본 프로파일과 다른지 확인 → ROI Calibrator 에서 신규 프로파일 추가 (§5.1)</li>
+  <li>이미지가 흐릿하거나 너무 어두운지 확인 → 카메라 조명·초점 조정</li>
+  <li>OCR 결과가 항상 <code>None</code> 이면 Tesseract 가 번들에 포함되지 않았을 수 있음 → IT 담당자에게 재설치 요청</li>
+</ol>
+
+<h3>Q2. 한글 폴더나 한글 사용자 계정에서 오류가 나요</h3>
+<p>이 프로그램은 Windows 8.3 단축 경로(short path) 를 자동 변환해 Tesseract 호환 문제를 회피합니다. 재현되면 로그를 첨부해 개발팀에 보고하세요.</p>
+
+<h3>Q3. 서버 업로드가 실패해요</h3>
+<ol>
+  <li>Settings 에서 서버 URL 이 올바른지 확인</li>
+  <li>네트워크 연결 상태 확인 (사내망 / VPN)</li>
+  <li>History 에서 "failed" 로 필터 → 우클릭 → <em>Retry Upload</em></li>
+</ol>
+
+<h3>Q4. 앱이 아예 켜지지 않아요</h3>
+<p>DB 파일 손상 가능성. <strong>데이터가 손실될 수 있으니 신중히</strong>:</p>
+<ol>
+  <li><code>%LOCALAPPDATA%\MCQRCodeChipCarrier\chip_carrier.db</code> 를 다른 이름으로 백업</li>
+  <li>원본 DB 삭제</li>
+  <li>앱 재실행 (신규 DB 자동 생성)</li>
+  <li>백업한 DB 를 SQLite 도구로 열어 복구 가능한 데이터 확인</li>
+</ol>
+
+<div class="danger">
+DB 파일을 삭제하면 모든 이력이 사라집니다. 정기적으로 Export 번들로 백업하세요 (§8).
+</div>
+
+<h3>Q5. SmartScreen 경고가 뜹니다</h3>
+<p>현재 코드 서명 인증서가 없어 Windows 가 "알 수 없는 게시자" 로 표시합니다. <strong>"추가 정보" → "실행"</strong> 로 진행하세요. 정상적인 동작입니다.</p>
+
+<h3>Q6. 이전 버전(NX 1.0.0) 데이터를 불러오고 싶어요</h3>
+<p>§12 (부록 — 1.0.0 → 2.0.0 마이그레이션) 을 참조하세요.</p>
+
+<h3>로그 파일 위치</h3>
+<p>현재는 UI 로그창에만 표시됩니다 (ATX/Manual/Export/History 탭 하단). 스크린샷을 찍어 지원팀에 보내주세요.</p>
+
+</section>
+
+<!-- ================================================================== -->
+<section id="s11">
+<h2>11. FAQ</h2>
+
+<h3>Q. 여러 사람이 같은 DB 를 공유할 수 있나요?</h3>
+<p>아니오. 현재는 <strong>1 PC = 1 DB</strong> 구조입니다. 여러 PC 간 데이터 공유는 Export/Import 번들로 해결합니다.</p>
+
+<h3>Q. 데이터는 어디에 저장되나요?</h3>
+<p><code>%LOCALAPPDATA%\MCQRCodeChipCarrier\chip_carrier.db</code> — 탐색기 주소창에 <code>%LOCALAPPDATA%\MCQRCodeChipCarrier</code> 를 붙여 넣으면 바로 이동합니다.</p>
+
+<h3>Q. 앱을 업그레이드하면 기존 데이터가 지워지나요?</h3>
+<p>아니오. DB 는 설치 경로 외부에 있어 업그레이드·재설치 시 보존됩니다.</p>
+
+<h3>Q. 인터넷 없어도 쓸 수 있나요?</h3>
+<p>네. 서버 업로드 기능을 제외한 모든 기능이 오프라인에서 동작합니다.</p>
+
+<h3>Q. OCR 이 한국어를 인식하나요?</h3>
+<p>현재는 영문 + 숫자 전용입니다. 로트카드의 숫자 값 추출에 최적화되어 있습니다. 한국어 OCR 은 차기 버전 검토 항목입니다.</p>
+
+<h3>Q. 이 프로그램의 라이선스는?</h3>
+<p>사내 전용 프로그램입니다. 포함된 Tesseract 는 Apache License 2.0 입니다 (`third_party/tesseract/LICENSE.txt` 참조).</p>
+
+</section>
+
+<!-- ================================================================== -->
+<section id="s12">
+<h2>12. 부록 — 1.0.0 (NX) → 2.0.0 (MC) 마이그레이션</h2>
+
+<p>이전 버전 <strong>NX QR Chip Carrier Manager 1.0.0</strong> 사용자가 MC 2.0.0 으로 데이터를 이전하는 절차입니다.</p>
+
+<div class="warning">
+두 버전은 AppId 가 달라 Windows 는 <strong>별도 제품</strong>으로 인식합니다. 업그레이드 설치가 아니라 <strong>신규 설치</strong>이며, DB 경로도 변경되므로 자동 이관되지 않습니다.
+</div>
+
+<h3>절차</h3>
+
+<ol class="steps">
+  <li>
+    <strong>NX 1.0.0 에서 전체 Export</strong>
+    <ul>
+      <li>History 탭 → 전체 기간 선택</li>
+      <li>메뉴 → File → Export Bundle → 이미지 포함 체크</li>
+      <li>저장 경로: USB / 네트워크 드라이브 / 바탕화면</li>
+    </ul>
+  </li>
+  <li>
+    <strong>(선택) NX DB 백업</strong>
+    <p><code>%LOCALAPPDATA%\NXQRChipCarrierManager\</code> 폴더 전체를 복사하여 별도 보관. 만약 번들에 누락이 있어도 SQLite 도구로 복구 가능.</p>
+  </li>
+  <li>
+    <strong>MC 2.0.0 설치</strong>
+    <p>§2 절차대로 설치. NX 1.0.0 은 유지해도 되고 언인스톨해도 됩니다.</p>
+  </li>
+  <li>
+    <strong>MC 2.0.0 에서 Import</strong>
+    <ul>
+      <li>메뉴 → File → Import Bundle</li>
+      <li>1번에서 만든 ZIP 선택</li>
+      <li>중복 정책: <strong>Overwrite</strong> (신규 설치라 충돌 없음)</li>
+      <li>Import 클릭 → History 에 모든 데이터 복원 확인</li>
+    </ul>
+  </li>
+  <li>
+    <strong>(선택) NX 1.0.0 언인스톨</strong>
+    <p>제어판 → 앱 및 기능 → <em>NX QR Chip Carrier Manager</em> 제거. DB 폴더(<code>%LOCALAPPDATA%\NXQRChipCarrierManager\</code>)는 수동으로 삭제해야 완전히 정리됩니다.</p>
+  </li>
+</ol>
+
+<div class="tip">
+문제가 생겨도 NX 1.0.0 DB 와 번들 ZIP 이 둘 다 있으면 언제든 복구 가능합니다. 마이그레이션 완료 후 충분한 기간(예: 1개월) 작업 이상 없음을 확인한 뒤 NX 1.0.0 과 구 DB 를 정리하세요.
+</div>
+
+</section>
+
+<footer style="margin-top: 60px; padding-top: 20px; border-top: 1px solid #e4e4e9; color: #888; font-size: 13px;">
+  <p>MC QR Code Chip Carrier Manager v2.0 · 사용자 가이드 · 2026-04-24</p>
+  <p>상세 기술 문서: <a href="PRD.md">PRD.md</a> · 번들 스키마: <a href="export_schema.md">export_schema.md</a></p>
+</footer>
+
+</main>
+</div>
+</body>
+</html>
