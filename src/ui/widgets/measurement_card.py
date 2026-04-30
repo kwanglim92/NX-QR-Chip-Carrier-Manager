@@ -11,6 +11,7 @@ from __future__ import annotations
 from PySide6.QtCore import Signal, Qt
 from PySide6.QtWidgets import QFrame, QVBoxLayout, QLabel, QHBoxLayout, QSizePolicy, QMenu
 
+from src.core.models import truncate_measurement_value
 from src.core.slot_mapper import parse_slot_code, format_full_label
 from src.ui.theme import BG2, FG, FG2, ACCENT, GREEN, RED, ORANGE
 
@@ -22,6 +23,7 @@ _FONT_QR = 11
 
 CARD_HEIGHT = 120
 CARD_MIN_WIDTH = 150
+_UNSET = object()
 
 
 class MeasurementCard(QFrame):
@@ -87,16 +89,33 @@ class MeasurementCard(QFrame):
 
         self._update_badge()
 
-    def update_data(self, frequency=None, q_factor=None, qr_id=None, **_kwargs):
-        if frequency is not None:
-            self._freq_label.setText(f"Freq: {round(frequency)} KHz")
+    def update_data(self, frequency=_UNSET, q_factor=_UNSET, qr_id=_UNSET, **_kwargs):
+        if frequency is _UNSET:
+            pass
+        elif frequency is None:
+            self._freq_label.setText("Freq: -")
+            self._has_freq = False
+        else:
+            self._freq_label.setText(
+                f"Freq: {truncate_measurement_value(frequency)} KHz"
+            )
             self._has_freq = True
-        if q_factor is not None:
-            self._q_label.setText(f"Q: {round(q_factor)}")
 
-        if qr_id:
+        if q_factor is _UNSET:
+            pass
+        elif q_factor is None:
+            self._q_label.setText("Q: -")
+        else:
+            self._q_label.setText(f"Q: {truncate_measurement_value(q_factor)}")
+
+        if qr_id is _UNSET:
+            pass
+        elif qr_id:
             self._qr_label.setText(f"QR: {qr_id}")
             self._has_qr = True
+        else:
+            self._qr_label.setText("")
+            self._has_qr = False
 
         self._update_badge()
         self._update_state()

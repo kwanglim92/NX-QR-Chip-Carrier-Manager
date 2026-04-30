@@ -6,7 +6,7 @@ import uuid
 from PySide6.QtCore import QThreadPool
 from PySide6.QtWidgets import QDialog, QInputDialog, QMessageBox, QFileDialog
 
-from src.core.models import MeasurementSet, SlotData
+from src.core.models import MeasurementSet, SlotData, truncate_measurement_value
 from src.core.ocr_settings import (
     load_roi_for,
     save_roi_for,
@@ -281,9 +281,9 @@ class ManualImportMixin:
         if slot is not None:
             # OCR 결과 반영 (None이면 pristine 유지)
             if reading.frequency is not None:
-                slot.frequency = reading.frequency
+                slot.frequency = truncate_measurement_value(reading.frequency)
             if reading.q_factor is not None:
-                slot.q_factor = reading.q_factor
+                slot.q_factor = truncate_measurement_value(reading.q_factor)
 
             # 카드 UI 업데이트 — grid 탐색 (probe_type별)
             if reading.frequency is not None or reading.q_factor is not None:
@@ -408,10 +408,10 @@ class ManualImportMixin:
         if not slot:
             return
 
-        freq = self.manual_freq_input.value()
-        q = self.manual_q_input.value()
+        freq = truncate_measurement_value(self.manual_freq_input.value())
+        q = truncate_measurement_value(self.manual_q_input.value())
 
-        if freq <= 0 or q <= 0:
+        if freq is None or q is None or freq <= 0 or q <= 0:
             self.logger.warn("Frequency와 Q 값을 입력하세요")
             return
 
@@ -430,7 +430,7 @@ class ManualImportMixin:
         probe = slot.probe_type or "?"
         self.logger.ok(
             f"#{slot.slot_index + 1} ({probe}): "
-            f"Freq={round(freq)} KHz, Q={round(q)}"
+            f"Freq={freq} KHz, Q={q}"
         )
 
         self._refresh_overview()

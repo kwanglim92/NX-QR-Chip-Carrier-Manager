@@ -27,6 +27,8 @@ import logging
 import re
 from dataclasses import dataclass
 
+from src.core.models import truncate_measurement_value
+
 logger = logging.getLogger(__name__)
 
 
@@ -181,7 +183,4 @@ def _ocr_single_roi(img, roi: tuple[int, int, int, int], pytesseract) -> float |
     matches = _NUMBER_RE.findall(raw)
     if not matches:
         return None
-    try:
-        return float(matches[0])
-    except ValueError:
-        return None
+    return truncate_measurement_value(matches[0])

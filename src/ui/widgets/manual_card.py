@@ -7,6 +7,7 @@ from PySide6.QtWidgets import (
     QFrame, QHBoxLayout, QVBoxLayout, QLabel, QSizePolicy, QMenu,
 )
 
+from src.core.models import truncate_measurement_value
 from src.ui.theme import BG2, FG, FG2, ACCENT, GREEN, ORANGE
 
 _FONT_BASE = 12
@@ -16,6 +17,7 @@ _FONT_QR = 11
 
 MANUAL_CARD_HEIGHT = 140
 THUMB_W, THUMB_H = 60, 45
+_UNSET = object()
 
 
 class ManualCard(QFrame):
@@ -97,16 +99,33 @@ class ManualCard(QFrame):
             scaled = pm.scaled(THUMB_W, THUMB_H, Qt.KeepAspectRatio, Qt.SmoothTransformation)
             self._thumb.setPixmap(scaled)
 
-    def update_data(self, frequency=None, q_factor=None, qr_id=None, **_kwargs):
-        if frequency is not None:
-            self._freq_label.setText(f"Freq: {round(frequency)} KHz")
+    def update_data(self, frequency=_UNSET, q_factor=_UNSET, qr_id=_UNSET, **_kwargs):
+        if frequency is _UNSET:
+            pass
+        elif frequency is None:
+            self._freq_label.setText("Freq: -")
+            self._has_freq = False
+        else:
+            self._freq_label.setText(
+                f"Freq: {truncate_measurement_value(frequency)} KHz"
+            )
             self._has_freq = True
-        if q_factor is not None:
-            self._q_label.setText(f"Q: {round(q_factor)}")
 
-        if qr_id:
+        if q_factor is _UNSET:
+            pass
+        elif q_factor is None:
+            self._q_label.setText("Q: -")
+        else:
+            self._q_label.setText(f"Q: {truncate_measurement_value(q_factor)}")
+
+        if qr_id is _UNSET:
+            pass
+        elif qr_id:
             self._qr_label.setText(f"QR: {qr_id}")
             self._has_qr = True
+        else:
+            self._qr_label.setText("")
+            self._has_qr = False
 
         self._update_badge()
         self._update_state()

@@ -65,7 +65,7 @@ class SlotGridWidget(QWidget):
         self._title.setText(f"ATX{atx_num} {ports_str} — {ms.po_number}")
 
         # Port별 섹션 생성
-        for port_num in sorted(port_groups):
+        for port_num in sorted(port_groups, reverse=True):
             self._add_port_section(port_num, port_groups[port_num])
 
         self._content_layout.addStretch()

@@ -200,6 +200,42 @@ class UIBuilderMixin:
 
         left_layout.addWidget(img_group, 1)
 
+        # 선택 슬롯 편집 패널
+        self.atx_edit_group = QGroupBox("Selected Slot Edit")
+        edit_form = QFormLayout(self.atx_edit_group)
+
+        self.atx_edit_label = QLabel("-")
+        edit_form.addRow("Slot:", self.atx_edit_label)
+
+        self.atx_edit_probe = QLineEdit()
+        edit_form.addRow("Probe Type:", self.atx_edit_probe)
+
+        self.atx_edit_freq = QSpinBox()
+        self.atx_edit_freq.setRange(0, 999999)
+        self.atx_edit_freq.setSpecialValueText(" ")
+        edit_form.addRow("Frequency (KHz):", self.atx_edit_freq)
+
+        self.atx_edit_q = QSpinBox()
+        self.atx_edit_q.setRange(0, 999999)
+        self.atx_edit_q.setSpecialValueText(" ")
+        edit_form.addRow("Q:", self.atx_edit_q)
+
+        self.atx_edit_qr = QLineEdit()
+        edit_form.addRow("QR ID:", self.atx_edit_qr)
+
+        self.atx_edit_source = QComboBox()
+        self.atx_edit_source.addItem("ATX Summary", "summary_csv")
+        self.atx_edit_source.addItem("Manual", "manual_entry")
+        edit_form.addRow("Source:", self.atx_edit_source)
+
+        self.btn_apply_atx_edit = QPushButton("Apply Slot Edit")
+        self.btn_apply_atx_edit.setProperty("accent", "true")
+        self.btn_apply_atx_edit.clicked.connect(self._apply_atx_slot_edit)
+        edit_form.addRow("", self.btn_apply_atx_edit)
+
+        self.atx_edit_group.setEnabled(False)
+        left_layout.addWidget(self.atx_edit_group)
+
         # 로그 (통일 스타일 — 레벨 필터 + 1000라인 자동 회전)
         atx_log_grp, atx_log_te, _atx_log_combo = self._make_log_box(max_h=150)
         left_layout.addWidget(atx_log_grp)
@@ -250,13 +286,13 @@ class UIBuilderMixin:
 
         self.manual_freq_input = QDoubleSpinBox()
         self.manual_freq_input.setRange(0, 9999)
-        self.manual_freq_input.setDecimals(2)
+        self.manual_freq_input.setDecimals(0)
         self.manual_freq_input.setSpecialValueText(" ")
         data_form.addRow("Frequency (KHz):", self.manual_freq_input)
 
         self.manual_q_input = QDoubleSpinBox()
         self.manual_q_input.setRange(0, 9999)
-        self.manual_q_input.setDecimals(2)
+        self.manual_q_input.setDecimals(0)
         self.manual_q_input.setSpecialValueText(" ")
         data_form.addRow("Q:", self.manual_q_input)
 

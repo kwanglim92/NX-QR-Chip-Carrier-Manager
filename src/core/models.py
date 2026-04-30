@@ -2,6 +2,16 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 
+def truncate_measurement_value(value: float | int | str | None) -> int | None:
+    """Return a positive measurement value with its fractional part discarded."""
+    if value is None:
+        return None
+    try:
+        return int(float(value))
+    except (TypeError, ValueError):
+        return None
+
+
 @dataclass
 class SlotData:
     slot_index: int
@@ -33,12 +43,14 @@ class SlotData:
     def format_frequency(self) -> str:
         if self.frequency is None:
             return "-"
-        return str(round(self.frequency))
+        value = truncate_measurement_value(self.frequency)
+        return "-" if value is None else str(value)
 
     def format_q(self) -> str:
         if self.q_factor is None:
             return "-"
-        return str(round(self.q_factor))
+        value = truncate_measurement_value(self.q_factor)
+        return "-" if value is None else str(value)
 
 
 @dataclass

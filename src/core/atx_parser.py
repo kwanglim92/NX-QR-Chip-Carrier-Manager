@@ -9,7 +9,7 @@ import csv
 import re
 from pathlib import Path
 
-from src.core.models import MeasurementSet, SlotData
+from src.core.models import MeasurementSet, SlotData, truncate_measurement_value
 from src.core.slot_mapper import parse_slot_code
 
 _ENCODINGS = ("utf-8-sig", "cp949", "euc-kr", "latin-1")
@@ -70,15 +70,9 @@ def parse_summary_csv(csv_path: Path) -> list[dict]:
         freq_val = None
         q_val = None
         if i < len(freqs) and freqs[i].strip():
-            try:
-                freq_val = float(freqs[i].strip())
-            except ValueError:
-                pass
+            freq_val = truncate_measurement_value(freqs[i].strip())
         if i < len(qs) and qs[i].strip():
-            try:
-                q_val = float(qs[i].strip())
-            except ValueError:
-                pass
+            q_val = truncate_measurement_value(qs[i].strip())
 
         results.append({
             "batch": batch,
