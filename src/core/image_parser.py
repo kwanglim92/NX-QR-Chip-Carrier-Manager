@@ -37,9 +37,13 @@ class MeasurementReading:
     """이미지에서 추출한 측정값.
 
     두 필드 모두 None이면 "추출 실패 → 수기 입력 폴백" 신호.
+    ``raw_*_text`` 는 ``extract_measurements(debug=True)`` 호출 시에만 채워지는
+    진단용 OCR 원본 텍스트 (Calibrator Test OCR 전용).
     """
     frequency: float | None = None   # kHz
     q_factor: float | None = None
+    raw_frequency_text: str = ""
+    raw_q_text: str = ""
 
 
 # ─── ROI (픽셀 좌표) ─────────────────────────────────────────────────────────
@@ -79,6 +83,8 @@ def _in_range(value: float | None, lo: float, hi: float) -> bool:
 def extract_measurements(
     image_path: str,
     roi: dict[str, tuple[int, int, int, int]] | None = None,
+    *,
+    debug: bool = False,
 ) -> MeasurementReading:
     """이미지에서 Frequency/Q 값을 추출.
 
@@ -90,6 +96,9 @@ def extract_measurements(
         사용자가 Calibrator로 조정한 ROI dict. None이면 모듈 상수 ``ROI`` 를
         fallback으로 사용. Manual 모드는 ``ocr_settings.load_roi(conn)`` 결과를
         주입한다 (DB 없으면 None → 코드 기본값).
+    debug
+        True 면 ``MeasurementReading.raw_*_text`` 에 OCR 원본 텍스트를 채워서
+        반환 (ROI Calibrator 진단용). 정상 흐름은 False (기본).
 
     Returns
     -------
@@ -128,10 +137,25 @@ def extract_measurements(
                 "Manual 탭의 'Calibrate ROI…' 버튼으로 좌표를 재조정하세요.",
                 name, (x, y, w, h), W, H,
             )
+            if debug:
+                return MeasurementReading(
+                    raw_frequency_text=f"<ROI out of bounds: image {W}x{H}>",
+                    raw_q_text=f"<ROI out of bounds: image {W}x{H}>",
+                )
             return MeasurementReading()
 
-    freq = _ocr_single_roi(img, active_roi["frequency"], pytesseract)
-    q = _ocr_single_roi(img, active_roi["q_factor"], pytesseract)
+    if debug:
+        freq, raw_freq = _ocr_single_roi(
+            img, active_roi["frequency"], pytesseract, return_raw=True
+        )
+        q, raw_q = _ocr_single_roi(
+            img, active_roi["q_factor"], pytesseract, return_raw=True
+        )
+    else:
+        freq = _ocr_single_roi(img, active_roi["frequency"], pytesseract)
+        q = _ocr_single_roi(img, active_roi["q_factor"], pytesseract)
+        raw_freq = ""
+        raw_q = ""
 
     # Phase 7A-A3: 범위 검증 — 오인식으로 인한 비상식적 값 폐기
     if not _in_range(freq, *_FREQ_RANGE):
@@ -152,11 +176,27 @@ def extract_measurements(
     else:
         logger.debug("OCR: Freq=%s, Q=%s", freq, q)
 
-    return MeasurementReading(frequency=freq, q_factor=q)
+    return MeasurementReading(
+        frequency=freq,
+        q_factor=q,
+        raw_frequency_text=raw_freq,
+        raw_q_text=raw_q,
+    )
 
 
-def _ocr_single_roi(img, roi: tuple[int, int, int, int], pytesseract) -> float | None:
-    """단일 ROI를 크롭하고 OCR로 숫자 추출. 실패 시 None (예외 전파 X)."""
+def _ocr_single_roi(
+    img,
+    roi: tuple[int, int, int, int],
+    pytesseract,
+    *,
+    return_raw: bool = False,
+):
+    """단일 ROI를 크롭하고 OCR로 숫자 추출. 실패 시 None (예외 전파 X).
+
+    ``return_raw=True`` 면 ``(value, raw_text)`` 튜플을 반환해 진단 모드에서
+    OCR 원본 텍스트를 노출할 수 있다.
+    """
+    raw = ""
     try:
         x, y, w, h = roi
         crop = img.crop((x, y, x + w, y + h))
@@ -177,10 +217,13 @@ def _ocr_single_roi(img, roi: tuple[int, int, int, int], pytesseract) -> float |
         raw = pytesseract.image_to_string(crop, config=config)
     except Exception as e:  # pytesseract.TesseractNotFoundError 등 포함
         logger.debug("OCR 실행 실패 (ROI=%s): %s", roi, e)
+        if return_raw:
+            return None, ""
         return None
 
     # 숫자 패턴만 정확히 1개 추출 — 여러 개 있으면 첫 번째 사용
     matches = _NUMBER_RE.findall(raw)
-    if not matches:
-        return None
-    return truncate_measurement_value(matches[0])
+    value = truncate_measurement_value(matches[0]) if matches else None
+    if return_raw:
+        return value, raw.strip()
+    return value

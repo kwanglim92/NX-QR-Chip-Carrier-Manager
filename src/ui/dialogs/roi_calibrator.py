@@ -102,6 +102,29 @@ class RoiCalibratorDialog(QDialog):
         self._lbl_test_result.setWordWrap(True)
         self._lbl_test_result.setStyleSheet(f"color: {FG}; font-size: 12px;")
         test_layout.addWidget(self._lbl_test_result)
+
+        # Debug Info — 접이식 (Test OCR 실행 후 진단 정보 표시)
+        self._btn_debug_toggle = QPushButton("▶  Debug Info")
+        self._btn_debug_toggle.setCheckable(True)
+        self._btn_debug_toggle.setStyleSheet(
+            f"text-align: left; color: {FG2}; padding: 2px 4px; "
+            f"border: none; font-size: 11px;"
+        )
+        self._btn_debug_toggle.toggled.connect(self._on_debug_toggle)
+        test_layout.addWidget(self._btn_debug_toggle)
+
+        self._lbl_debug_info = QLabel("Test OCR 을 실행하면 진단 정보가 표시됩니다.")
+        self._lbl_debug_info.setWordWrap(True)
+        self._lbl_debug_info.setTextInteractionFlags(Qt.TextSelectableByMouse)
+        self._lbl_debug_info.setStyleSheet(
+            f"color: {FG2}; font-size: 11px; "
+            f"font-family: 'Consolas', 'Courier New', monospace; "
+            f"padding: 4px; background-color: rgba(255,255,255,0.04); "
+            f"border-radius: 3px;"
+        )
+        self._lbl_debug_info.setVisible(False)
+        test_layout.addWidget(self._lbl_debug_info)
+
         sidebar.addWidget(test_group)
         sidebar.addStretch()
 
@@ -224,19 +247,28 @@ class RoiCalibratorDialog(QDialog):
         self._lbl_test_result.setText("Reset to image_parser defaults.")
         self._lbl_test_result.setStyleSheet(f"color: {FG2}; font-size: 12px;")
 
+    def _on_debug_toggle(self, checked: bool) -> None:
+        """접이식 Debug Info 영역 토글."""
+        self._lbl_debug_info.setVisible(checked)
+        self._btn_debug_toggle.setText("▼  Debug Info" if checked else "▶  Debug Info")
+
     def _on_test_ocr(self) -> None:
         if not self._current_image_path:
             self._lbl_test_result.setText("Load a reference image first.")
             self._lbl_test_result.setStyleSheet(f"color: {ORANGE}; font-size: 12px;")
+            self._lbl_debug_info.setText("진단 정보 없음 — 참조 이미지를 먼저 로드하세요.")
             return
 
-        # 현재 ROI 로 extract_measurements 호출 — 시스템 OCR 경로 그대로 사용
+        # 현재 ROI 로 extract_measurements 호출 — debug=True 로 raw OCR 텍스트 동시 수집
         try:
             from src.core.image_parser import extract_measurements
-            reading = extract_measurements(self._current_image_path, roi=self._roi)
+            reading = extract_measurements(
+                self._current_image_path, roi=self._roi, debug=True,
+            )
         except Exception as e:  # pragma: no cover - 안전망
             self._lbl_test_result.setText(f"OCR error: {e}")
             self._lbl_test_result.setStyleSheet(f"color: {RED}; font-size: 12px;")
+            self._lbl_debug_info.setText(f"예외: {e!r}")
             return
 
         freq = reading.frequency
@@ -259,6 +291,19 @@ class RoiCalibratorDialog(QDialog):
             color = GREEN if (freq is not None and q is not None) else ORANGE
             self._lbl_test_result.setText("  |  ".join(parts))
             self._lbl_test_result.setStyleSheet(f"color: {color}; font-size: 12px; font-weight: bold;")
+
+        # Debug Info — 이미지 해상도 + ROI 좌표 + raw OCR 텍스트
+        img_w, img_h = self._canvas.image_size()
+        fx, fy, fw, fh = self._roi.get("frequency", (0, 0, 0, 0))
+        qx, qy, qw, qh = self._roi.get("q_factor", (0, 0, 0, 0))
+        debug_lines = [
+            f"Image:    {img_w} × {img_h}",
+            f"Freq ROI: ({fx}, {fy}, {fw}, {fh})",
+            f"  raw → {reading.raw_frequency_text!r}",
+            f"Q ROI:    ({qx}, {qy}, {qw}, {qh})",
+            f"  raw → {reading.raw_q_text!r}",
+        ]
+        self._lbl_debug_info.setText("\n".join(debug_lines))
 
     # ─── 저장 전 유효성 검증 (Phase 7A-B3) ───
 

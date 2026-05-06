@@ -308,6 +308,13 @@ class UIBuilderMixin:
         btn_del_tab.clicked.connect(self._remove_current_probe_tab)
         ctrl_row.addWidget(btn_del_tab)
 
+        btn_refresh_ocr = QPushButton("Refresh OCR")
+        btn_refresh_ocr.setToolTip(
+            "저장된 ROI 로 현재 카드들의 OCR 을 재실행합니다 (수기 입력값 덮어씀)"
+        )
+        btn_refresh_ocr.clicked.connect(self._refresh_manual_ocr)
+        ctrl_row.addWidget(btn_refresh_ocr)
+
         btn_reset = QPushButton("Reset")
         btn_reset.clicked.connect(self._reset_manual_all)
         ctrl_row.addWidget(btn_reset)

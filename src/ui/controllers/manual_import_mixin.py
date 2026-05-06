@@ -560,6 +560,91 @@ class ManualImportMixin:
         self.logger.section("수동 모드 초기화")
         self.logger.ok("모든 데이터가 초기화되었습니다")
 
+    # ─── OCR 재실행 (Refresh) ───
+
+    def _refresh_manual_ocr(self):
+        """저장된 ROI 로 현재 로드된 모든 카드의 OCR 을 재실행.
+
+        ROI Calibrator 에서 ROI 좌표를 변경/저장한 뒤, 폴더 재로드 없이
+        기존 카드들에 새 ROI 를 즉시 적용하기 위한 워크플로우 단축 기능.
+        OCR 결과가 None 이면 슬롯의 기존 값(수기 입력 등)은 그대로 유지된다.
+        """
+        if not self.measurement_set or not self.measurement_set.slots:
+            self.logger.warn("재적용할 데이터가 없습니다")
+            return
+
+        items_by_probe: dict[str, list[tuple[int, str]]] = {}
+        for slot in self.measurement_set.slots:
+            if slot.image_path:
+                items_by_probe.setdefault(
+                    slot.probe_type or "Default", []
+                ).append((slot.slot_index, slot.image_path))
+
+        total = sum(len(v) for v in items_by_probe.values())
+        if total == 0:
+            self.logger.warn("재OCR 가능한 이미지 슬롯이 없습니다")
+            return
+
+        reply = QMessageBox.question(
+            self,
+            "OCR 재실행",
+            f"새 ROI 로 {total}개 카드의 OCR 을 재실행합니다.\n"
+            f"수기 입력값도 덮어씌워집니다. 계속하시겠습니까?",
+            QMessageBox.Yes | QMessageBox.No,
+        )
+        if reply != QMessageBox.Yes:
+            return
+
+        # 진행 중 OCR 안전 처리: 기존 워커 완료 대기 + 배치 무효화
+        self._ocr_pool.waitForDone(3000)
+        self._ocr_batches.clear()
+
+        # 해상도별 ROI 캐시 (기존 _on_images_dropped 와 동일 패턴)
+        try:
+            from PIL import Image  # type: ignore
+        except ImportError:
+            Image = None  # type: ignore[assignment]
+
+        roi_cache: dict[str, object] = {}
+
+        def _resolve_roi(image_path: str):
+            if Image is None or not hasattr(self, "_db_conn"):
+                return None
+            try:
+                with Image.open(image_path) as im:
+                    w, h = im.size
+            except (FileNotFoundError, OSError):
+                return None
+            key = resolution_key(w, h)
+            if key not in roi_cache:
+                roi_cache[key] = load_roi_for(self._db_conn, w, h)
+            return roi_cache[key]
+
+        self.logger.section(f"OCR 재실행: {total}개 카드")
+
+        # probe_type 별로 batch 분리 — _on_ocr_done 의 요약 로그가 그룹별로 출력됨
+        for probe_type, items in items_by_probe.items():
+            batch_id = uuid.uuid4().hex
+            self._ocr_batches[batch_id] = {
+                "total": len(items),
+                "done": 0,
+                "success": 0,
+                "probe_type": probe_type,
+                "unresolved_sizes": set(),
+            }
+            for slot_index, image_path in items:
+                active_roi = _resolve_roi(image_path)
+                runnable = OcrRunnable(
+                    slot_index=slot_index,
+                    image_path=image_path,
+                    roi=active_roi,
+                    batch_id=batch_id,
+                )
+                runnable.signals.finished.connect(self._on_ocr_done)
+                self._ocr_pool.start(runnable)
+
+        self._update_progress()
+
     # ─── 열 수 변경 ───
 
     def _on_manual_columns_changed(self, n: int):
