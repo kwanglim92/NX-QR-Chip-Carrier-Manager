@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from PySide6.QtWidgets import QMainWindow
 
+from src.core.models import MeasurementSet
 from src.ui.controllers.ui_builder_mixin import UIBuilderMixin
 from src.ui.controllers.atx_import_mixin import ATXImportMixin
 from src.ui.controllers.manual_import_mixin import ManualImportMixin
@@ -49,15 +50,48 @@ class ChipCarrierManagerApp(
 
     def _init_shared_state(self):
         self.current_mode: str = "atx"
-        self.measurement_set = None
+        self._active_data_mode: str = "atx"
+        self.measurement_sets: dict[str, MeasurementSet | None] = {
+            "atx": None,
+            "manual": None,
+        }
         self.selected_slot_index: int = 0
 
-    def _auto_save_to_db(self) -> int | None:
-        """현재 measurement_set을 DB에 자동 저장."""
-        if not self.measurement_set:
+    @property
+    def measurement_set(self) -> MeasurementSet | None:
+        """Return the active ATX/Manual measurement set for legacy mixins."""
+        mode = (
+            self.current_mode
+            if self.current_mode in self.measurement_sets
+            else self._active_data_mode
+        )
+        return self.measurement_sets.get(mode)
+
+    @measurement_set.setter
+    def measurement_set(self, value: MeasurementSet | None) -> None:
+        if value is None:
+            mode = (
+                self.current_mode
+                if self.current_mode in self.measurement_sets
+                else self._active_data_mode
+            )
+            self.measurement_sets[mode] = None
+            return
+
+        mode = (
+            value.mode
+            if value.mode in self.measurement_sets
+            else self._active_data_mode
+        )
+        self.measurement_sets[mode] = value
+
+    def _auto_save_to_db(self, measurement_set: MeasurementSet | None = None) -> int | None:
+        """현재 또는 지정한 measurement_set을 DB에 자동 저장."""
+        target = measurement_set or self.measurement_set
+        if not target:
             return None
         from src.core.database import save_measurement_set
-        ms_id = save_measurement_set(self._db_conn, self.measurement_set)
+        ms_id = save_measurement_set(self._db_conn, target)
         return ms_id
 
     def closeEvent(self, event):

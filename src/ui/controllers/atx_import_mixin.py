@@ -1,11 +1,13 @@
 """ATX 폴더 로드 워크플로우."""
 from __future__ import annotations
 
-from PySide6.QtWidgets import QFileDialog
+from dataclasses import replace
+
+from PySide6.QtWidgets import QFileDialog, QDialog
 
 from src.core.atx_parser import load_atx_folder
-from src.core.models import truncate_measurement_value
 from src.core.slot_mapper import format_full_label
+from src.ui.dialogs.slot_edit_dialog import SlotEditDialog
 
 
 class ATXImportMixin:
@@ -72,61 +74,53 @@ class ATXImportMixin:
         self.logger.info(
             f"{label} 선택 — Freq: {slot.format_frequency()}, Q: {slot.format_q()}"
         )
-        self._load_atx_slot_edit(slot)
 
-    def _load_atx_slot_edit(self, slot):
-        """Load the selected ATX slot into the edit panel."""
-        if not hasattr(self, "atx_edit_group"):
-            return
-
-        try:
-            label = format_full_label(slot.slot_code)
-        except (ValueError, IndexError):
-            label = f"#{slot.slot_index + 1}"
-
-        self.atx_edit_group.setEnabled(True)
-        self.atx_edit_label.setText(label)
-        self.atx_edit_probe.setText(slot.probe_type or self.measurement_set.probe_type or "")
-        self.atx_edit_freq.setValue(truncate_measurement_value(slot.frequency) or 0)
-        self.atx_edit_q.setValue(truncate_measurement_value(slot.q_factor) or 0)
-        self.atx_edit_qr.setText(slot.qr_id or "")
-
-        source = slot.source or "summary_csv"
-        idx = self.atx_edit_source.findData(source)
-        self.atx_edit_source.setCurrentIndex(idx if idx >= 0 else 0)
-
-    def _apply_atx_slot_edit(self):
-        """Apply the edit panel values to the currently selected ATX slot."""
+    def _open_atx_slot_edit_dialog(self, slot_index: int):
+        """Open the ATX slot edit dialog from the card context menu."""
         if not self.measurement_set:
             self.logger.warn("수정할 ATX 데이터가 없습니다")
             return
 
-        slot = self.measurement_set.find_slot_by_index(self.selected_slot_index)
+        slot = self.measurement_set.find_slot_by_index(slot_index)
         if not slot:
             self.logger.warn("수정할 슬롯을 선택하세요")
             return
 
-        qr_id = self.atx_edit_qr.text().strip() or None
-        if qr_id:
-            for other in self.measurement_set.slots:
-                if other.slot_index != slot.slot_index and other.qr_id == qr_id:
-                    self.qr_input.show_error(f"중복 QR: {qr_id}")
-                    self.qr_input.focus_input()
-                    return
+        self._on_slot_selected(slot_index)
+        dialog_slot = replace(
+            slot,
+            probe_type=slot.probe_type or self.measurement_set.probe_type or None,
+        )
+        dlg = SlotEditDialog(dialog_slot, parent=self)
 
-        freq = truncate_measurement_value(self.atx_edit_freq.value())
-        q = truncate_measurement_value(self.atx_edit_q.value())
+        while dlg.exec() == QDialog.Accepted:
+            updated = dlg.result_data()
+            qr_id = updated.qr_id
+            if qr_id and self._has_duplicate_qr(slot.slot_index, qr_id):
+                self.qr_input.show_error(f"중복 QR: {qr_id}")
+                self.qr_input.focus_input()
+                dlg.focus_qr_input()
+                continue
 
-        slot.probe_type = self.atx_edit_probe.text().strip() or None
-        slot.frequency = freq if freq is not None and freq > 0 else None
-        slot.q_factor = q if q is not None and q > 0 else None
-        slot.qr_id = qr_id
-        slot.source = self.atx_edit_source.currentData() or "summary_csv"
+            slot.probe_type = updated.probe_type
+            slot.frequency = updated.frequency
+            slot.q_factor = updated.q_factor
+            slot.qr_id = updated.qr_id
+            slot.source = updated.source
 
-        self.slot_grid.update_slot(slot)
-        self._on_slot_selected(slot.slot_index)
-        self._update_progress()
-        self._auto_save_to_db()
+            self.slot_grid.update_slot(slot)
+            self._on_slot_selected(slot.slot_index)
+            self._update_progress()
+            self._auto_save_to_db()
 
-        label = self.atx_edit_label.text()
-        self.logger.ok(f"슬롯 수정 완료: {label}")
+            self.logger.ok(f"슬롯 수정 완료: {dlg.slot_label.text()}")
+            return
+
+    def _has_duplicate_qr(self, slot_index: int, qr_id: str) -> bool:
+        if not self.measurement_set:
+            return False
+
+        for other in self.measurement_set.slots:
+            if other.slot_index != slot_index and other.qr_id == qr_id:
+                return True
+        return False

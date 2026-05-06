@@ -29,6 +29,7 @@ _UNSET = object()
 class MeasurementCard(QFrame):
     clicked = Signal(int)    # slot_index
     reset_qr = Signal(int)   # slot_index
+    edit_requested = Signal(int)  # slot_index
 
     def __init__(self, slot_index: int, slot_code: str, parent=None):
         super().__init__(parent)
@@ -36,6 +37,7 @@ class MeasurementCard(QFrame):
         self.slot_code = slot_code
         self._has_freq = False
         self._has_qr = False
+        self._qr_id: str | None = None
 
         self.setProperty("card", "true")
         self.setProperty("state", "empty")
@@ -111,9 +113,11 @@ class MeasurementCard(QFrame):
         if qr_id is _UNSET:
             pass
         elif qr_id:
+            self._qr_id = qr_id
             self._qr_label.setText(f"QR: {qr_id}")
             self._has_qr = True
         else:
+            self._qr_id = None
             self._qr_label.setText("")
             self._has_qr = False
 
@@ -170,18 +174,23 @@ class MeasurementCard(QFrame):
 
     def reset_qr_display(self):
         """Clear QR display and revert badge/state."""
+        self._qr_id = None
         self._qr_label.setText("")
         self._has_qr = False
         self._update_badge()
         self._update_state()
 
     def _show_context_menu(self, pos):
-        if not self._has_qr:
-            return
         menu = QMenu(self)
-        action = menu.addAction("Reset QR")
-        if menu.exec(self.mapToGlobal(pos)) == action:
-            self.reset_qr.emit(self.slot_index)
+        edit_action = menu.addAction("수정…")
+        edit_action.triggered.connect(lambda: self.edit_requested.emit(self.slot_index))
+
+        if self._has_qr:
+            menu.addSeparator()
+            reset_action = menu.addAction("Reset QR")
+            reset_action.triggered.connect(lambda: self.reset_qr.emit(self.slot_index))
+
+        menu.exec(self.mapToGlobal(pos))
 
     def mousePressEvent(self, event):
         self.clicked.emit(self.slot_index)

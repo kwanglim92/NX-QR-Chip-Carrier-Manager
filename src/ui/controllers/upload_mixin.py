@@ -97,13 +97,22 @@ class UploadMixin:
         if self._ensure_logged_in():
             self._start_upload(with_images=True)
 
+    def _get_upload_measurement_set(self):
+        if (
+            getattr(self, "current_mode", "") == "export"
+            and hasattr(self, "_get_export_measurement_set")
+        ):
+            return self._get_export_measurement_set()
+        return self.measurement_set
+
     def _start_upload(self, with_images: bool):
-        if not self.measurement_set:
+        ms = self._get_upload_measurement_set()
+        if not ms or not ms.slots:
             self.logger.warn("내보낼 데이터가 없습니다")
             return
 
         # 완성도 체크
-        incomplete = [s for s in self.measurement_set.slots if not s.is_complete]
+        incomplete = [s for s in ms.slots if not s.is_complete]
         if incomplete:
             reply = QMessageBox.question(
                 self,
@@ -117,9 +126,9 @@ class UploadMixin:
 
         # 임시 CSV 생성
         from src.core.csv_exporter import generate_csv_rows
-        import tempfile, os
+        import tempfile
 
-        rows = generate_csv_rows(self.measurement_set)
+        rows = generate_csv_rows(ms)
         if len(rows) <= 1:
             self.logger.warn("업로드할 데이터가 없습니다 (QR ID가 매칭된 슬롯 없음)")
             return
@@ -136,7 +145,7 @@ class UploadMixin:
         image_paths = None
         if with_images:
             image_paths = []
-            for slot in self.measurement_set.slots:
+            for slot in ms.slots:
                 if slot.qr_id and slot.image_path:
                     p = Path(slot.image_path)
                     if p.exists():
@@ -154,7 +163,7 @@ class UploadMixin:
         self._upload_thread.started.connect(self._upload_worker.run)
         self._upload_worker.progress.connect(self._on_upload_progress)
         self._upload_worker.finished.connect(
-            lambda result: self._on_upload_finished(result, csv_path)
+            lambda result, db_id=ms.db_id: self._on_upload_finished(result, csv_path, db_id)
         )
         self._upload_worker.finished.connect(self._upload_thread.quit)
 
@@ -167,7 +176,7 @@ class UploadMixin:
     def _on_upload_progress(self, message: str):
         self.logger.info(message)
 
-    def _on_upload_finished(self, result: UploadResult, csv_path: str):
+    def _on_upload_finished(self, result: UploadResult, csv_path: str, ms_db_id: int | None):
         import os
         try:
             os.unlink(csv_path)
@@ -184,12 +193,12 @@ class UploadMixin:
             self.logger.ok(msg)
             self._statusbar.showMessage("서버 업로드 완료")
 
-            if self.measurement_set and self.measurement_set.db_id:
+            if ms_db_id:
                 from src.core.database import update_upload_status
                 from datetime import datetime
                 update_upload_status(
                     self._db_conn,
-                    self.measurement_set.db_id,
+                    ms_db_id,
                     "uploaded",
                     datetime.now().isoformat(),
                 )
@@ -197,10 +206,10 @@ class UploadMixin:
             self.logger.error(f"업로드 실패: {result.message}")
             self._statusbar.showMessage("서버 업로드 실패")
 
-            if self.measurement_set and self.measurement_set.db_id:
+            if ms_db_id:
                 from src.core.database import update_upload_status
                 update_upload_status(
                     self._db_conn,
-                    self.measurement_set.db_id,
+                    ms_db_id,
                     "failed",
                 )

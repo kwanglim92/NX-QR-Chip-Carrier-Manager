@@ -200,42 +200,6 @@ class UIBuilderMixin:
 
         left_layout.addWidget(img_group, 1)
 
-        # 선택 슬롯 편집 패널
-        self.atx_edit_group = QGroupBox("Selected Slot Edit")
-        edit_form = QFormLayout(self.atx_edit_group)
-
-        self.atx_edit_label = QLabel("-")
-        edit_form.addRow("Slot:", self.atx_edit_label)
-
-        self.atx_edit_probe = QLineEdit()
-        edit_form.addRow("Probe Type:", self.atx_edit_probe)
-
-        self.atx_edit_freq = QSpinBox()
-        self.atx_edit_freq.setRange(0, 999999)
-        self.atx_edit_freq.setSpecialValueText(" ")
-        edit_form.addRow("Frequency (KHz):", self.atx_edit_freq)
-
-        self.atx_edit_q = QSpinBox()
-        self.atx_edit_q.setRange(0, 999999)
-        self.atx_edit_q.setSpecialValueText(" ")
-        edit_form.addRow("Q:", self.atx_edit_q)
-
-        self.atx_edit_qr = QLineEdit()
-        edit_form.addRow("QR ID:", self.atx_edit_qr)
-
-        self.atx_edit_source = QComboBox()
-        self.atx_edit_source.addItem("ATX Summary", "summary_csv")
-        self.atx_edit_source.addItem("Manual", "manual_entry")
-        edit_form.addRow("Source:", self.atx_edit_source)
-
-        self.btn_apply_atx_edit = QPushButton("Apply Slot Edit")
-        self.btn_apply_atx_edit.setProperty("accent", "true")
-        self.btn_apply_atx_edit.clicked.connect(self._apply_atx_slot_edit)
-        edit_form.addRow("", self.btn_apply_atx_edit)
-
-        self.atx_edit_group.setEnabled(False)
-        left_layout.addWidget(self.atx_edit_group)
-
         # 로그 (통일 스타일 — 레벨 필터 + 1000라인 자동 회전)
         atx_log_grp, atx_log_te, _atx_log_combo = self._make_log_box(max_h=150)
         left_layout.addWidget(atx_log_grp)
@@ -252,6 +216,7 @@ class UIBuilderMixin:
         self.slot_grid = SlotGridWidget()
         self.slot_grid.slot_clicked.connect(self._on_slot_selected)
         self.slot_grid.slot_reset_qr.connect(self._on_slot_reset_qr)
+        self.slot_grid.slot_edit_requested.connect(self._open_atx_slot_edit_dialog)
         right_layout.addWidget(self.slot_grid, 1)
 
         splitter.addWidget(right)
@@ -457,15 +422,21 @@ class UIBuilderMixin:
 
         splitter.addWidget(left)
 
-        # 우측: 통합 슬롯 테이블
+        # 우측: 모드별 슬롯 테이블
         right = QWidget()
         right.setMinimumWidth(400)
         right_layout = QVBoxLayout(right)
         right_layout.setContentsMargins(0, 0, 0, 0)
 
-        self.slot_detail_table = SlotDetailTable()
-        self.slot_detail_table.slot_selected.connect(self._on_slot_detail_selected)
-        right_layout.addWidget(self.slot_detail_table, 1)
+        self.export_tabs = QTabWidget()
+        self.export_atx_table = SlotDetailTable()
+        self.export_manual_table = SlotDetailTable()
+        self.export_atx_table.slot_selected.connect(self._on_export_slot_detail_selected)
+        self.export_manual_table.slot_selected.connect(self._on_export_slot_detail_selected)
+        self.export_tabs.addTab(self.export_atx_table, "ATX")
+        self.export_tabs.addTab(self.export_manual_table, "Manual")
+        self.export_tabs.currentChanged.connect(self._on_export_tab_changed)
+        right_layout.addWidget(self.export_tabs, 1)
 
         splitter.addWidget(right)
         splitter.setSizes([350, 650])
@@ -702,11 +673,15 @@ class UIBuilderMixin:
             btn.style().polish(btn)
 
         self.current_mode = mode
+        if mode in ("atx", "manual"):
+            self._active_data_mode = mode
 
         # QR 바는 ATX/Manual 모드에서만 표시
         self._bottom_bar.setVisible(mode in ("atx", "manual"))
 
         if mode == "export":
+            if hasattr(self, "export_tabs"):
+                self.export_tabs.setCurrentIndex(0 if self._active_data_mode == "atx" else 1)
             self._refresh_export_view()
         elif mode == "history":
             if hasattr(self, '_db_conn'):

@@ -18,6 +18,7 @@ from src.ui.widgets.measurement_card import MeasurementCard, CARD_HEIGHT
 class SlotGridWidget(QWidget):
     slot_clicked = Signal(int)    # slot_index
     slot_reset_qr = Signal(int)   # slot_index
+    slot_edit_requested = Signal(int)  # slot_index
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -105,6 +106,7 @@ class SlotGridWidget(QWidget):
             )
             card.clicked.connect(self._on_card_clicked)
             card.reset_qr.connect(self._on_card_reset_qr)
+            card.edit_requested.connect(self._on_card_edit_requested)
             grid.addWidget(card, row, col)
             self._cards[slot.slot_index] = card
 
@@ -147,6 +149,9 @@ class SlotGridWidget(QWidget):
 
     def _on_card_reset_qr(self, slot_index: int):
         self.slot_reset_qr.emit(slot_index)
+
+    def _on_card_edit_requested(self, slot_index: int):
+        self.slot_edit_requested.emit(slot_index)
 
     def _clear(self):
         self._cards.clear()
