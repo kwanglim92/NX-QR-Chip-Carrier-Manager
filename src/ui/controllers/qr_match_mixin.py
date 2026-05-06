@@ -131,17 +131,20 @@ class QRMatchMixin:
         self._auto_save_to_db()
 
     def _update_progress(self):
-        if not self.measurement_set:
-            self.progress_bar.setMaximum(0)
+        ms = self.measurement_set
+        total = ms.total_count if ms else 0
+        matched = ms.matched_count if ms else 0
+
+        if total == 0:
+            # Qt busy(indeterminate) 모드 회피: setRange(0, 1) 로 명시적 0% 정지 상태
+            self.progress_bar.setRange(0, 1)
             self.progress_bar.setValue(0)
+            self._statusbar.showMessage("매칭 진행: 0/0")
             return
 
-        total = self.measurement_set.total_count
-        matched = self.measurement_set.matched_count
-        self.progress_bar.setMaximum(total)
+        self.progress_bar.setRange(0, total)
         self.progress_bar.setValue(matched)
-
-        if matched == total and total > 0:
+        if matched == total:
             self._statusbar.showMessage(f"모든 {total}개 슬롯 매칭 완료!")
         else:
             self._statusbar.showMessage(f"매칭 진행: {matched}/{total}")

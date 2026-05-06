@@ -547,6 +547,7 @@ class ManualImportMixin:
         # 상태 리셋
         self._manual_slot_counter = 0
         self.selected_manual_index = -1
+        self._ocr_batches.clear()  # in-flight OCR 결과를 안전하게 무시 (batch None 가드 활용)
         self.measurement_set = MeasurementSet(mode="manual")
 
         # UI 리셋
