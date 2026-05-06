@@ -2,44 +2,46 @@
 
 ## 완료
 
-- `.agent/rules.md`와 `.agent/skills/registry.json` 확인 완료
-- 현재 브랜치 및 git 상태 확인 완료
-- `docs/WORKLOG.md` 부재 확인 완료
-- `docs/WORKLOG.md` 생성 완료
-- Frequency/Q 측정값 소수점 버림 정수화 구현 완료
-  - ATX `Summary.csv` 파싱값 정수화
-  - OCR 추출값 정수화
-  - Manual 입력 적용값 정수화
-  - 기존 소수 저장값도 화면/CSV 표시 시 버림 처리
-- ATX 선택 슬롯 편집 패널 구현 완료
-  - Probe Type, Frequency, Q, QR ID, Source 수정 지원
-  - QR ID 중복 검사 적용
-  - 수정 후 카드 갱신, 진행률 갱신, DB 자동 저장 연결
-- Port 섹션 표시 순서 변경 완료
-  - Port 내림차순 표시 적용
-  - Port4 파싱 유지 확인
-- 테스트/검증 환경 구성 완료
-  - `pytest`, `pytest-qt`, `PySide6` 및 프로젝트 의존성 설치 완료
-  - 관련 테스트: `16 passed, 6 skipped`
-  - 전체 테스트: `62 passed, 15 skipped`
+- `.agent/rules.md`, `.agent/skills/registry.json`, 관련 Skill 문서 확인 완료
+- Phase 10 UX 개선 구현 완료
+  - ATX 좌측 `Selected Slot Edit` 그룹과 `Apply Slot Edit` 버튼 제거
+  - ATX 슬롯 카드 우클릭 `수정...` 메뉴 및 `SlotEditDialog` 추가
+  - 다이얼로그 OK 전 원본 `SlotData` 미변경, OK 후 카드/진행률/DB 자동 저장 반영
+  - 기존 QR 중복 검사 유지
+- Export 탭 ATX/Manual 분리 구현 완료
+  - Export 우측 슬롯 테이블을 `ATX` / `Manual` 2탭 구조로 변경
+  - `measurement_sets["atx"|"manual"]` 상태 분리 추가
+  - Save CSV, CSV+Images, 이미지 미리보기, 진행률을 활성 Export 탭 기준으로 변경
+  - Upload CSV, Upload CSV+Images도 활성 Export 탭 기준으로 변경
+  - 업로드 완료 시 시작 시점의 `db_id`를 캡처해 잘못된 레코드 상태 갱신 방지
+- 검증 완료
+  - `python -m py_compile ...` 통과
+  - `SlotEditDialog` 원본 미변경 스모크 테스트 통과
+  - 전체 테스트: `62 passed, 15 skipped` (`77 collected`)
 
 ## 진행중
 
-- `AGENTS.md`가 새 파일로 추가되어 있으나 아직 git 추적 대상은 아님
-- 측정값 정수화/ATX 편집/Port 배치 변경 코드가 작업트리에 수정 상태로 남아 있음
-- 신규 테스트 파일 `tests/test_measurement_values.py`가 아직 git 추적 대상은 아님
+- Phase 10 변경 파일이 작업트리에 수정 상태로 남아 있음
+  - `src/ui/controllers/atx_import_mixin.py`
+  - `src/ui/controllers/export_mixin.py`
+  - `src/ui/controllers/ui_builder_mixin.py`
+  - `src/ui/controllers/upload_mixin.py`
+  - `src/ui/main_window.py`
+  - `src/ui/widgets/measurement_card.py`
+  - `src/ui/widgets/slot_grid_widget.py`
+- 신규 파일 `src/ui/dialogs/slot_edit_dialog.py`가 아직 git 추적 대상은 아님
+- 커밋 전략은 아직 미결정
 
 ## 다음할일
 
-- 필요 시 `AGENTS.md`를 스테이징/커밋 대상으로 포함할지 결정
-- `docs/WORKLOG.md`를 스테이징/커밋 대상으로 포함할지 결정
-- 이번 기능 변경 파일들을 리뷰 후 스테이징/커밋할지 결정
-- 실제 GUI에서 ATX 폴더 로드 후 선택 슬롯 편집 패널 동작을 수동 확인
-- 실제 ATX 데이터에서 Port2가 Port1 위에 표시되는지 화면 확인
+- 실제 GUI에서 ATX 카드 우클릭 `수정...` 다이얼로그 동작 수동 확인
+- 실제 GUI에서 Edit 그룹 제거 후 `FreqSweep Image` 영역 확대 상태 확인
+- 실제 GUI에서 Export `ATX` / `Manual` 탭 데이터 보존 및 활성 탭 기준 저장/업로드 확인
+- 변경 파일 리뷰 후 스테이징/커밋 범위 결정
+- 커밋 전략 결정
 
 ## 미결이슈
 
-- `AGENTS.md`의 프로젝트명 placeholder `[Project Name]`이 아직 실제 프로젝트명으로 치환되지 않음
-- `.agent/skills/registry.json`의 `"project"` 값이 아직 `"Master Skills Template"`로 남아 있음
+- 실제 GUI 시각 검증은 아직 수행하지 않음
 - OCR 실제 샘플 기반 테스트 일부는 샘플/Tesseract 조건에 따라 skip됨
-- PySide6/pytest 실행 스크립트 경로가 PATH에 등록되어 있지 않아 번들 Python의 `-m pytest` 방식으로 실행 필요
+- PySide6/pytest 실행 스크립트 경로가 PATH에 등록되어 있지 않아 `python -m pytest` 방식으로 실행 필요
