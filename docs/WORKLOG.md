@@ -23,71 +23,77 @@
   - 상세 패널과 이미지 미리보기 영역 확대
   - History 모드에서만 상단 `Calibrate OCR` 버튼 숨김 처리
   - `History > Statistics` 상단 KPI/리스트/차트 레이아웃 최적화
-  - `Period` 필터 아래 구분선 추가
-  - `Today` 영역과 `Period Summary` 리스트를 좌우 5:5 비율로 확장
-  - `Today` 영역과 리스트 사이에 세로 구분선 추가
-  - 고정폭 기반 리스트 배치를 제거해 상단 공간 낭비 축소
 - Manual Capture-First 자동화 기능 구현 완료
-  - Manual Mode에 `📸 Capture` 메뉴 버튼 추가
-  - `Region Capture`와 `Window Capture` 모드 추가
-  - `Region Capture`: 드래그 영역 캡처
-  - `Window Capture`: 클릭한 Windows 창 전체 캡처
-  - 캡처 이미지는 앱 데이터 폴더의 `captures/{YYYYMMDD}/{probe_type}/pending_XXXX.png`로 저장
+  - Manual Mode `📸 Capture` 메뉴 버튼 (Region/Window)
+  - 캡처 이미지 `captures/{YYYYMMDD}/{probe_type}/pending_XXXX.png` 저장
   - 캡처 직후 Manual 카드 자동 생성/선택, QR 입력창 자동 포커스
-  - QR 매칭 후 `slot_XX_{QRID}.png` 형식으로 캡처 파일명 자동 확정
+  - QR 매칭 후 `slot_XX_{QRID}.png` 형식으로 파일명 자동 확정
   - OCR 진행 중 QR을 먼저 찍어도 OCR 완료 후 안전하게 파일명 확정
 - Manual 카드 삭제 후 순번 안정화 구현 완료
-  - 잘못 캡처한 카드를 삭제하면 남은 카드가 `#1, #2, #3...`으로 재정렬
-  - `SlotData.slot_index`, `slot_code`, `ManualCard.slot_index`, grid key, 선택 상태, `_manual_slot_counter` 동기화
+  - 삭제 후 남은 카드가 `#1, #2, #3...`으로 재정렬
   - 앱 내부 캡처 파일은 재정렬된 순번에 맞춰 `slot_XX_{QRID}.png`로 파일명 재동기화
-  - 외부 Load/drag & drop 이미지 파일명은 변경하지 않음
-- Capture 단축키 구현 완료
-  - `F6`: `Region Capture`
-  - `F7`: `Window Capture`
-  - `QAction`/`QShortcut` 중복 등록 문제 제거
-  - `QAction::event: Ambiguous shortcut overload` 경고 해결
-  - Manual Mode가 아닐 때는 단축키로 캡처가 시작되지 않도록 guard 추가
+- Capture 단축키 구현 완료 (`F6`: Region, `F7`: Window)
+- **Zoom-In / Zoom-Out 분리 캡처 기능 구현 완료 (이번 작업)**
+  - `src/core/capture_files.py`에 헬퍼 6개 + 상수 3개 추가
+    - `ZOOMIN_SUBDIR`, `ZOOMOUT_SUBDIR`, `ZOOMOUT_SUFFIX = "` "`
+    - `zoom_dir`, `zoom_filename`, `is_zoomout_filename`
+    - `next_pending_capture_pair`, `final_capture_pair`, `derive_zoomout_path`
+  - 저장 구조: `captures/{YYYYMMDD}/{probe}/{zoomin,zoomout}/`
+    - Zoom-In: `slot_NN_QR.png`
+    - Zoom-Out: `slot_NN_QR` `.png` (stem에 backtick suffix)
+  - 캡처 워크플로우 분리 (probe SW에서 Zoom-Out 모드 전환 시간 확보)
+    - `_capture_manual_image()` → Zoom-In 단일 캡처, 새 슬롯 생성
+    - 신규 `_capture_manual_image_zoomout()` → 현재 선택된 카드에 Zoom-Out 첨부
+    - 단축키: `F6` Zoom-In Region, `F7` Zoom-In Window, `F8` Zoom-Out Region, `F9` Zoom-Out Window
+    - 📸 Capture 드롭다운 4항목으로 재구성
+  - 폴더 업로드 시 backtick 접미사 파일 자동 필터 (zoom-out 중복 슬롯 방지)
+  - QR 확정 시 zoom-out sibling도 동시 rename
+  - 이미지 뷰어 상단 `Zoom-In | Zoom-Out` 토글 버튼 추가
+    - `_apply_zoom_toggle_visual(level)` 헬퍼: `accent` 동적 프로퍼티를 활성 버튼으로 옮기고 `style().unpolish/polish` 호출하여 즉시 repaint (초기 토글 색상 stuck 버그 해결)
+    - Zoom-Out 이미지 없는 카드 선택 시 자동으로 Zoom-In 복귀 + 안내 로그
+    - 카드 전환 시 토글 항상 Zoom-In으로 reset
+  - CSV Export 확장: `ZOOMIN/` + `ZOOMOUT/` 두 폴더 동시 출력
+  - Bundle Export 확장: ZIP `images/` 안에 zoom-in + zoom-out 양쪽 포함
+  - DB 스키마/`SlotData` 변경 없음 (zoom-out 경로는 zoom-in에서 결정적으로 파생)
 - 테스트/검증 완료
-  - `python -m py_compile ...` 통과
-  - `python -m pytest -q` 통과: `78 passed, 15 skipped` (`93 collected`)
-  - `git diff --check` 통과 (CRLF 변환 경고만 발생)
-  - 신규 테스트 추가
-    - `tests/test_capture_files.py`
-    - `tests/test_manual_slot_order.py`
+  - `tests/test_capture_files.py`에 zoom 헬퍼 단위 테스트 7개 추가
+  - `python -m pytest`: 85 passed / 15 skipped
+  - offscreen smoke test: MainWindow 빌드, 토글 위젯/핸들러/단축키 wiring 확인
+  - E2E smoke: 가짜 zoom-in/zoom-out 쌍 → CSV Export (ZOOMIN+ZOOMOUT) / Bundle ZIP 검증 통과
 
 ## 진행중
 
-- 현재 변경분은 메인 워크트리에 미커밋 상태
+- 이번 변경분은 메인 워크트리에 미커밋 상태
   - `src/core/capture_files.py`
-  - `src/core/manual_slot_order.py`
-  - `src/ui/widgets/screen_capture_overlay.py`
-  - `src/ui/widgets/stats_dashboard.py`
-  - `src/ui/widgets/manual_card.py`
-  - `src/ui/widgets/manual_grid_widget.py`
+  - `src/core/csv_exporter.py`
+  - `src/core/bundle.py`
   - `src/ui/controllers/manual_import_mixin.py`
   - `src/ui/controllers/qr_match_mixin.py`
   - `src/ui/controllers/ui_builder_mixin.py`
-  - `src/ui/controllers/history_mixin.py`
+  - `src/ui/controllers/export_mixin.py`
+  - `src/ui/widgets/screen_capture_overlay.py`
   - `tests/test_capture_files.py`
-  - `tests/test_manual_slot_order.py`
   - `docs/WORKLOG.md`
-- Capture 기능은 사용자 GUI 확인을 거쳐 기본 동작 확인 완료
-- `History > Statistics` 5:5 레이아웃 및 구분선 변경은 방금 반영되어 GUI 최종 확인 대기
-- 현재 작업 범위는 “Manual Capture 자동화 + History Statistics 레이아웃 후속 개선”으로 묶여 있음
+- Zoom-In/Zoom-Out 토글 색상 stuck 버그 수정 완료, 사용자 GUI 재확인 대기
+- 캡처 워크플로우 분리 (Zoom-In→슬롯 생성, Zoom-Out→선택 카드 첨부) 구현 완료, 사용자 GUI 재확인 대기
 
 ## 다음할일
 
-- 실제 GUI에서 `History > Statistics` 상단이 좌우 5:5 비율로 자연스럽게 확장되는지 확인
-- `Period` 필터 아래 가로 구분선과 Today/List 사이 세로 구분선이 과하지 않게 보이는지 확인
-- 1920x1080 기준으로 상단 Today 카드와 `Period Summary` 리스트가 화면 폭을 균형 있게 쓰는지 확인
-- 그래프 영역이 이전보다 더 잘리거나 밀리지 않는지 확인
-- Manual Mode에서 `F6` / `F7` 단축키 최종 동작 재확인
-- `Window Capture`가 실제 Sweep 팝업 창을 동일 크기로 안정적으로 캡처하는지 반복 확인
-- 잘못 캡처한 카드 삭제 후 다음 항목들이 `#1`부터 재정렬되고 Export Manual 탭도 같은 순서로 표시되는지 확인
-- GUI 확인 완료 후 현재 미커밋 변경을 하나의 기능 커밋으로 정리
-- 커밋 전 최종 확인
+- 실제 GUI에서 Zoom-In 캡처 → probe SW에서 Zoom-Out 모드 전환 → Zoom-Out 캡처 흐름 검증
+  - F6/F7 단축키로 Zoom-In 캡처 → 새 카드 생성 확인
+  - F8/F9 단축키로 Zoom-Out 캡처 → 선택된 카드에 sibling 파일 생성 확인
+  - `captures/YYYYMMDD/probe/zoomin/`, `.../zoomout/` 두 폴더에 파일이 정상 저장되는지 확인
+- 이미지 뷰어 토글 동작 재확인
+  - Zoom-In/Zoom-Out 토글 시 파란색 accent가 활성 버튼으로 옮겨가는지
+  - 카드 전환 시 토글이 Zoom-In으로 자동 reset 되는지
+  - Zoom-Out 없는 레거시 카드 선택 후 Zoom-Out 클릭 시 안내 로그 후 Zoom-In 복귀하는지
+- QR 입력 후 zoom-in/zoom-out 양쪽 파일이 동일 stem으로 rename 되는지 확인
+- 폴더 업로드 시 backtick (`) 접미사 파일이 슬롯에 추가되지 않는지 확인
+  - 4 파일 (`chip1.png`, `chip1` `.png`, `chip2.png`, `chip2` `.png`) → 2 슬롯
+- CSV + Images Export 시 `ZOOMIN/`, `ZOOMOUT/` 두 폴더가 모두 생성되고 QR로 정렬되는지 확인
+- 이번 변경분을 하나의 기능 커밋으로 정리 후 push
   - `git status --short --branch`
-  - `python -m pytest -q`
+  - `python -m pytest`
   - `git diff --check`
 
 ## 미결이슈
@@ -96,11 +102,13 @@
 - Windows 배율 125%/150%에서 창 클릭 캡처 좌표가 어긋나는지 최종 확인 필요
 - 캡처 파일 삭제 정책은 아직 미구현
   - 현재 카드 삭제 시 DB/카드만 삭제하고 실제 이미지 파일은 보존
-  - 필요 시 앱 내부 `pending_*.png` 또는 QR 확정 캡처 파일 삭제 옵션을 별도 설계 가능
+  - Zoom-Out sibling도 동일하게 보존 (수동 정리 필요 시 별도 설계)
+- Zoom-Out 캡처 시 기존 파일 존재하면 덮어쓰기 정책
+  - 사용자가 명시적으로 재캡처 의도라고 가정하여 확인 다이얼로그 없이 overwrite
+  - 실수 방지가 필요하면 별도 옵션화 가능
 - `Drive (%)`는 현재 CSV/Upload 열로만 복구됨
   - 과거/Manual 데이터에 Drive 값이 없으면 빈 칸으로 반출
-  - 향후 Drive를 다시 관리 포인트로 복구하면 기존 데이터에 소급 적용 필요
 - `전체 슬롯 업로드` 선택 시 서버가 빈 QR ID 행을 거부할 가능성 있음
-  - 현재 앱은 서버 응답을 그대로 성공/실패 로그로 표시하는 정책
-- OCR 실제 샘플 기반 테스트 일부는 샘플/Tesseract 조건에 따라 skip됨
-- PySide6/pytest 실행 스크립트 경로가 PATH에 등록되어 있지 않아 `python -m pytest` 방식으로 실행 필요
+- OCR 실제 샘플 기반 테스트 일부는 샘플/Tesseract 조건에 따라 skip 됨
+- Backtick (`) 파일명은 Windows에서 합법이지만 shell 명령 노출 시 command substitution 위험
+  - 본 앱은 `Path`/`shutil`로만 다루므로 안전, 외부 도구 연계 시 escape 유의

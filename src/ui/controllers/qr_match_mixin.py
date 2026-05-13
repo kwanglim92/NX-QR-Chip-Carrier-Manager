@@ -3,7 +3,12 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from src.core.capture_files import final_capture_path, is_pending_capture_path
+from src.core.capture_files import (
+    derive_zoomout_path,
+    final_capture_pair,
+    final_capture_path,
+    is_pending_capture_path,
+)
 from src.core.slot_mapper import format_full_label
 
 
@@ -113,7 +118,7 @@ class QRMatchMixin:
     def _finalize_manual_capture_image(
         self, slot, qr_id: str, force: bool = False
     ) -> None:
-        """Rename app-owned pending capture image after QR matching."""
+        """Rename app-owned pending capture image (and zoom-out sibling) after QR matching."""
         if not slot.image_path or not is_pending_capture_path(slot.image_path):
             return
 
@@ -124,23 +129,33 @@ class QRMatchMixin:
             return
 
         old_path = Path(slot.image_path)
-        new_path = final_capture_path(old_path, slot.slot_index, qr_id)
+        new_zoomin, new_zoomout = final_capture_pair(
+            old_path, slot.slot_index, qr_id
+        )
         try:
-            old_path.rename(new_path)
+            old_path.rename(new_zoomin)
         except OSError as exc:
             self.logger.warn(f"캡처 이미지 파일명 확정 실패: {exc}")
             return
 
-        slot.image_path = str(new_path)
+        # Rename zoom-out sibling if present (non-fatal on failure).
+        old_zoomout = derive_zoomout_path(old_path)
+        if old_zoomout.exists():
+            try:
+                old_zoomout.rename(new_zoomout)
+            except OSError as exc:
+                self.logger.warn(f"Zoom-Out 파일명 확정 실패: {exc}")
+
+        slot.image_path = str(new_zoomin)
         for grid in self._manual_grids.values():
             card = grid._cards.get(slot.slot_index)
             if card:
-                card.set_image_path(str(new_path))
+                card.set_image_path(str(new_zoomin))
                 break
 
         if self.selected_manual_index == slot.slot_index:
-            self.manual_image_viewer.load_image(str(new_path))
-        self.logger.info(f"캡처 이미지 파일명 확정: {new_path.name}")
+            self.manual_image_viewer.load_image(str(new_zoomin))
+        self.logger.info(f"캡처 이미지 파일명 확정: {new_zoomin.name}")
         self._auto_save_to_db()
 
     def _on_slot_reset_qr(self, slot_index: int):

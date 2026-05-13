@@ -207,10 +207,14 @@ class ExportMixin:
             csv_name = f"{folder_name}_QR.csv"
             result = export_with_images(ms, output_dir, csv_name, policy)
 
+            zoomout_count = result.get("zoomout_image_count", 0)
+            zoomout_dir = result.get("zoomout_dir", "")
             self.logger.ok(
-                f"내보내기 완료: CSV + {result['image_count']}개 이미지\n"
+                f"내보내기 완료: CSV + Zoom-In {result['image_count']}개 / "
+                f"Zoom-Out {zoomout_count}개 이미지\n"
                 f"  CSV: {result['csv_path']}\n"
-                f"  ZOOMIN: {result['zoomin_dir']}"
+                f"  ZOOMIN: {result['zoomin_dir']}\n"
+                f"  ZOOMOUT: {zoomout_dir}"
             )
             self._statusbar.showMessage(f"내보내기 완료: {output_dir}")
         except Exception as e:

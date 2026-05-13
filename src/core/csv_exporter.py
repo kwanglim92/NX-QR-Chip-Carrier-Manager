@@ -10,6 +10,7 @@ import shutil
 from pathlib import Path
 from typing import Literal
 
+from src.core.capture_files import ZOOMOUT_SUFFIX, derive_zoomout_path
 from src.core.models import MeasurementSet, SlotData, truncate_measurement_value
 
 CSV_EXPORT_QR_ONLY = "qr_only"
@@ -98,10 +99,10 @@ def export_with_images(
     csv_name: str,
     policy: CSVExportPolicy = CSV_EXPORT_QR_ONLY,
 ) -> dict:
-    """CSV + ZOOMIN 폴더 (이미지를 QR ID로 리네임하여 복사).
+    """CSV + ZOOMIN/ZOOMOUT 폴더 (이미지를 QR ID로 리네임하여 복사).
 
     Returns:
-        dict with keys: csv_path, zoomin_dir, image_count
+        dict with keys: csv_path, zoomin_dir, zoomout_dir, image_count, zoomout_image_count
     """
     out = Path(output_dir)
     out.mkdir(parents=True, exist_ok=True)
@@ -110,25 +111,39 @@ def export_with_images(
     csv_path = out / csv_name
     export_csv(ms, str(csv_path), policy)
 
-    # ZOOMIN 폴더 생성 + 이미지 복사
+    # ZOOMIN / ZOOMOUT 폴더 생성 + 이미지 복사
     zoomin = out / "ZOOMIN"
     zoomin.mkdir(exist_ok=True)
+    zoomout = out / "ZOOMOUT"
+    zoomout.mkdir(exist_ok=True)
 
     image_count = 0
+    zoomout_image_count = 0
     for slot in _iter_export_slots(ms, policy):
-        if slot.image_path:
-            src = Path(slot.image_path)
-            if src.exists():
-                dst = _unique_child_path(
-                    zoomin,
-                    _slot_image_basename(slot),
-                    src.suffix,
-                )
-                shutil.copy2(str(src), str(dst))
-                image_count += 1
+        if not slot.image_path:
+            continue
+        src = Path(slot.image_path)
+        if not src.exists():
+            continue
+
+        basename = _slot_image_basename(slot)
+        dst = _unique_child_path(zoomin, basename, src.suffix)
+        shutil.copy2(str(src), str(dst))
+        image_count += 1
+
+        # Zoom-out sibling (best-effort)
+        zo_src = derive_zoomout_path(src)
+        if zo_src.exists():
+            zo_dst = _unique_child_path(
+                zoomout, f"{basename}{ZOOMOUT_SUFFIX}", zo_src.suffix
+            )
+            shutil.copy2(str(zo_src), str(zo_dst))
+            zoomout_image_count += 1
 
     return {
         "csv_path": str(csv_path),
         "zoomin_dir": str(zoomin),
+        "zoomout_dir": str(zoomout),
         "image_count": image_count,
+        "zoomout_image_count": zoomout_image_count,
     }

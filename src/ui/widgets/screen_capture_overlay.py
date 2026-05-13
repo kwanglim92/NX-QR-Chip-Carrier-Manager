@@ -69,17 +69,23 @@ class ScreenCaptureOverlay(QDialog):
 
     MIN_CAPTURE_SIZE = 24
 
-    def __init__(self, capture_mode: str = "region", parent=None) -> None:
+    def __init__(
+        self,
+        capture_mode: str = "region",
+        parent=None,
+        label: str = "Sweep Image",
+    ) -> None:
         super().__init__(parent)
         self._capture_mode = capture_mode
+        self._label = label
         self._start: QPoint | None = None
         self._current: QPoint | None = None
         self._selected_rect: QRect | None = None
         self._selected_screen = None
         self._message = (
-            "Click a Sweep Image window. Esc or right-click to cancel."
+            f"Click a {label} window. Esc or right-click to cancel."
             if capture_mode == "window"
-            else "Drag to capture Sweep Image. Esc or right-click to cancel."
+            else f"Drag to capture {label}. Esc or right-click to cancel."
         )
 
         flags = Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint | Qt.Tool
@@ -136,7 +142,9 @@ class ScreenCaptureOverlay(QDialog):
             local_rect.width() < self.MIN_CAPTURE_SIZE
             or local_rect.height() < self.MIN_CAPTURE_SIZE
         ):
-            self._message = "Selected area is too small. Drag a larger Sweep Image area."
+            self._message = (
+                f"Selected area is too small. Drag a larger {self._label} area."
+            )
             self._start = None
             self._current = None
             self.update()

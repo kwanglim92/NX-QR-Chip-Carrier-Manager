@@ -33,6 +33,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+from src.core.capture_files import ZOOMOUT_SUFFIX, derive_zoomout_path
 from src.core.database import (
     _compute_iso_week,
     save_measurement_set,
@@ -178,6 +179,7 @@ def export_bundle(
                 # 이미지 포함 옵션: 슬롯의 image_path 원본을 images/로 복사하고
                 # 번들 내부 상대 경로로 치환. QR ID가 있으면 QR 기반, 없으면
                 # ms_id+slot_index 기반의 고유 파일명을 사용 (충돌 방지).
+                # Zoom-out sibling 도 동일 base 에 ZOOMOUT_SUFFIX 를 붙여 복사.
                 if include_images:
                     for s in slot_dicts:
                         src = s.get("image_path")
@@ -199,6 +201,18 @@ def export_bundle(
                         shutil.copy2(str(src_p), str(images_dir / dest_name))
                         s["image_path"] = f"{IMAGES_DIR}/{dest_name}"
                         image_count += 1
+
+                        # Zoom-out sibling (best-effort, manifest 카운트엔 포함 안함)
+                        zo_src = derive_zoomout_path(src_p)
+                        if zo_src.exists() and zo_src.is_file():
+                            zo_ext = zo_src.suffix or ".png"
+                            zo_stem = Path(dest_name).stem
+                            zo_name = f"{zo_stem}{ZOOMOUT_SUFFIX}{zo_ext}"
+                            j = 1
+                            while (images_dir / zo_name).exists():
+                                zo_name = f"{zo_stem}{ZOOMOUT_SUFFIX}_{j}{zo_ext}"
+                                j += 1
+                            shutil.copy2(str(zo_src), str(images_dir / zo_name))
                 else:
                     # 이미지 미포함: image_path는 원본 경로 그대로 (재매칭용 참조)
                     pass

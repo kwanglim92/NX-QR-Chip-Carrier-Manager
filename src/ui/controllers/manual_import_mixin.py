@@ -9,8 +9,12 @@ from PySide6.QtWidgets import QApplication, QDialog, QInputDialog, QMessageBox, 
 
 from src.core.capture_files import (
     captures_root,
+    derive_zoomout_path,
+    final_capture_pair,
     final_capture_path,
     is_app_capture_path,
+    is_zoomout_filename,
+    next_pending_capture_pair,
     next_pending_capture_path,
     sanitize_capture_filename_part,
 )
@@ -151,6 +155,7 @@ class ManualImportMixin:
                 "",
                 "이미지 파일 (*.jpg *.jpeg *.png *.bmp);;모든 파일 (*)",
             )
+            paths = self._filter_zoomin_only(paths)
         elif clicked is btn_folder:
             folder = QFileDialog.getExistingDirectory(self, "이미지 폴더 선택")
             if not folder:
@@ -158,7 +163,7 @@ class ManualImportMixin:
             paths = self._scan_folder_for_images(folder)
             if not paths:
                 QMessageBox.information(
-                    self, "알림", "선택한 폴더에서 이미지 파일을 찾을 수 없습니다."
+                    self, "알림", "선택한 폴더에서 Zoom-In 이미지 파일을 찾을 수 없습니다."
                 )
                 return
         else:
@@ -167,18 +172,41 @@ class ManualImportMixin:
         if paths:
             self._on_images_dropped(probe_type, paths)
 
+    def _filter_zoomin_only(self, paths: list[str]) -> list[str]:
+        """Drop zoom-out images (filename stem ends with ZOOMOUT_SUFFIX)."""
+        from pathlib import Path
+
+        kept: list[str] = []
+        skipped = 0
+        for p in paths:
+            if is_zoomout_filename(Path(p).name):
+                skipped += 1
+                continue
+            kept.append(p)
+        if skipped:
+            self.logger.info(
+                f"Zoom-Out 이미지 {skipped}개 건너뜀 (파일명에 '`' 접미사)"
+            )
+        return kept
+
     def _scan_folder_for_images(self, folder: str) -> list[str]:
-        """폴더 내 이미지 파일을 이름순으로 반환 (하위 폴더 미포함)."""
+        """폴더 내 Zoom-In 이미지 파일을 이름순으로 반환 (하위 폴더 미포함)."""
         from pathlib import Path
 
         return sorted(
             str(p)
             for p in Path(folder).iterdir()
-            if p.is_file() and p.suffix.lower() in self.IMAGE_EXTENSIONS
+            if p.is_file()
+            and p.suffix.lower() in self.IMAGE_EXTENSIONS
+            and not is_zoomout_filename(p.name)
         )
 
     def _capture_manual_image(self, capture_mode: str = "region"):
-        """Capture a screen region and add it to the active Manual tab."""
+        """Capture a Zoom-In screen region and add it to the active Manual tab.
+
+        Zoom-Out is captured separately via :meth:`_capture_manual_image_zoomout`
+        so the operator has time to switch the probe SW between zoom levels.
+        """
         if getattr(self, "current_mode", None) != "manual":
             return
 
@@ -188,18 +216,22 @@ class ManualImportMixin:
 
         production_date = self.date_edit.date().toString("yyyyMMdd")
         safe_probe = sanitize_capture_filename_part(probe_type, fallback="probe")
-        capture_dir = captures_root() / production_date / safe_probe
-        capture_path = next_pending_capture_path(capture_dir)
+        capture_base = captures_root() / production_date / safe_probe
+        # Reserve a matching counter on both subdirs so a later zoom-out capture
+        # can land on the sibling path without colliding with another slot.
+        zoomin_path, _zo_reserved = next_pending_capture_pair(capture_base)
 
         window_state = self.windowState()
         accepted = False
-        saved_path: str | None = None
         error_msg: str | None = None
+        saved_path: str | None = None
 
         self.hide()
         QApplication.processEvents()
         try:
-            overlay = ScreenCaptureOverlay(capture_mode=capture_mode)
+            overlay = ScreenCaptureOverlay(
+                capture_mode=capture_mode, label="Zoom-In"
+            )
             accepted = overlay.exec() == QDialog.Accepted
             screen, rect = overlay.selected_region()
             overlay.deleteLater()
@@ -210,11 +242,11 @@ class ManualImportMixin:
                     0, rect.x(), rect.y(), rect.width(), rect.height()
                 )
                 if pixmap.isNull():
-                    error_msg = "화면 캡처에 실패했습니다."
-                elif pixmap.save(str(capture_path), "PNG"):
-                    saved_path = str(capture_path)
+                    error_msg = "Zoom-In 화면 캡처에 실패했습니다."
+                elif pixmap.save(str(zoomin_path), "PNG"):
+                    saved_path = str(zoomin_path)
                 else:
-                    error_msg = "캡처 이미지를 저장하지 못했습니다."
+                    error_msg = "Zoom-In 캡처 이미지를 저장하지 못했습니다."
         except Exception as exc:
             error_msg = f"화면 캡처 중 오류가 발생했습니다: {exc}"
         finally:
@@ -228,7 +260,7 @@ class ManualImportMixin:
             QMessageBox.warning(self, "Capture", error_msg)
             return
         if not accepted:
-            self.logger.info("Manual 캡처 취소됨")
+            self.logger.info("Zoom-In 캡처 취소됨")
             return
         if not saved_path:
             return
@@ -236,7 +268,92 @@ class ManualImportMixin:
         self._on_images_dropped(probe_type, [saved_path])
         self.qr_input.focus_input()
         mode_label = "Window Capture" if capture_mode == "window" else "Region Capture"
-        self.logger.ok(f"Manual 캡처 추가 ({mode_label}): {capture_path.name}")
+        self.logger.ok(
+            f"Zoom-In 캡처 추가 ({mode_label}): {zoomin_path.name}"
+        )
+
+    def _capture_manual_image_zoomout(self, capture_mode: str = "region"):
+        """Capture a Zoom-Out image and attach it to the currently selected card."""
+        if getattr(self, "current_mode", None) != "manual":
+            return
+
+        if self.selected_manual_index < 0:
+            QMessageBox.warning(
+                self, "Capture",
+                "Zoom-Out을 첨부할 카드를 먼저 선택하세요."
+            )
+            return
+
+        slot = self.measurement_set.find_slot_by_index(self.selected_manual_index)
+        if slot is None or not slot.image_path:
+            QMessageBox.warning(
+                self, "Capture",
+                "선택된 카드에 Zoom-In 이미지가 없습니다."
+            )
+            return
+
+        target = derive_zoomout_path(slot.image_path)
+        target.parent.mkdir(parents=True, exist_ok=True)
+        overwriting = target.exists()
+
+        window_state = self.windowState()
+        accepted = False
+        error_msg: str | None = None
+        saved = False
+
+        self.hide()
+        QApplication.processEvents()
+        try:
+            overlay = ScreenCaptureOverlay(
+                capture_mode=capture_mode, label="Zoom-Out"
+            )
+            accepted = overlay.exec() == QDialog.Accepted
+            screen, rect = overlay.selected_region()
+            overlay.deleteLater()
+            QApplication.processEvents()
+
+            if accepted and screen is not None and rect is not None:
+                pixmap = screen.grabWindow(
+                    0, rect.x(), rect.y(), rect.width(), rect.height()
+                )
+                if pixmap.isNull():
+                    error_msg = "Zoom-Out 화면 캡처에 실패했습니다."
+                elif pixmap.save(str(target), "PNG"):
+                    saved = True
+                else:
+                    error_msg = "Zoom-Out 캡처 이미지를 저장하지 못했습니다."
+        except Exception as exc:
+            error_msg = f"화면 캡처 중 오류가 발생했습니다: {exc}"
+        finally:
+            self.show()
+            self.setWindowState(window_state)
+            self.raise_()
+            self.activateWindow()
+            QApplication.processEvents()
+
+        if error_msg:
+            QMessageBox.warning(self, "Capture", error_msg)
+            return
+        if not accepted:
+            self.logger.info("Zoom-Out 캡처 취소됨")
+            return
+        if not saved:
+            return
+
+        mode_label = "Window Capture" if capture_mode == "window" else "Region Capture"
+        action = "교체" if overwriting else "추가"
+        self.logger.ok(
+            f"#{slot.slot_index + 1} Zoom-Out {action} ({mode_label}): {target.name}"
+        )
+
+        # If the viewer is currently showing zoom-out for this slot, refresh.
+        btn_out = getattr(self, "btn_zoom_out_view", None)
+        if (
+            btn_out is not None
+            and btn_out.isChecked()
+            and self.selected_manual_index == slot.slot_index
+        ):
+            self.manual_image_viewer.load_image(str(target))
 
     def _active_manual_probe_type(self) -> str | None:
         if not self._manual_grids:
@@ -262,6 +379,12 @@ class ManualImportMixin:
             self.measurement_set = MeasurementSet(mode="manual")
 
         self.measurement_set.production_date = self.date_edit.date().toString("yyyyMMdd")
+
+        # Filter out zoom-out siblings (backtick-suffix stems) — only zoom-in
+        # images become slots. Capture flow already passes zoom-in only.
+        paths = self._filter_zoomin_only(paths)
+        if not paths:
+            return
 
         grid = self._manual_grids.get(probe_type)
         if not grid:
@@ -450,7 +573,8 @@ class ManualImportMixin:
         if not slot:
             return
 
-        # 이미지 뷰어 업데이트
+        # 이미지 뷰어 업데이트 — 카드 전환 시 항상 Zoom-In으로 reset
+        self._reset_zoom_toggle_to_in()
         self.manual_image_viewer.load_image(slot.image_path)
 
         # 입력값 복원
@@ -467,6 +591,60 @@ class ManualImportMixin:
         # QR 입력 대상
         probe = slot.probe_type or "?"
         self.qr_input.set_target_label(f"#{slot_index + 1} ({probe})")
+
+    def _apply_zoom_toggle_visual(self, active: str) -> None:
+        """Move the ``accent`` dynamic property to the active toggle and repolish.
+
+        ``active`` must be ``"zoomin"`` or ``"zoomout"``. Signals are blocked so
+        ``setChecked`` does not re-trigger the click handler.
+        """
+        btn_in = getattr(self, "btn_zoom_in_view", None)
+        btn_out = getattr(self, "btn_zoom_out_view", None)
+        for btn, level in ((btn_in, "zoomin"), (btn_out, "zoomout")):
+            if btn is None:
+                continue
+            is_active = level == active
+            btn.blockSignals(True)
+            btn.setChecked(is_active)
+            btn.setProperty("accent", "true" if is_active else "false")
+            btn.blockSignals(False)
+            style = btn.style()
+            if style is not None:
+                style.unpolish(btn)
+                style.polish(btn)
+            btn.update()
+
+    def _reset_zoom_toggle_to_in(self) -> None:
+        """Set the Zoom-In/Out toggle back to Zoom-In without firing handlers."""
+        self._apply_zoom_toggle_visual("zoomin")
+
+    def _on_zoom_view_toggled(self, level: str) -> None:
+        """Switch the manual image viewer between Zoom-In and Zoom-Out files."""
+        if self.selected_manual_index < 0:
+            # No selection — keep toggle on Zoom-In silently.
+            self._reset_zoom_toggle_to_in()
+            return
+
+        slot = self.measurement_set.find_slot_by_index(self.selected_manual_index)
+        if not slot or not slot.image_path:
+            self._reset_zoom_toggle_to_in()
+            return
+
+        if level == "zoomin":
+            self._apply_zoom_toggle_visual("zoomin")
+            self.manual_image_viewer.load_image(slot.image_path)
+            return
+
+        # level == "zoomout"
+        zo_path = derive_zoomout_path(slot.image_path)
+        if not zo_path.exists():
+            self.logger.info("Zoom-Out 이미지 없음 — Zoom-In으로 복귀")
+            self._reset_zoom_toggle_to_in()
+            self.manual_image_viewer.load_image(slot.image_path)
+            return
+
+        self._apply_zoom_toggle_visual("zoomout")
+        self.manual_image_viewer.load_image(str(zo_path))
 
     def _on_manual_card_removed(self, slot_index: int):
         self._prepare_manual_reorder()
@@ -550,20 +728,29 @@ class ManualImportMixin:
             return
 
         old_path = Path(slot.image_path)
-        new_path = final_capture_path(old_path, slot.slot_index, slot.qr_id)
+        new_zoomin, new_zoomout = final_capture_pair(
+            old_path, slot.slot_index, slot.qr_id
+        )
         try:
-            if old_path.resolve() == new_path.resolve():
+            if old_path.resolve() == new_zoomin.resolve():
                 return
-            old_path.rename(new_path)
+            old_path.rename(new_zoomin)
         except OSError as exc:
             self.logger.warn(f"캡처 이미지 순번 파일명 갱신 실패: {exc}")
             return
 
-        slot.image_path = str(new_path)
+        old_zoomout = derive_zoomout_path(old_path)
+        if old_zoomout.exists():
+            try:
+                old_zoomout.rename(new_zoomout)
+            except OSError as exc:
+                self.logger.warn(f"Zoom-Out 순번 파일명 갱신 실패: {exc}")
+
+        slot.image_path = str(new_zoomin)
         for grid in self._manual_grids.values():
             card = grid._cards.get(slot.slot_index)
             if card:
-                card.set_image_path(str(new_path))
+                card.set_image_path(str(new_zoomin))
                 break
 
     # ─── 데이터 입력 ───

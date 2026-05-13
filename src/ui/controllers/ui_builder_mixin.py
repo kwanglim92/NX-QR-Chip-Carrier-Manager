@@ -239,9 +239,32 @@ class UIBuilderMixin:
         left_layout = QVBoxLayout(left)
         left_layout.setContentsMargins(4, 4, 4, 4)
 
-        # 이미지 뷰어
+        # 이미지 뷰어 (Zoom-In / Zoom-Out 토글 포함)
         img_group = QGroupBox("Sweep Image")
         img_layout = QVBoxLayout(img_group)
+
+        zoom_toggle_row = QHBoxLayout()
+        zoom_toggle_row.setSpacing(4)
+        self.btn_zoom_in_view = QPushButton("Zoom-In")
+        self.btn_zoom_in_view.setCheckable(True)
+        self.btn_zoom_in_view.setChecked(True)
+        self.btn_zoom_in_view.setProperty("accent", "true")
+        self.btn_zoom_in_view.setFixedHeight(24)
+        self.btn_zoom_in_view.clicked.connect(
+            lambda: self._on_zoom_view_toggled("zoomin")
+        )
+        zoom_toggle_row.addWidget(self.btn_zoom_in_view)
+
+        self.btn_zoom_out_view = QPushButton("Zoom-Out")
+        self.btn_zoom_out_view.setCheckable(True)
+        self.btn_zoom_out_view.setFixedHeight(24)
+        self.btn_zoom_out_view.clicked.connect(
+            lambda: self._on_zoom_view_toggled("zoomout")
+        )
+        zoom_toggle_row.addWidget(self.btn_zoom_out_view)
+        zoom_toggle_row.addStretch()
+        img_layout.addLayout(zoom_toggle_row)
+
         self.manual_image_viewer = ImageViewer()
         img_layout.addWidget(self.manual_image_viewer)
         left_layout.addWidget(img_group, 1)
@@ -296,16 +319,27 @@ class UIBuilderMixin:
         ctrl_row.addStretch()
 
         btn_capture = QPushButton("📸 Capture")
-        btn_capture.setToolTip("Capture Sweep Image from a selected region or window.")
+        btn_capture.setToolTip(
+            "Capture Sweep Image (Zoom-In creates a new slot; "
+            "Zoom-Out attaches to the currently selected card)."
+        )
         capture_menu = QMenu(btn_capture)
         capture_menu.addAction(
-            "Region Capture\tF6",
+            "Zoom-In · Region Capture\tF6",
             lambda: self._capture_manual_image("region"),
         )
-
         capture_menu.addAction(
-            "Window Capture\tF7",
+            "Zoom-In · Window Capture\tF7",
             lambda: self._capture_manual_image("window"),
+        )
+        capture_menu.addSeparator()
+        capture_menu.addAction(
+            "Zoom-Out · Region Capture\tF8",
+            lambda: self._capture_manual_image_zoomout("region"),
+        )
+        capture_menu.addAction(
+            "Zoom-Out · Window Capture\tF9",
+            lambda: self._capture_manual_image_zoomout("window"),
         )
         btn_capture.setMenu(capture_menu)
         ctrl_row.addWidget(btn_capture)
@@ -320,6 +354,18 @@ class UIBuilderMixin:
         self.shortcut_window_capture.setContext(Qt.ApplicationShortcut)
         self.shortcut_window_capture.activated.connect(
             lambda: self._capture_manual_image("window")
+        )
+
+        self.shortcut_region_zoomout_capture = QShortcut(QKeySequence("F8"), self)
+        self.shortcut_region_zoomout_capture.setContext(Qt.ApplicationShortcut)
+        self.shortcut_region_zoomout_capture.activated.connect(
+            lambda: self._capture_manual_image_zoomout("region")
+        )
+
+        self.shortcut_window_zoomout_capture = QShortcut(QKeySequence("F9"), self)
+        self.shortcut_window_zoomout_capture.setContext(Qt.ApplicationShortcut)
+        self.shortcut_window_zoomout_capture.activated.connect(
+            lambda: self._capture_manual_image_zoomout("window")
         )
 
         btn_load_images = QPushButton("Load")
