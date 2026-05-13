@@ -99,6 +99,15 @@ class ManualCard(QFrame):
             scaled = pm.scaled(THUMB_W, THUMB_H, Qt.KeepAspectRatio, Qt.SmoothTransformation)
             self._thumb.setPixmap(scaled)
 
+    def set_image_path(self, path: str):
+        self.image_path = path
+        self._thumb.clear()
+        self.set_thumbnail(path)
+
+    def set_slot_index(self, slot_index: int):
+        self.slot_index = slot_index
+        self._num_label.setText(f"#{slot_index + 1}")
+
     def update_data(self, frequency=_UNSET, q_factor=_UNSET, qr_id=_UNSET, **_kwargs):
         if frequency is _UNSET:
             pass

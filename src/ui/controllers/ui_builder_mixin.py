@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from PySide6.QtCore import Qt, QDate
+from PySide6.QtGui import QKeySequence, QShortcut
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QSplitter, QLabel,
     QPushButton, QLineEdit, QDoubleSpinBox, QDateEdit,
@@ -293,6 +294,33 @@ class UIBuilderMixin:
         ctrl_row.addWidget(self.manual_col_spin)
 
         ctrl_row.addStretch()
+
+        btn_capture = QPushButton("📸 Capture")
+        btn_capture.setToolTip("Capture Sweep Image from a selected region or window.")
+        capture_menu = QMenu(btn_capture)
+        capture_menu.addAction(
+            "Region Capture\tF6",
+            lambda: self._capture_manual_image("region"),
+        )
+
+        capture_menu.addAction(
+            "Window Capture\tF7",
+            lambda: self._capture_manual_image("window"),
+        )
+        btn_capture.setMenu(capture_menu)
+        ctrl_row.addWidget(btn_capture)
+
+        self.shortcut_region_capture = QShortcut(QKeySequence("F6"), self)
+        self.shortcut_region_capture.setContext(Qt.ApplicationShortcut)
+        self.shortcut_region_capture.activated.connect(
+            lambda: self._capture_manual_image("region")
+        )
+
+        self.shortcut_window_capture = QShortcut(QKeySequence("F7"), self)
+        self.shortcut_window_capture.setContext(Qt.ApplicationShortcut)
+        self.shortcut_window_capture.activated.connect(
+            lambda: self._capture_manual_image("window")
+        )
 
         btn_load_images = QPushButton("Load")
         btn_load_images.clicked.connect(self._browse_manual_images)

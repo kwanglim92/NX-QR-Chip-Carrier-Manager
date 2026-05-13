@@ -1,6 +1,9 @@
 """QR 바코드 스캔 + 슬롯 매칭."""
 from __future__ import annotations
 
+from pathlib import Path
+
+from src.core.capture_files import final_capture_path, is_pending_capture_path
 from src.core.slot_mapper import format_full_label
 
 
@@ -82,6 +85,8 @@ class QRMatchMixin:
                 )
                 break
 
+        self._finalize_manual_capture_image(slot, qr_id)
+
         probe = slot.probe_type or "?"
         self.qr_input.show_success(f"#{idx + 1} ({probe}) ← {qr_id}")
         self.logger.ok(f"QR 매칭: #{idx + 1} ({probe}) = {qr_id}")
@@ -104,6 +109,39 @@ class QRMatchMixin:
 
                 # 현재 탭 모두 매칭 완료
                 self.logger.ok(f"'{probe_type}' 탭 QR 매칭 완료!")
+
+    def _finalize_manual_capture_image(
+        self, slot, qr_id: str, force: bool = False
+    ) -> None:
+        """Rename app-owned pending capture image after QR matching."""
+        if not slot.image_path or not is_pending_capture_path(slot.image_path):
+            return
+
+        active_slots = getattr(self, "_manual_ocr_active_slots", set())
+        if not force and slot.slot_index in active_slots:
+            self._manual_capture_rename_queue[slot.slot_index] = qr_id
+            self.logger.info("OCR 완료 후 캡처 이미지 파일명을 확정합니다.")
+            return
+
+        old_path = Path(slot.image_path)
+        new_path = final_capture_path(old_path, slot.slot_index, qr_id)
+        try:
+            old_path.rename(new_path)
+        except OSError as exc:
+            self.logger.warn(f"캡처 이미지 파일명 확정 실패: {exc}")
+            return
+
+        slot.image_path = str(new_path)
+        for grid in self._manual_grids.values():
+            card = grid._cards.get(slot.slot_index)
+            if card:
+                card.set_image_path(str(new_path))
+                break
+
+        if self.selected_manual_index == slot.slot_index:
+            self.manual_image_viewer.load_image(str(new_path))
+        self.logger.info(f"캡처 이미지 파일명 확정: {new_path.name}")
+        self._auto_save_to_db()
 
     def _on_slot_reset_qr(self, slot_index: int):
         """Reset QR ID on an ATX slot card."""

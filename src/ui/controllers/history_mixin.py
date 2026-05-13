@@ -295,6 +295,12 @@ class HistoryMixin:
 
         self._manual_slot_counter = 0
         self.selected_manual_index = -1
+        if hasattr(self, "_ocr_batches"):
+            self._ocr_batches.clear()
+        if hasattr(self, "_manual_ocr_active_slots"):
+            self._manual_ocr_active_slots.clear()
+        if hasattr(self, "_manual_capture_rename_queue"):
+            self._manual_capture_rename_queue.clear()
 
     # ─── 레코드 삭제 ───
 

@@ -2,10 +2,19 @@
 from __future__ import annotations
 
 import uuid
+from pathlib import Path
 
 from PySide6.QtCore import QThreadPool
-from PySide6.QtWidgets import QDialog, QInputDialog, QMessageBox, QFileDialog
+from PySide6.QtWidgets import QApplication, QDialog, QInputDialog, QMessageBox, QFileDialog
 
+from src.core.capture_files import (
+    captures_root,
+    final_capture_path,
+    is_app_capture_path,
+    next_pending_capture_path,
+    sanitize_capture_filename_part,
+)
+from src.core.manual_slot_order import renumber_manual_slots
 from src.core.models import MeasurementSet, SlotData, truncate_measurement_value
 from src.core.ocr_settings import (
     load_roi_for,
@@ -16,6 +25,7 @@ from src.core.ocr_worker import OcrRunnable
 from src.ui.dialogs.roi_calibrator import RoiCalibratorDialog
 from src.ui.widgets.manual_card import ManualCard
 from src.ui.widgets.manual_grid_widget import ManualGridWidget
+from src.ui.widgets.screen_capture_overlay import ScreenCaptureOverlay
 
 # Phase 7C: 동시 OCR 스레드 수 상한 (4개)
 _OCR_MAX_THREADS = 4
@@ -36,6 +46,8 @@ class ManualImportMixin:
         self._ocr_pool.setMaxThreadCount(_OCR_MAX_THREADS)
         # 배치별 추적: {batch_id: {"total", "done", "success", "probe_type", "unresolved_sizes"}}
         self._ocr_batches: dict[str, dict] = {}
+        self._manual_ocr_active_slots: set[int] = set()
+        self._manual_capture_rename_queue: dict[int, str] = {}
 
     # ─── 탭 관리 ───
 
@@ -86,6 +98,8 @@ class ManualImportMixin:
         if reply != QMessageBox.Yes:
             return
 
+        self._prepare_manual_reorder()
+
         # 해당 probe type의 SlotData 제거
         grid = self._manual_grids.pop(probe_type, None)
         if grid:
@@ -97,6 +111,7 @@ class ManualImportMixin:
             grid.deleteLater()
 
         self.manual_tabs.removeTab(idx)
+        self._renumber_manual_slots()
         self.logger.info(f"'{probe_type}' 탭 삭제됨")
         self._refresh_overview()
         self._update_progress()
@@ -161,6 +176,79 @@ class ManualImportMixin:
             for p in Path(folder).iterdir()
             if p.is_file() and p.suffix.lower() in self.IMAGE_EXTENSIONS
         )
+
+    def _capture_manual_image(self, capture_mode: str = "region"):
+        """Capture a screen region and add it to the active Manual tab."""
+        if getattr(self, "current_mode", None) != "manual":
+            return
+
+        probe_type = self._active_manual_probe_type()
+        if probe_type is None:
+            return
+
+        production_date = self.date_edit.date().toString("yyyyMMdd")
+        safe_probe = sanitize_capture_filename_part(probe_type, fallback="probe")
+        capture_dir = captures_root() / production_date / safe_probe
+        capture_path = next_pending_capture_path(capture_dir)
+
+        window_state = self.windowState()
+        accepted = False
+        saved_path: str | None = None
+        error_msg: str | None = None
+
+        self.hide()
+        QApplication.processEvents()
+        try:
+            overlay = ScreenCaptureOverlay(capture_mode=capture_mode)
+            accepted = overlay.exec() == QDialog.Accepted
+            screen, rect = overlay.selected_region()
+            overlay.deleteLater()
+            QApplication.processEvents()
+
+            if accepted and screen is not None and rect is not None:
+                pixmap = screen.grabWindow(
+                    0, rect.x(), rect.y(), rect.width(), rect.height()
+                )
+                if pixmap.isNull():
+                    error_msg = "화면 캡처에 실패했습니다."
+                elif pixmap.save(str(capture_path), "PNG"):
+                    saved_path = str(capture_path)
+                else:
+                    error_msg = "캡처 이미지를 저장하지 못했습니다."
+        except Exception as exc:
+            error_msg = f"화면 캡처 중 오류가 발생했습니다: {exc}"
+        finally:
+            self.show()
+            self.setWindowState(window_state)
+            self.raise_()
+            self.activateWindow()
+            QApplication.processEvents()
+
+        if error_msg:
+            QMessageBox.warning(self, "Capture", error_msg)
+            return
+        if not accepted:
+            self.logger.info("Manual 캡처 취소됨")
+            return
+        if not saved_path:
+            return
+
+        self._on_images_dropped(probe_type, [saved_path])
+        self.qr_input.focus_input()
+        mode_label = "Window Capture" if capture_mode == "window" else "Region Capture"
+        self.logger.ok(f"Manual 캡처 추가 ({mode_label}): {capture_path.name}")
+
+    def _active_manual_probe_type(self) -> str | None:
+        if not self._manual_grids:
+            QMessageBox.warning(self, "Warning", "Probe Type 탭을 먼저 추가하세요.")
+            return None
+
+        idx = self.manual_tabs.currentIndex()
+        if idx < 0 or idx >= self.manual_tabs.count() - 1:
+            QMessageBox.warning(self, "Warning", "Probe Type 탭을 선택하세요.")
+            return None
+
+        return self.manual_tabs.tabText(idx)
 
     # ─── 이미지 드롭 처리 ───
 
@@ -237,6 +325,7 @@ class ManualImportMixin:
             grid.add_card(card)
 
             queued.append((idx, path, active_roi))
+            self._manual_ocr_active_slots.add(idx)
             if first_index is None:
                 first_index = idx
 
@@ -296,6 +385,11 @@ class ManualImportMixin:
                             qr_id=slot.qr_id,
                         )
                         break
+
+        self._manual_ocr_active_slots.discard(slot_index)
+        queued_qr = self._manual_capture_rename_queue.pop(slot_index, None)
+        if slot is not None and queued_qr:
+            self._finalize_manual_capture_image(slot, queued_qr, force=True)
 
         # 배치 카운터
         batch["done"] += 1
@@ -375,6 +469,8 @@ class ManualImportMixin:
         self.qr_input.set_target_label(f"#{slot_index + 1} ({probe})")
 
     def _on_manual_card_removed(self, slot_index: int):
+        self._prepare_manual_reorder()
+
         # SlotData 제거
         self.measurement_set.slots = [
             s for s in self.measurement_set.slots
@@ -387,15 +483,88 @@ class ManualImportMixin:
                 grid.remove_card(slot_index)
                 break
 
-        if self.selected_manual_index == slot_index:
+        was_selected = self.selected_manual_index == slot_index
+        if was_selected:
             self.selected_manual_index = -1
-            self.manual_image_viewer.clear()
+
+        self._renumber_manual_slots()
+        if self.selected_manual_index >= 0:
+            self._on_manual_card_selected(self.selected_manual_index)
+        elif was_selected:
+            current_grid = self._current_manual_grid()
+            if current_grid and current_grid.get_slot_indices():
+                self._on_manual_card_selected(current_grid.get_slot_indices()[0])
+            else:
+                self.manual_image_viewer.clear()
 
         self.logger.info(f"카드 #{slot_index + 1} 삭제됨")
         self._refresh_overview()
         self._update_progress()
         # F-15: 카드 삭제도 DB에 즉시 반영
         self._auto_save_to_db()
+
+    def _current_manual_grid(self):
+        idx = self.manual_tabs.currentIndex()
+        if idx < 0 or idx >= self.manual_tabs.count() - 1:
+            return None
+        return self._manual_grids.get(self.manual_tabs.tabText(idx))
+
+    def _prepare_manual_reorder(self) -> None:
+        if self._manual_ocr_active_slots:
+            self._ocr_pool.waitForDone(3000)
+        self._ocr_batches.clear()
+        self._manual_ocr_active_slots.clear()
+        self._manual_capture_rename_queue.clear()
+
+    def _ordered_manual_slot_indices(self) -> list[int]:
+        ordered: list[int] = []
+        for tab_idx in range(max(0, self.manual_tabs.count() - 1)):
+            probe_type = self.manual_tabs.tabText(tab_idx)
+            grid = self._manual_grids.get(probe_type)
+            if grid:
+                ordered.extend(grid.get_slot_indices())
+        return ordered
+
+    def _renumber_manual_slots(self) -> None:
+        if not self.measurement_set:
+            return
+
+        old_selected = self.selected_manual_index
+        mapping = renumber_manual_slots(
+            self.measurement_set.slots,
+            self._ordered_manual_slot_indices(),
+        )
+        for grid in self._manual_grids.values():
+            grid.reindex_cards(mapping)
+
+        self.selected_manual_index = mapping.get(old_selected, -1)
+        self._manual_slot_counter = len(self.measurement_set.slots)
+
+        for slot in self.measurement_set.slots:
+            self._sync_manual_capture_filename(slot)
+
+    def _sync_manual_capture_filename(self, slot: SlotData) -> None:
+        if not slot.image_path or not slot.qr_id:
+            return
+        if not is_app_capture_path(slot.image_path):
+            return
+
+        old_path = Path(slot.image_path)
+        new_path = final_capture_path(old_path, slot.slot_index, slot.qr_id)
+        try:
+            if old_path.resolve() == new_path.resolve():
+                return
+            old_path.rename(new_path)
+        except OSError as exc:
+            self.logger.warn(f"캡처 이미지 순번 파일명 갱신 실패: {exc}")
+            return
+
+        slot.image_path = str(new_path)
+        for grid in self._manual_grids.values():
+            card = grid._cards.get(slot.slot_index)
+            if card:
+                card.set_image_path(str(new_path))
+                break
 
     # ─── 데이터 입력 ───
 
@@ -548,6 +717,8 @@ class ManualImportMixin:
         self._manual_slot_counter = 0
         self.selected_manual_index = -1
         self._ocr_batches.clear()  # in-flight OCR 결과를 안전하게 무시 (batch None 가드 활용)
+        self._manual_ocr_active_slots.clear()
+        self._manual_capture_rename_queue.clear()
         self.measurement_set = MeasurementSet(mode="manual")
 
         # UI 리셋
@@ -598,6 +769,8 @@ class ManualImportMixin:
         # 진행 중 OCR 안전 처리: 기존 워커 완료 대기 + 배치 무효화
         self._ocr_pool.waitForDone(3000)
         self._ocr_batches.clear()
+        self._manual_ocr_active_slots.clear()
+        self._manual_capture_rename_queue.clear()
 
         # 해상도별 ROI 캐시 (기존 _on_images_dropped 와 동일 패턴)
         try:
@@ -641,6 +814,7 @@ class ManualImportMixin:
                     batch_id=batch_id,
                 )
                 runnable.signals.finished.connect(self._on_ocr_done)
+                self._manual_ocr_active_slots.add(slot_index)
                 self._ocr_pool.start(runnable)
 
         self._update_progress()

@@ -10,7 +10,7 @@ from PySide6.QtGui import QColor
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QComboBox, QLabel,
     QFrame, QTableWidget, QTableWidgetItem, QHeaderView,
-    QScrollArea, QGridLayout,
+    QScrollArea, QGridLayout, QSizePolicy,
 )
 
 import matplotlib
@@ -75,12 +75,17 @@ class StatsDashboard(QWidget):
         filter_row.addStretch()
         layout.addLayout(filter_row)
 
+        filter_divider = QFrame()
+        filter_divider.setFrameShape(QFrame.HLine)
+        filter_divider.setStyleSheet(f"color: {BG3};")
+        layout.addWidget(filter_divider)
+
         # ── Today Summary + compact stats table ──
         summary_row = QHBoxLayout()
-        summary_row.setSpacing(16)
+        summary_row.setSpacing(12)
 
         today_panel = QWidget()
-        today_panel.setFixedWidth(320)
+        today_panel.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         today_layout = QVBoxLayout(today_panel)
         today_layout.setContentsMargins(0, 0, 0, 0)
         today_layout.setSpacing(8)
@@ -93,9 +98,13 @@ class StatsDashboard(QWidget):
         self._card_today_rate = self._make_summary_card("Today Complete %", "-")
         for card in [self._card_today_sets, self._card_today_slots, self._card_today_rate]:
             today_row.addWidget(card)
-        today_row.addStretch()
         today_layout.addLayout(today_row)
-        summary_row.addWidget(today_panel, 0, Qt.AlignTop)
+        summary_row.addWidget(today_panel, 1, Qt.AlignTop)
+
+        mid_divider = QFrame()
+        mid_divider.setFrameShape(QFrame.VLine)
+        mid_divider.setStyleSheet(f"color: {BG3};")
+        summary_row.addWidget(mid_divider)
 
         # ── Stats table ──
         self._table = QTableWidget()
@@ -107,10 +116,11 @@ class StatsDashboard(QWidget):
         self._table.setEditTriggers(QTableWidget.NoEditTriggers)
         self._table.setSelectionBehavior(QTableWidget.SelectRows)
         self._table.verticalHeader().setVisible(False)
-        self._table.setMinimumWidth(560)
-        self._table.setMaximumWidth(640)
-        self._table.setMinimumHeight(110)
-        self._table.setMaximumHeight(130)
+        self._table.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        self._table.setMinimumWidth(0)
+        self._table.setMaximumWidth(16777215)
+        self._table.setMinimumHeight(105)
+        self._table.setMaximumHeight(125)
         self._table.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
 
         header = self._table.horizontalHeader()
@@ -131,8 +141,14 @@ class StatsDashboard(QWidget):
                 padding: 6px; font-weight: bold; font-size: 13px;
             }}
         """)
-        summary_row.addWidget(self._table, 0, Qt.AlignTop)
-        summary_row.addStretch()
+        table_panel = QWidget()
+        table_panel.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        table_layout = QVBoxLayout(table_panel)
+        table_layout.setContentsMargins(0, 0, 0, 0)
+        table_layout.setSpacing(8)
+        table_layout.addWidget(self._make_section_label("Period Summary"))
+        table_layout.addWidget(self._table)
+        summary_row.addWidget(table_panel, 1, Qt.AlignTop)
         layout.addLayout(summary_row)
 
         # ── Overall Summary cards (5) ──

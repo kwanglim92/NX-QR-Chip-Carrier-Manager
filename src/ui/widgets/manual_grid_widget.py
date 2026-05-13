@@ -74,6 +74,20 @@ class ManualGridWidget(QWidget):
                 self._selected_index = -1
             self._rebuild_grid()
 
+    def reindex_cards(self, index_mapping: dict[int, int]):
+        old_selected = self._selected_index
+        new_cards: dict[int, ManualCard] = {}
+        for old_index in sorted(self._cards):
+            card = self._cards[old_index]
+            new_index = index_mapping.get(old_index)
+            if new_index is None:
+                continue
+            card.set_slot_index(new_index)
+            new_cards[new_index] = card
+        self._cards = new_cards
+        self._selected_index = index_mapping.get(old_selected, -1)
+        self._rebuild_grid()
+
     def update_card(self, slot_index: int, **kwargs):
         card = self._cards.get(slot_index)
         if card:
