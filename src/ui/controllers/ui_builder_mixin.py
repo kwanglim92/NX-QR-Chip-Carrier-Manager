@@ -627,17 +627,12 @@ class UIBuilderMixin:
         self.history_slot_table.slot_selected.connect(self._on_history_slot_selected)
         detail_splitter.addWidget(self.history_slot_table)
 
-        detail_splitter.setSizes([300, 500])
+        detail_splitter.setSizes([420, 520])
         detail_layout.addWidget(detail_splitter, 1)
 
         history_splitter.addWidget(detail_widget)
 
-        # History 페이지 로그창 (번들 Export/Import, 삭제/복원 결과 피드백)
-        history_log_grp, history_log_te, _history_log_combo = self._make_log_box(max_h=120)
-        history_splitter.addWidget(history_log_grp)
-        self.logger.add_sink(history_log_te)
-
-        history_splitter.setSizes([300, 250, 120])
+        history_splitter.setSizes([320, 420])
 
         records_layout.addWidget(history_splitter, 1)
 
@@ -685,6 +680,7 @@ class UIBuilderMixin:
 
         # QR 바는 ATX/Manual 모드에서만 표시
         self._bottom_bar.setVisible(mode in ("atx", "manual"))
+        self.btn_calibrate_global.setVisible(mode != "history")
 
         if mode == "export":
             if hasattr(self, "export_tabs"):

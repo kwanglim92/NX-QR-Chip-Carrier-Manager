@@ -3,9 +3,80 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from PySide6.QtWidgets import QFileDialog, QMessageBox, QInputDialog
+from PySide6.QtWidgets import (
+    QDialog,
+    QDialogButtonBox,
+    QFileDialog,
+    QFormLayout,
+    QLineEdit,
+    QMessageBox,
+    QVBoxLayout,
+)
 
-from src.core.csv_exporter import export_csv, export_with_images
+from src.core.csv_exporter import (
+    CSV_EXPORT_ALL_SLOTS,
+    CSV_EXPORT_QR_ONLY,
+    export_csv,
+    export_with_images,
+)
+
+
+_WINDOWS_FORBIDDEN_FILENAME_CHARS = '<>:"/\\|?*'
+
+
+def _sanitize_export_folder_name(value: str) -> str:
+    name = value.strip()
+    for char in _WINDOWS_FORBIDDEN_FILENAME_CHARS:
+        name = name.replace(char, "_")
+    return name.strip()
+
+
+def _default_export_folder_name(ms) -> str:
+    if ms.source_folder:
+        name = _sanitize_export_folder_name(Path(ms.source_folder).name)
+        if name:
+            return name
+
+    image_parents = {
+        Path(slot.image_path).parent
+        for slot in ms.slots
+        if slot.image_path
+    }
+    if len(image_parents) == 1:
+        name = _sanitize_export_folder_name(next(iter(image_parents)).name)
+        if name:
+            return name
+
+    if ms.po_number:
+        name = _sanitize_export_folder_name(ms.po_number)
+        if name:
+            return name
+    return "export"
+
+
+def _get_export_folder_name(parent, default_name: str) -> tuple[str, bool]:
+    dlg = QDialog(parent)
+    dlg.setWindowTitle("폴더 이름")
+    dlg.setMinimumWidth(460)
+
+    layout = QVBoxLayout(dlg)
+    form = QFormLayout()
+    input_field = QLineEdit()
+    input_field.setMinimumWidth(360)
+    input_field.setText(default_name)
+    input_field.selectAll()
+    form.addRow("생성할 폴더 이름:", input_field)
+    layout.addLayout(form)
+
+    buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+    buttons.accepted.connect(dlg.accept)
+    buttons.rejected.connect(dlg.reject)
+    layout.addWidget(buttons)
+
+    input_field.setFocus()
+    if dlg.exec() != QDialog.Accepted:
+        return "", False
+    return _sanitize_export_folder_name(input_field.text()), True
 
 
 class ExportMixin:
@@ -17,6 +88,41 @@ class ExportMixin:
     def _get_export_measurement_set(self):
         mode = self._get_active_export_mode()
         return getattr(self, "measurement_sets", {}).get(mode)
+
+    def _choose_incomplete_export_policy(
+        self,
+        ms,
+        qr_only_label: str,
+        all_slots_label: str,
+    ) -> str | None:
+        incomplete = [s for s in ms.slots if not s.is_complete]
+        if not incomplete:
+            return CSV_EXPORT_QR_ONLY
+
+        msg = QMessageBox(self)
+        msg.setIcon(QMessageBox.Warning)
+        msg.setWindowTitle("미완성 데이터")
+        msg.setText(f"{len(incomplete)}개 슬롯의 데이터가 불완전합니다.")
+        msg.setInformativeText("처리할 데이터 범위를 선택하세요.")
+
+        qr_only_button = msg.addButton(qr_only_label, QMessageBox.AcceptRole)
+        all_slots_button = msg.addButton(all_slots_label, QMessageBox.AcceptRole)
+        cancel_button = msg.addButton("취소", QMessageBox.RejectRole)
+        msg.setDefaultButton(qr_only_button)
+        msg.setEscapeButton(cancel_button)
+        msg.exec()
+
+        clicked = msg.clickedButton()
+        if clicked == qr_only_button:
+            return CSV_EXPORT_QR_ONLY
+        if clicked == all_slots_button:
+            return CSV_EXPORT_ALL_SLOTS
+        return None
+
+    def _has_export_rows(self, ms, policy: str) -> bool:
+        if policy == CSV_EXPORT_ALL_SLOTS:
+            return bool(ms.slots)
+        return any(s.qr_id for s in ms.slots)
 
     def _refresh_export_view(self):
         """Export 탭 진입 시 슬롯 테이블 + 액션 바 갱신."""
@@ -41,18 +147,16 @@ class ExportMixin:
 
         ms.production_date = self.date_edit.date().toString("yyyyMMdd")
 
-        # 완성도 체크
-        incomplete = [s for s in ms.slots if not s.is_complete]
-        if incomplete:
-            reply = QMessageBox.question(
-                self,
-                "미완성 데이터",
-                f"{len(incomplete)}개 슬롯의 데이터가 불완전합니다.\n"
-                "QR ID가 있는 슬롯만 내보내시겠습니까?",
-                QMessageBox.Yes | QMessageBox.No,
-            )
-            if reply != QMessageBox.Yes:
-                return
+        policy = self._choose_incomplete_export_policy(
+            ms,
+            "QR 있는 값만 반출",
+            "전체 슬롯 반출",
+        )
+        if policy is None:
+            return
+        if not self._has_export_rows(ms, policy):
+            self.logger.warn("내보낼 데이터가 없습니다 (QR ID가 매칭된 슬롯 없음)")
+            return
 
         default_name = f"{ms.po_number}_QR.csv"
         path, _ = QFileDialog.getSaveFileName(
@@ -62,7 +166,7 @@ class ExportMixin:
             return
 
         try:
-            export_csv(ms, path)
+            export_csv(ms, path, policy)
             self.logger.ok(f"CSV 저장 완료: {path}")
             self._statusbar.showMessage(f"CSV 저장: {path}")
         except Exception as e:
@@ -77,35 +181,31 @@ class ExportMixin:
 
         ms.production_date = self.date_edit.date().toString("yyyyMMdd")
 
-        incomplete = [s for s in ms.slots if not s.is_complete]
-        if incomplete:
-            reply = QMessageBox.question(
-                self,
-                "미완성 데이터",
-                f"{len(incomplete)}개 슬롯의 데이터가 불완전합니다.\n"
-                "QR ID가 있는 슬롯만 내보내시겠습니까?",
-                QMessageBox.Yes | QMessageBox.No,
-            )
-            if reply != QMessageBox.Yes:
-                return
+        policy = self._choose_incomplete_export_policy(
+            ms,
+            "QR 있는 값만 반출",
+            "전체 슬롯 반출",
+        )
+        if policy is None:
+            return
+        if not self._has_export_rows(ms, policy):
+            self.logger.warn("내보낼 데이터가 없습니다 (QR ID가 매칭된 슬롯 없음)")
+            return
 
         parent_dir = QFileDialog.getExistingDirectory(self, "저장할 위치 선택")
         if not parent_dir:
             return
 
-        default_name = self.measurement_set.po_number or "export"
-        folder_name, ok = QInputDialog.getText(
-            self, "폴더 이름", "생성할 폴더 이름:", text=default_name
-        )
-        if not ok or not folder_name.strip():
+        default_name = _default_export_folder_name(ms)
+        folder_name, ok = _get_export_folder_name(self, default_name)
+        if not ok or not folder_name:
             return
 
-        folder_name = folder_name.strip()
         output_dir = str(Path(parent_dir) / folder_name)
 
         try:
             csv_name = f"{folder_name}_QR.csv"
-            result = export_with_images(ms, output_dir, csv_name)
+            result = export_with_images(ms, output_dir, csv_name, policy)
 
             self.logger.ok(
                 f"내보내기 완료: CSV + {result['image_count']}개 이미지\n"

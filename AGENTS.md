@@ -20,6 +20,14 @@
 - **한국어 skill**: `.agent/skills/skills-ko/{폴더명}/SKILL.md`
 - **영문 skill**: `.agent/skills/skills-en/{폴더명}/SKILL.md`
 
+## Workspace Operating Mode
+
+- 기본 작업 위치는 메인 워크트리 `C:\Users\Spare\Desktop\03. Program\새 폴더`이다.
+- 별도 지시가 없으면 코드 수정, 실행, 테스트, GUI 확인은 모두 메인 워크트리 기준으로 수행한다.
+- 작업 시작 전 메인 워크트리에서 `git status --short --branch`를 확인한다.
+- 새 기능 작업 전에는 메인 워크트리에 체크포인트 커밋을 만들거나, 이미 미커밋 변경이 있으면 해당 변경의 소유권과 커밋 시점을 먼저 확인한다.
+- Codex 임시 워크트리(`C:\Users\Spare\.codex\worktrees\...`)는 실험/격리용으로만 보고, 최신 메인 변경을 덮는 브릿지 소스로 사용하지 않는다.
+- Codex와 Claude를 병행할 때는 같은 파일을 동시에 수정하지 않는다. 한쪽이 구현 중이면 다른 쪽은 리뷰/검증을 담당하거나 기능 단위로 파일 소유권을 나눈다.
 ## Git Workflow (크기 기준 자동 판단)
 
 단독 개발자 개인 리포이므로 PR은 **규모에 따라 선택적**. Codex는 작업 완료 시

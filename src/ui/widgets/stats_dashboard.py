@@ -75,8 +75,16 @@ class StatsDashboard(QWidget):
         filter_row.addStretch()
         layout.addLayout(filter_row)
 
-        # ── Today Summary (3 cards) ──
-        layout.addWidget(self._make_section_label("Today"))
+        # ── Today Summary + compact stats table ──
+        summary_row = QHBoxLayout()
+        summary_row.setSpacing(16)
+
+        today_panel = QWidget()
+        today_panel.setFixedWidth(320)
+        today_layout = QVBoxLayout(today_panel)
+        today_layout.setContentsMargins(0, 0, 0, 0)
+        today_layout.setSpacing(8)
+        today_layout.addWidget(self._make_section_label("Today"))
 
         today_row = QHBoxLayout()
         today_row.setSpacing(8)
@@ -85,9 +93,47 @@ class StatsDashboard(QWidget):
         self._card_today_rate = self._make_summary_card("Today Complete %", "-")
         for card in [self._card_today_sets, self._card_today_slots, self._card_today_rate]:
             today_row.addWidget(card)
-        # 우측 여백 (5 카드 row와 너비 맞춤)
         today_row.addStretch()
-        layout.addLayout(today_row)
+        today_layout.addLayout(today_row)
+        summary_row.addWidget(today_panel, 0, Qt.AlignTop)
+
+        # ── Stats table ──
+        self._table = QTableWidget()
+        self._table.setColumnCount(6)
+        self._table.setHorizontalHeaderLabels(
+            ["Period", "Probe Type", "Sets", "Slots", "Complete", "Rate"]
+        )
+        self._table.setAlternatingRowColors(True)
+        self._table.setEditTriggers(QTableWidget.NoEditTriggers)
+        self._table.setSelectionBehavior(QTableWidget.SelectRows)
+        self._table.verticalHeader().setVisible(False)
+        self._table.setMinimumWidth(560)
+        self._table.setMaximumWidth(640)
+        self._table.setMinimumHeight(110)
+        self._table.setMaximumHeight(130)
+        self._table.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+
+        header = self._table.horizontalHeader()
+        header.setSectionResizeMode(0, QHeaderView.Stretch)
+        header.setSectionResizeMode(1, QHeaderView.Stretch)
+        for col in range(2, 6):
+            header.setSectionResizeMode(col, QHeaderView.ResizeToContents)
+
+        self._table.setStyleSheet(f"""
+            QTableWidget {{
+                background: {BG}; color: {FG}; border: 1px solid {BG3};
+                gridline-color: {BG3}; font-size: 13px;
+            }}
+            QTableWidget::item {{ padding: 4px 8px; }}
+            QTableWidget::item:alternate {{ background: {BG2}; }}
+            QHeaderView::section {{
+                background: {BG2}; color: {ACCENT}; border: 1px solid {BG3};
+                padding: 6px; font-weight: bold; font-size: 13px;
+            }}
+        """)
+        summary_row.addWidget(self._table, 0, Qt.AlignTop)
+        summary_row.addStretch()
+        layout.addLayout(summary_row)
 
         # ── Overall Summary cards (5) ──
         layout.addWidget(self._make_section_label("Overall"))
@@ -114,10 +160,12 @@ class StatsDashboard(QWidget):
 
         self._fig_production = Figure(figsize=(5, 3), dpi=100)
         self._canvas_production = FigureCanvasQTAgg(self._fig_production)
+        self._canvas_production.setMinimumHeight(160)
         prod_grid.addWidget(self._canvas_production, 0, 0)
 
         self._fig_stacked = Figure(figsize=(5, 3), dpi=100)
         self._canvas_stacked = FigureCanvasQTAgg(self._fig_stacked)
+        self._canvas_stacked.setMinimumHeight(160)
         prod_grid.addWidget(self._canvas_stacked, 0, 1)
 
         layout.addLayout(prod_grid)
@@ -130,53 +178,25 @@ class StatsDashboard(QWidget):
 
         self._fig_freq_spc = Figure(figsize=(5, 3), dpi=100)
         self._canvas_freq_spc = FigureCanvasQTAgg(self._fig_freq_spc)
+        self._canvas_freq_spc.setMinimumHeight(220)
         quality_grid.addWidget(self._canvas_freq_spc, 0, 0)
 
         self._fig_q_spc = Figure(figsize=(5, 3), dpi=100)
         self._canvas_q_spc = FigureCanvasQTAgg(self._fig_q_spc)
+        self._canvas_q_spc.setMinimumHeight(220)
         quality_grid.addWidget(self._canvas_q_spc, 0, 1)
 
         self._fig_freq_hist = Figure(figsize=(5, 3), dpi=100)
         self._canvas_freq_hist = FigureCanvasQTAgg(self._fig_freq_hist)
+        self._canvas_freq_hist.setMinimumHeight(220)
         quality_grid.addWidget(self._canvas_freq_hist, 1, 0)
 
         self._fig_q_hist = Figure(figsize=(5, 3), dpi=100)
         self._canvas_q_hist = FigureCanvasQTAgg(self._fig_q_hist)
+        self._canvas_q_hist.setMinimumHeight(220)
         quality_grid.addWidget(self._canvas_q_hist, 1, 1)
 
         layout.addLayout(quality_grid)
-
-        # ── Stats table ──
-        self._table = QTableWidget()
-        self._table.setColumnCount(6)
-        self._table.setHorizontalHeaderLabels(
-            ["Period", "Probe Type", "Sets", "Slots", "Complete", "Rate"]
-        )
-        self._table.setAlternatingRowColors(True)
-        self._table.setEditTriggers(QTableWidget.NoEditTriggers)
-        self._table.setSelectionBehavior(QTableWidget.SelectRows)
-        self._table.verticalHeader().setVisible(False)
-        self._table.setMaximumHeight(200)
-
-        header = self._table.horizontalHeader()
-        header.setSectionResizeMode(0, QHeaderView.Stretch)
-        header.setSectionResizeMode(1, QHeaderView.Stretch)
-        for col in range(2, 6):
-            header.setSectionResizeMode(col, QHeaderView.ResizeToContents)
-
-        self._table.setStyleSheet(f"""
-            QTableWidget {{
-                background: {BG}; color: {FG}; border: 1px solid {BG3};
-                gridline-color: {BG3}; font-size: 13px;
-            }}
-            QTableWidget::item {{ padding: 4px 8px; }}
-            QTableWidget::item:alternate {{ background: {BG2}; }}
-            QHeaderView::section {{
-                background: {BG2}; color: {ACCENT}; border: 1px solid {BG3};
-                padding: 6px; font-weight: bold; font-size: 13px;
-            }}
-        """)
-        layout.addWidget(self._table)
 
     # ─── Section Label ───
 
@@ -192,7 +212,7 @@ class StatsDashboard(QWidget):
 
     def _make_summary_card(self, label: str, value: str) -> QFrame:
         card = QFrame()
-        card.setFixedHeight(80)
+        card.setFixedHeight(68)
         card.setStyleSheet(f"""
             QFrame {{
                 background: {BG2}; border: 1px solid {BG3};
@@ -200,20 +220,20 @@ class StatsDashboard(QWidget):
             }}
         """)
         card_layout = QVBoxLayout(card)
-        card_layout.setContentsMargins(8, 8, 8, 8)
+        card_layout.setContentsMargins(8, 6, 8, 6)
         card_layout.setSpacing(2)
 
         value_label = QLabel(value)
         value_label.setAlignment(Qt.AlignCenter)
         value_label.setStyleSheet(
-            f"color: {ACCENT}; font-size: 20px; font-weight: bold; border: none;"
+            f"color: {ACCENT}; font-size: 18px; font-weight: bold; border: none;"
         )
         value_label.setObjectName("value")
         card_layout.addWidget(value_label)
 
         title_label = QLabel(label)
         title_label.setAlignment(Qt.AlignCenter)
-        title_label.setStyleSheet(f"color: {FG2}; font-size: 11px; border: none;")
+        title_label.setStyleSheet(f"color: {FG2}; font-size: 10px; border: none;")
         card_layout.addWidget(title_label)
 
         return card
@@ -224,7 +244,7 @@ class StatsDashboard(QWidget):
             label.setText(value)
             c = color or ACCENT
             label.setStyleSheet(
-                f"color: {c}; font-size: 20px; font-weight: bold; border: none;"
+                f"color: {c}; font-size: 18px; font-weight: bold; border: none;"
             )
 
     # ─── Public API ───
@@ -361,7 +381,7 @@ class StatsDashboard(QWidget):
         ax.set_xticks(list(x))
         ax.set_xticklabels(self._shorten_labels(labels), rotation=45, ha="right", fontsize=8)
         ax.set_ylabel("Slots", color=FG2, fontsize=10)
-        fig.tight_layout()
+        fig.tight_layout(rect=[0.02, 0.14, 0.98, 0.90])
         self._canvas_production.draw()
 
     # ─── Chart: Stacked Bar by Probe Type ───
@@ -406,7 +426,7 @@ class StatsDashboard(QWidget):
         ax.legend(fontsize=7, facecolor=BG2, edgecolor=BG3, labelcolor=FG2,
                   loc="upper center", bbox_to_anchor=(0.5, -0.15),
                   ncol=4, framealpha=0.9)
-        fig.tight_layout(rect=[0, 0.08, 1, 1])
+        fig.tight_layout(rect=[0.02, 0.20, 0.98, 0.90])
         self._canvas_stacked.draw()
 
     # ─── Chart: Frequency SPC (X-bar) ───
@@ -464,7 +484,7 @@ class StatsDashboard(QWidget):
         ax.legend(fontsize=7, facecolor=BG2, edgecolor=BG3, labelcolor=FG2,
                   loc="upper right", handlelength=1.5, handletextpad=0.4,
                   borderpad=0.3, labelspacing=0.3)
-        fig.tight_layout()
+        fig.tight_layout(rect=[0.02, 0.14, 0.98, 0.90])
         self._canvas_freq_spc.draw()
 
     # ─── Chart: Q Factor SPC (X-bar) ───
@@ -517,7 +537,7 @@ class StatsDashboard(QWidget):
         ax.legend(fontsize=7, facecolor=BG2, edgecolor=BG3, labelcolor=FG2,
                   loc="upper right", handlelength=1.5, handletextpad=0.4,
                   borderpad=0.3, labelspacing=0.3)
-        fig.tight_layout()
+        fig.tight_layout(rect=[0.02, 0.14, 0.98, 0.90])
         self._canvas_q_spc.draw()
 
     # ─── Chart: Frequency Histogram ───
@@ -567,7 +587,7 @@ class StatsDashboard(QWidget):
 
         ax.set_xlabel("Frequency (KHz)", color=FG2, fontsize=10)
         ax.set_ylabel("Count", color=FG2, fontsize=10)
-        fig.tight_layout()
+        fig.tight_layout(rect=[0.02, 0.12, 0.98, 0.90])
         self._canvas_freq_hist.draw()
 
     # ─── Chart: Q Factor Histogram ───
@@ -615,7 +635,7 @@ class StatsDashboard(QWidget):
 
         ax.set_xlabel("Q Factor", color=FG2, fontsize=10)
         ax.set_ylabel("Count", color=FG2, fontsize=10)
-        fig.tight_layout()
+        fig.tight_layout(rect=[0.02, 0.12, 0.98, 0.90])
         self._canvas_q_hist.draw()
 
     # ─── Table ───

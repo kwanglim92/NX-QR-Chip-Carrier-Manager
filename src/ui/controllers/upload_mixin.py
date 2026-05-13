@@ -1,11 +1,15 @@
 """서버 업로드 컨트롤러 — 로그인 다이얼로그 + CSV/이미지 업로드."""
 from __future__ import annotations
 
+import csv
 from pathlib import Path
 
 from PySide6.QtCore import QThread, Signal, QObject
-from PySide6.QtWidgets import QMessageBox
 
+from src.core.csv_exporter import (
+    CSV_EXPORT_QR_ONLY,
+    generate_csv_rows,
+)
 from src.core.server_uploader import ServerUploader, UploadResult
 from src.ui.widgets.login_dialog import LoginDialog
 
@@ -111,24 +115,21 @@ class UploadMixin:
             self.logger.warn("내보낼 데이터가 없습니다")
             return
 
-        # 완성도 체크
-        incomplete = [s for s in ms.slots if not s.is_complete]
-        if incomplete:
-            reply = QMessageBox.question(
-                self,
-                "미완성 데이터",
-                f"{len(incomplete)}개 슬롯의 데이터가 불완전합니다.\n"
-                "QR ID가 있는 슬롯만 업로드하시겠습니까?",
-                QMessageBox.Yes | QMessageBox.No,
-            )
-            if reply != QMessageBox.Yes:
-                return
+        policy = self._choose_incomplete_export_policy(
+            ms,
+            "QR 있는 값만 업로드",
+            "전체 슬롯 업로드",
+        )
+        if policy is None:
+            return
+        if policy == CSV_EXPORT_QR_ONLY and not any(s.qr_id for s in ms.slots):
+            self.logger.warn("업로드할 데이터가 없습니다 (QR ID가 매칭된 슬롯 없음)")
+            return
 
         # 임시 CSV 생성
-        from src.core.csv_exporter import generate_csv_rows
         import tempfile
 
-        rows = generate_csv_rows(ms)
+        rows = generate_csv_rows(ms, policy)
         if len(rows) <= 1:
             self.logger.warn("업로드할 데이터가 없습니다 (QR ID가 매칭된 슬롯 없음)")
             return
@@ -136,8 +137,8 @@ class UploadMixin:
         tmp_csv = tempfile.NamedTemporaryFile(
             mode="w", suffix=".csv", delete=False, encoding="utf-8-sig"
         )
-        for row in rows:
-            tmp_csv.write(",".join(row) + "\n")
+        writer = csv.writer(tmp_csv)
+        writer.writerows(rows)
         tmp_csv.close()
         csv_path = tmp_csv.name
 
@@ -146,7 +147,9 @@ class UploadMixin:
         if with_images:
             image_paths = []
             for slot in ms.slots:
-                if slot.qr_id and slot.image_path:
+                if policy == CSV_EXPORT_QR_ONLY and not slot.qr_id:
+                    continue
+                if slot.image_path:
                     p = Path(slot.image_path)
                     if p.exists():
                         image_paths.append(str(p))
