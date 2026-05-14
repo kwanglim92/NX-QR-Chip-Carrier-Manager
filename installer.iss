@@ -9,12 +9,24 @@
 ;   - iscc 가 PATH 에 있거나 전체 경로로 실행
 
 #define MyAppName        "MC QR Code Chip Carrier Manager"
-#define MyAppVersion     "2.0.0"
+#define MyAppVersion     "2.1.0"
 #define MyAppExeName     "McQrManager.exe"
 #define MyAppId          "{{2991A86F-058F-4349-9F44-1116B5C4F102}"
 ; AppId: MC 브랜드 2.0.0 신규 GUID. 재발급 금지 — 이후 업그레이드 감지 기준.
 ; 참고: 구 NX 1.0.0 AppId(A8F2D4E5-B612-4B19-8C3E-7F5D9A0E4B21)와 분리되어
 ;        두 제품이 별도 설치·언인스톨로 관리됩니다.
+
+#ifnexist "dist\McQrManager\McQrManager.exe"
+#error "dist\McQrManager\McQrManager.exe not found. Run build.bat before compiling installer.iss."
+#endif
+
+#ifnexist "dist\McQrManager\python311.dll"
+#error "dist\McQrManager\python311.dll not found. Do not package build\McQrManager; run build.bat and package dist\McQrManager."
+#endif
+
+#ifnexist "dist\McQrManager\third_party\tesseract\tesseract.exe"
+#error "Portable Tesseract is missing from dist\McQrManager\third_party\tesseract. Check PyInstaller build output."
+#endif
 
 [Setup]
 AppId={#MyAppId}
@@ -63,6 +75,7 @@ Filename: "{app}\{#MyAppExeName}"; Description: "{cm:LaunchProgram,{#StringChang
 [UninstallDelete]
 ; 설치 경로 안에 빌드 후 생긴 임시 파일 정리 (로그 등)
 Type: filesandordirs; Name: "{app}\build.log"
+Type: filesandordirs; Name: "{app}\build_log.txt"
 
 ; 참고:
 ; - 데이터베이스는 %LOCALAPPDATA%\MCQRCodeChipCarrier\chip_carrier.db 에 있어

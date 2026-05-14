@@ -4,7 +4,7 @@
 |------|------|
 | **문서 버전** | 2.1 |
 | **작성일** | 2026-05-14 |
-| **앱 버전** | 2.0.0+ (MC 브랜드 / 운영 UX 개선 반영) |
+| **앱 버전** | 2.1.0 (MC 브랜드 / 운영 UX 개선 반영) |
 | **이전 버전** | 1.0.0 (NX 브랜드) |
 | **대상 독자** | 개발 / 운영 / QA / 품질관리 |
 | **내부 코드명** | `McQrManager` (이전: `NxQrManager`) |
@@ -272,13 +272,21 @@ iscc installer.iss
 
 # 산출물:
 #   dist\McQrManager\McQrManager.exe            (onedir 바이너리)
-#   Output\McQrManager-Setup-2.0.0.exe          (설치 파일)
+#   Output\McQrManager-Setup-2.1.0.exe          (설치 파일)
 ```
+
+`installer.iss`는 컴파일 전에 다음 필수 산출물을 검사합니다.
+
+- `dist\McQrManager\McQrManager.exe`
+- `dist\McQrManager\python311.dll`
+- `dist\McQrManager\third_party\tesseract\tesseract.exe`
+
+누락 시 Inno Setup 컴파일을 중단하여 `build\McQrManager\McQrManager.exe` 같은 중간 산출물을 잘못 배포하는 실수를 방지합니다.
 
 ### 5.2 AppId GUID
 
 ```
-MC 2.0.0: {{2991A86F-058F-4349-9F44-1116B5C4F102}   ← 현재
+MC 2.x: {{2991A86F-058F-4349-9F44-1116B5C4F102}   ← 현재
 NX 1.0.0: {{A8F2D4E5-B612-4B19-8C3E-7F5D9A0E4B21}   ← 구버전 (별도 제품)
 ```
 
@@ -287,7 +295,7 @@ NX 1.0.0: {{A8F2D4E5-B612-4B19-8C3E-7F5D9A0E4B21}   ← 구버전 (별도 제품
 ### 5.3 코드 서명
 
 현재 미적용. Windows SmartScreen "알 수 없는 게시자" 경고가 발생할 수 있음.  
-사용자는 "추가 정보" → "실행" 클릭으로 우회 가능. EV 인증서 도입은 2.1+ 로드맵.
+사용자는 "추가 정보" → "실행" 클릭으로 우회 가능. EV 인증서 도입은 향후 배포 로드맵.
 
 ---
 
@@ -331,10 +339,10 @@ NX 1.0.0: {{A8F2D4E5-B612-4B19-8C3E-7F5D9A0E4B21}   ← 구버전 (별도 제품
    - History 페이지 → 전체 선택
    - Export → Bundle (`.zip`) 생성
    - `%LOCALAPPDATA%\NXQRChipCarrierManager\` 를 별도 경로에 백업 (선택)
-2. **MC 2.0.0 설치**:
-   - `McQrManager-Setup-2.0.0.exe` 실행
+2. **MC 2.x 설치**:
+   - 최신 `McQrManager-Setup-x.y.z.exe` 실행
    - 기본 경로(`C:\Program Files\McQrManager\`) 설치
-3. **MC 2.0.0 에서**:
+3. **MC 2.x 에서**:
    - Import → 번들 `.zip` 선택
    - 정책: `overwrite` (신규 설치이므로 충돌 없음)
    - History 에서 이관된 데이터 확인
@@ -343,7 +351,7 @@ NX 1.0.0: {{A8F2D4E5-B612-4B19-8C3E-7F5D9A0E4B21}   ← 구버전 (별도 제품
 
 ---
 
-## 부록 A. 디렉터리 구조 (2.0.0+ 기준)
+## 부록 A. 디렉터리 구조 (2.1.0 기준)
 
 ```
 MC QR Code Chip Carrier/                  ← 프로젝트 루트
@@ -393,4 +401,4 @@ MC QR Code Chip Carrier/                  ← 프로젝트 루트
 |------|------|----------|
 | 1.0.0 (NX) | 2026-04-23 | F-14~F-18 초기 구현 + 배포 |
 | 2.0.0 (MC) | 2026-04-24 | NX→MC 브랜드 전환 / AppId 재발급 / DB 경로 변경 / 유지보수 구조 정리 |
-| 2.0.0+ | 2026-05-14 | ATX 슬롯 다이얼로그 편집 / Export ATX·Manual 탭 분리 / CSV 미완성 데이터 옵션 / Manual Capture-First / Zoom-In-Out 분리 캡처 / History UX 개선 / ImageViewer 고정 뷰포트 |
+| 2.1.0 | 2026-05-14 | ATX 슬롯 다이얼로그 편집 / Export ATX·Manual 탭 분리 / CSV 미완성 데이터 옵션 / Manual Capture-First / Zoom-In-Out 분리 캡처 / History UX 개선 / ImageViewer 고정 뷰포트 / installer 사전검사 추가 |

@@ -459,7 +459,7 @@
 <ol class="steps">
   <li>
     <strong>설치 파일 실행</strong>
-    <p>IT 담당자에게 받은 <code>McQrManager-Setup-2.0.0.exe</code> 파일을 더블클릭합니다.</p>
+    <p>IT 담당자에게 받은 최신 <code>McQrManager-Setup-x.y.z.exe</code> 파일을 더블클릭합니다.</p>
   </li>
   <li>
     <strong>SmartScreen 경고 대응 (처음 설치 시)</strong>
@@ -953,9 +953,9 @@ DB 파일을 삭제하면 모든 이력이 사라집니다. 정기적으로 Expo
 
 <!-- ================================================================== -->
 <section id="s12">
-<h2>12. 부록 — 1.0.0 (NX) → 2.0.0 (MC) 마이그레이션</h2>
+<h2>12. 부록 — 1.0.0 (NX) → 2.x (MC) 마이그레이션</h2>
 
-<p>이전 버전 <strong>NX QR Chip Carrier Manager 1.0.0</strong> 사용자가 MC 2.0.0 으로 데이터를 이전하는 절차입니다.</p>
+<p>이전 버전 <strong>NX QR Chip Carrier Manager 1.0.0</strong> 사용자가 최신 MC 2.x 로 데이터를 이전하는 절차입니다.</p>
 
 <div class="warning">
 두 버전은 AppId 가 달라 Windows 는 <strong>별도 제품</strong>으로 인식합니다. 업그레이드 설치가 아니라 <strong>신규 설치</strong>이며, DB 경로도 변경되므로 자동 이관되지 않습니다.
@@ -977,11 +977,11 @@ DB 파일을 삭제하면 모든 이력이 사라집니다. 정기적으로 Expo
     <p><code>%LOCALAPPDATA%\NXQRChipCarrierManager\</code> 폴더 전체를 복사하여 별도 보관. 만약 번들에 누락이 있어도 SQLite 도구로 복구 가능.</p>
   </li>
   <li>
-    <strong>MC 2.0.0 설치</strong>
+    <strong>MC 2.x 설치</strong>
     <p>§2 절차대로 설치. NX 1.0.0 은 유지해도 되고 언인스톨해도 됩니다.</p>
   </li>
   <li>
-    <strong>MC 2.0.0 에서 Import</strong>
+    <strong>MC 2.x 에서 Import</strong>
     <ul>
       <li>메뉴 → File → Import Bundle</li>
       <li>1번에서 만든 ZIP 선택</li>
