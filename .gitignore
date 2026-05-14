@@ -80,6 +80,7 @@ dist/
 Output/
 *.spec.bak
 build.log
+build_log.txt
 
 # ---- 개발 테스트 임시 파일 ----
 _phase*_smoke_test.py

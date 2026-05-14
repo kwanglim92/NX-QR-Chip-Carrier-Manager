@@ -1,4 +1,5 @@
 @echo off
+chcp 65001 >nul
 REM MC QR Code Chip Carrier Manager — PyInstaller 빌드 래퍼
 REM
 REM 사용법:
@@ -10,6 +11,12 @@ REM 산출물:
 REM   dist\McQrManager\McQrManager.exe
 REM   dist\McQrManager\third_party\tesseract\tesseract.exe
 REM   (Inno Setup 인스톨러는 별도: iscc installer.iss)
+REM
+REM 실행 주의:
+REM   OK:       dist\McQrManager\McQrManager.exe
+REM   DO NOT:   build\McQrManager\McQrManager.exe
+REM             build\ 는 PyInstaller 중간 작업 폴더라 python311.dll 등
+REM             런타임 DLL 이 없어 직접 실행하면 LoadLibrary 오류가 납니다.
 
 setlocal EnableDelayedExpansion
 
@@ -41,12 +48,28 @@ if not exist "third_party\tesseract\tesseract.exe" (
     echo.
 )
 
-REM 3) PyInstaller 호출
-echo [2/4] Running PyInstaller ^(onedir mode^) ...
-python -m PyInstaller --noconfirm --clean McQrManager.spec
-if errorlevel 1 (
+REM 2.5) 환경 정보 덤프 (진단용)
+echo ----------------------------------------
+echo  Environment
+echo ----------------------------------------
+echo  CWD: %CD%
+where python
+python --version
+python -m PyInstaller --version
+echo ----------------------------------------
+echo.
+
+REM 3) PyInstaller 호출 (콘솔 + build_log.txt 동시 저장)
+echo [2/4] Running PyInstaller ^(onedir mode^) ... ^(log: build_log.txt^)
+python -m PyInstaller --noconfirm --clean --log-level=INFO McQrManager.spec > build_log.txt 2>&1
+set "PI_RC=!errorlevel!"
+type build_log.txt
+if not "!PI_RC!"=="0" (
     echo.
-    echo   [ERROR] PyInstaller build failed. See build log above.
+    echo   [ERROR] PyInstaller build failed ^(exit code !PI_RC!^).
+    echo           Full log saved to: %CD%\build_log.txt
+    echo.
+    if not defined NO_PAUSE pause
     popd
     exit /b 1
 )
@@ -56,6 +79,21 @@ echo.
 echo [3/4] Verifying artifacts ...
 if not exist "dist\McQrManager\McQrManager.exe" (
     echo   [ERROR] dist\McQrManager\McQrManager.exe not produced.
+    echo           Check build_log.txt for details.
+    echo.
+    if not defined NO_PAUSE pause
+    popd
+    exit /b 1
+)
+
+if exist "dist\McQrManager\python311.dll" (
+    echo   [OK] Python runtime bundled.
+) else (
+    echo   [ERROR] dist\McQrManager\python311.dll not found.
+    echo           Do not run build\McQrManager\McQrManager.exe.
+    echo           Check build_log.txt and PyInstaller collection output.
+    echo.
+    if not defined NO_PAUSE pause
     popd
     exit /b 1
 )
@@ -66,6 +104,12 @@ if exist "dist\McQrManager\third_party\tesseract\tesseract.exe" (
     echo   [WARN] Tesseract NOT in bundle ^(OCR will silently fall back^).
 )
 
+if exist "build\McQrManager\McQrManager.exe" (
+    > "build\McQrManager\DO_NOT_RUN.txt" echo This is a PyInstaller intermediate build folder.
+    >> "build\McQrManager\DO_NOT_RUN.txt" echo Do NOT run build\McQrManager\McQrManager.exe.
+    >> "build\McQrManager\DO_NOT_RUN.txt" echo Run dist\McQrManager\McQrManager.exe instead.
+)
+
 echo.
 echo [4/4] Build artifacts:
 dir /b "dist\McQrManager" 2>nul | findstr /v /c:".pyc"
@@ -73,10 +117,13 @@ dir /b "dist\McQrManager" 2>nul | findstr /v /c:".pyc"
 echo.
 echo ========================================
 echo   Build SUCCESS
-echo   Run: dist\McQrManager\McQrManager.exe
+echo   RUN ONLY:      dist\McQrManager\McQrManager.exe
+echo   DO NOT RUN:    build\McQrManager\McQrManager.exe
+echo                  ^(intermediate folder; missing runtime DLLs^)
 echo   Installer next: iscc installer.iss
 echo ========================================
 echo.
 
+if not defined NO_PAUSE pause
 popd
 endlocal
