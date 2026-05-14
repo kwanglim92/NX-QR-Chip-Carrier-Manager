@@ -104,6 +104,17 @@ if exist "dist\McQrManager\third_party\tesseract\tesseract.exe" (
     echo   [WARN] Tesseract NOT in bundle ^(OCR will silently fall back^).
 )
 
+if exist "dist\McQrManager\docs\user-guide.html" (
+    echo   [OK] User guide bundled.
+) else (
+    echo   [ERROR] dist\McQrManager\docs\user-guide.html not found.
+    echo           Check McQrManager.spec datas for docs\user-guide.html.
+    echo.
+    if not defined NO_PAUSE pause
+    popd
+    exit /b 1
+)
+
 if exist "build\McQrManager\McQrManager.exe" (
     > "build\McQrManager\DO_NOT_RUN.txt" echo This is a PyInstaller intermediate build folder.
     >> "build\McQrManager\DO_NOT_RUN.txt" echo Do NOT run build\McQrManager\McQrManager.exe.

@@ -30,6 +30,8 @@ ROOT = Path(SPECPATH) if "SPECPATH" in globals() else Path.cwd()
 #   번들 내부 구조와 개발 경로 구조가 동일하게 유지된다.
 datas = [
     (str(ROOT / "third_party" / "tesseract"), "third_party/tesseract"),
+    (str(ROOT / "docs" / "user-guide.html"), "docs"),
+    (str(ROOT / "docs" / "assets" / "user-guide"), "docs/assets/user-guide"),
 ]
 
 
@@ -41,6 +43,8 @@ hiddenimports = [
     "PIL.Image",
     "PIL.ImageDraw",
     "PIL.ImageFont",
+    "PySide6.QtWebEngineCore",
+    "PySide6.QtWebEngineWidgets",
     # PySide6는 자체 hook 이 있어 별도 지정 불필요
 ]
 

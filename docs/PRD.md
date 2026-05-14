@@ -233,6 +233,20 @@ main.py                           ← Entry Point (QApplication 부팅)
 - Bundle Export 는 zoom-in / zoom-out 이미지를 모두 포함합니다.
 - Bundle Import 는 기존 DB 스키마와 호환되며, zoom-out 경로는 zoom-in 이미지 경로에서 결정적으로 파생합니다.
 
+### F-19 내장 사용자 가이드
+
+| 항목 | 내용 |
+|------|------|
+| 진입 | 상단 `📘 설명서` 버튼 |
+| 표시 방식 | `QWebEngineView` 기반 별도 다이얼로그 |
+| 원본 | `docs/user-guide.html` |
+| 배포 포함 | `docs/user-guide.html`, `docs/assets/user-guide/` |
+| fallback | 내장 뷰어 실패 시 기본 브라우저로 열기 |
+
+- 현장 오퍼레이터가 앱 안에서 바로 사용 설명서를 확인할 수 있습니다.
+- HTML은 단일 원본으로 유지하고, 현장 배포/인쇄용 PDF는 별도 산출물로 관리합니다.
+- 실제 스크린샷은 `docs/assets/user-guide/`에 PNG로 저장하고 HTML에서 상대 경로로 참조합니다.
+
 ### 부가 — SystemLogger 다중 싱크
 
 - ATX / Manual / Export 중심으로 로그 브로드캐스트
@@ -256,6 +270,7 @@ main.py                           ← Entry Point (QApplication 부팅)
 | 로그 | 사용자 피드백 | 페이지별 SystemLogger 싱크, History 전용 로그 UI는 제거 |
 | 이미지 표시 안정성 | 큰 캡처/비정형 비율에서도 레이아웃 고정 | ImageViewer 고정 뷰포트 Fit 표시 |
 | 캡처 품질 | OCR/Export 원본 보존 | PNG 원본 저장, 화면 표시만 축소 |
+| 사용자 가이드 접근성 | 앱 안에서 사용법 확인 | 상단 `📘 설명서` 버튼 + 내장 HTML 뷰어 |
 
 ---
 
@@ -370,8 +385,12 @@ MC QR Code Chip Carrier/                  ← 프로젝트 루트
 │       └─ image.png                      ← 원본 소스 이미지
 ├─ docs/
 │   ├─ PRD.md                             ← 이 문서
-│   ├─ user-guide.html                    ← 사용자 가이드 (Phase 9)
+│   ├─ user-guide.html                    ← 앱 내장 사용자 가이드 원본
+│   ├─ DOCUMENTATION_WORKFLOW.md          ← HTML/PDF/PPT 문서 운영 흐름
+│   ├─ MC_QR_Manager_User_Guide_v2.1.0.pdf ← 현장 배포용 PDF 초안
 │   ├─ export_schema.md                   ← 번들 스키마
+│   ├─ assets/user-guide/                 ← 사용자 가이드 스크린샷 자산
+│   ├─ training/                          ← 회사 PPT 교육자료 위치
 │   └─ phase7-deployment-analysis.md      ← 배포 분석 (이력 보존)
 ├─ src/
 │   ├─ core/
@@ -401,4 +420,4 @@ MC QR Code Chip Carrier/                  ← 프로젝트 루트
 |------|------|----------|
 | 1.0.0 (NX) | 2026-04-23 | F-14~F-18 초기 구현 + 배포 |
 | 2.0.0 (MC) | 2026-04-24 | NX→MC 브랜드 전환 / AppId 재발급 / DB 경로 변경 / 유지보수 구조 정리 |
-| 2.1.0 | 2026-05-14 | ATX 슬롯 다이얼로그 편집 / Export ATX·Manual 탭 분리 / CSV 미완성 데이터 옵션 / Manual Capture-First / Zoom-In-Out 분리 캡처 / History UX 개선 / ImageViewer 고정 뷰포트 / installer 사전검사 추가 |
+| 2.1.0 | 2026-05-14 | ATX 슬롯 다이얼로그 편집 / Export ATX·Manual 탭 분리 / CSV 미완성 데이터 옵션 / Manual Capture-First / Zoom-In-Out 분리 캡처 / History UX 개선 / ImageViewer 고정 뷰포트 / installer 사전검사 / 내장 사용자 가이드 |

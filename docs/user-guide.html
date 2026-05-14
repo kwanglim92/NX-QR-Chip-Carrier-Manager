@@ -25,7 +25,6 @@
     --peach:  #fab387;
     --red:    #f38ba8;
     --mauve:  #cba6f7;
-    --pink:   #f5c2e7;
   }
 
   * { box-sizing: border-box; }
@@ -41,16 +40,14 @@
     background: #f7f7fa;
   }
 
-  /* ===== Layout ===== */
   .wrapper {
     display: grid;
-    grid-template-columns: 260px 1fr;
-    max-width: 1400px;
+    grid-template-columns: 280px 1fr;
+    max-width: 1500px;
     margin: 0 auto;
     min-height: 100vh;
   }
 
-  /* ===== Sidebar TOC ===== */
   nav#toc {
     position: sticky;
     top: 0;
@@ -114,10 +111,9 @@
     color: var(--base);
   }
 
-  /* ===== Main ===== */
   main {
     padding: 40px 56px 80px 56px;
-    max-width: 920px;
+    max-width: 980px;
   }
 
   header.hero {
@@ -141,7 +137,7 @@
   }
 
   section {
-    margin-bottom: 54px;
+    margin-bottom: 58px;
     scroll-margin-top: 20px;
   }
 
@@ -167,7 +163,6 @@
   }
 
   p { margin: 10px 0; }
-
   ul, ol { padding-left: 24px; }
   li { margin: 6px 0; }
 
@@ -216,8 +211,7 @@
   }
   tr:nth-child(even) { background: #f9f9fc; }
 
-  /* ===== Notice boxes ===== */
-  .tip, .warning, .danger, .note, .step {
+  .tip, .warning, .danger, .note, .standard {
     border-left: 4px solid;
     padding: 12px 18px;
     margin: 14px 0;
@@ -228,24 +222,28 @@
     background: #eaf7ea;
     border-color: #5cb85c;
   }
-  .tip::before { content: "💡 팁"; font-weight: 700; display: block; margin-bottom: 4px; color: #2d7a2d; }
+  .tip::before { content: "팁"; font-weight: 700; display: block; margin-bottom: 4px; color: #2d7a2d; }
   .warning {
     background: #fff4dc;
     border-color: #f0ad4e;
   }
-  .warning::before { content: "⚠️ 주의"; font-weight: 700; display: block; margin-bottom: 4px; color: #a06d00; }
+  .warning::before { content: "주의"; font-weight: 700; display: block; margin-bottom: 4px; color: #a06d00; }
   .danger {
     background: #fde8ea;
     border-color: #d9534f;
   }
-  .danger::before { content: "🚨 데이터 손실 위험"; font-weight: 700; display: block; margin-bottom: 4px; color: #a62a27; }
+  .danger::before { content: "데이터 손실 위험"; font-weight: 700; display: block; margin-bottom: 4px; color: #a62a27; }
   .note {
     background: #eef5ff;
     border-color: #5bc0de;
   }
-  .note::before { content: "ℹ️ 참고"; font-weight: 700; display: block; margin-bottom: 4px; color: #1e6091; }
+  .note::before { content: "참고"; font-weight: 700; display: block; margin-bottom: 4px; color: #1e6091; }
+  .standard {
+    background: #f7f1ff;
+    border-color: #8c63d9;
+  }
+  .standard::before { content: "운영 표준"; font-weight: 700; display: block; margin-bottom: 4px; color: #5b3aa4; }
 
-  /* ===== Step list ===== */
   ol.steps {
     counter-reset: step;
     list-style: none;
@@ -284,7 +282,38 @@
     color: #2a2a4a;
   }
 
-  /* ===== Screenshot placeholder ===== */
+  .checklist {
+    list-style: none;
+    padding-left: 0;
+  }
+  .checklist li {
+    position: relative;
+    padding-left: 24px;
+  }
+  .checklist li::before {
+    content: "□";
+    position: absolute;
+    left: 0;
+    color: #4a6fa5;
+    font-weight: 700;
+  }
+
+  .summary-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+    margin: 16px 0;
+  }
+  .summary-card {
+    border: 1px solid #e1e3ea;
+    background: #fff;
+    border-radius: 6px;
+    padding: 14px;
+  }
+  .summary-card h4 {
+    margin: 0 0 8px 0;
+  }
+
   figure.screenshot {
     margin: 18px 0;
     padding: 0;
@@ -303,10 +332,25 @@
     display: flex;
     align-items: center;
     justify-content: center;
+    flex-direction: column;
+    gap: 8px;
     color: #777;
     font-size: 13px;
     text-align: center;
     padding: 20px;
+  }
+  .screenshot-target {
+    display: inline-block;
+    color: #555;
+    font-size: 12px;
+  }
+  .screenshot img {
+    display: block;
+    width: 100%;
+    max-width: 100%;
+    border: 1px solid #d4d6dc;
+    border-radius: 6px;
+    background: #fff;
   }
   figcaption {
     font-size: 12px;
@@ -316,7 +360,6 @@
     font-style: italic;
   }
 
-  /* ===== Key combinations ===== */
   kbd {
     display: inline-block;
     padding: 2px 7px;
@@ -333,7 +376,6 @@
   a { color: var(--blue); }
   a:hover { text-decoration: underline; color: var(--sapphire); }
 
-  /* ===== Print styles ===== */
   @media print {
     nav#toc { display: none; }
     .wrapper { grid-template-columns: 1fr; }
@@ -341,12 +383,11 @@
     section { page-break-before: always; }
     section:first-of-type { page-break-before: auto; }
     header.hero { page-break-after: avoid; }
-    pre, ol.steps > li { page-break-inside: avoid; }
+    pre, ol.steps > li, .summary-card { page-break-inside: avoid; }
     a { color: inherit; text-decoration: none; }
     .screenshot-placeholder { min-height: 100px; }
   }
 
-  /* ===== Responsive ===== */
   @media (max-width: 900px) {
     .wrapper { grid-template-columns: 1fr; }
     nav#toc {
@@ -356,6 +397,7 @@
       border-bottom: 1px solid var(--surface1);
     }
     main { padding: 24px; }
+    .summary-grid { grid-template-columns: 1fr; }
   }
 </style>
 </head>
@@ -365,645 +407,1000 @@
 <nav id="toc">
   <h2>목차</h2>
   <ol>
-    <li><a href="#s1">제품 개요</a></li>
-    <li><a href="#s2">설치</a></li>
-    <li><a href="#s3">첫 실행</a></li>
-    <li><a href="#s4">ATX 모드</a></li>
-    <li><a href="#s5">Manual 모드 (Capture/OCR)</a></li>
-    <li><a href="#s6">History Records</a></li>
-    <li><a href="#s7">History Statistics</a></li>
-    <li><a href="#s8">CSV Export / Bundle</a></li>
-    <li><a href="#s9">설정</a></li>
-    <li><a href="#s10">트러블슈팅</a></li>
-    <li><a href="#s11">FAQ</a></li>
-    <li><a href="#s12">1.0.0 → 2.0.0 마이그레이션</a><span class="badge">부록</span></li>
+    <li><a href="#s1">문서 목적과 대상</a></li>
+    <li><a href="#s2">프로그램 개요</a></li>
+    <li><a href="#s3">설치 전 준비사항</a></li>
+    <li><a href="#s4">설치 및 첫 실행</a></li>
+    <li><a href="#s5">화면 구성과 공통 조작</a></li>
+    <li><a href="#s6">ATX Mode</a></li>
+    <li><a href="#s7">Manual Capture/OCR</a></li>
+    <li><a href="#s8">OCR ROI Calibrator</a></li>
+    <li><a href="#s9">CSV Export / Upload</a></li>
+    <li><a href="#s10">History Records</a></li>
+    <li><a href="#s11">History Statistics</a></li>
+    <li><a href="#s12">백업/복원/PC 이전</a></li>
+    <li><a href="#s13">설정과 데이터 위치</a></li>
+    <li><a href="#s14">트러블슈팅</a></li>
+    <li><a href="#s15">FAQ</a></li>
+    <li><a href="#s16">부록</a><span class="badge">표준</span></li>
   </ol>
 </nav>
 
 <main>
-
 <header class="hero">
   <h1>MC QR Code Chip Carrier Manager</h1>
-  <div class="subtitle">칩 캐리어 측정 이력 관리 — 사용자 가이드</div>
-  <div class="meta">v2.1 · 2026-05-14 · 공장 측정 오퍼레이터·품질 관리자 대상</div>
+  <div class="subtitle">현장 오퍼레이터를 위한 설치부터 반출까지의 단계별 사용자 가이드</div>
+  <div class="meta">버전 2.1.0 · 문서 기준일 2026-05-14 · 대상: Windows 10/11 64-bit</div>
 </header>
 
-<!-- ================================================================== -->
 <section id="s1">
-<h2>1. 제품 개요</h2>
+<h2>1. 문서 목적과 대상 독자</h2>
 
-<p><strong>MC QR Code Chip Carrier Manager</strong> 는 반도체 측정 공장에서 칩 캐리어의 측정 이력을 체계적으로 관리하는 Windows 데스크톱 프로그램입니다.</p>
+<p>
+이 문서는 처음 프로그램을 사용하는 현장 작업자가 설치부터 ATX Import, Manual Capture/OCR,
+QR 매칭, CSV 반출, 이력 조회까지 스스로 따라 할 수 있도록 작성된 운영 매뉴얼입니다.
+프로그램 내부 구조를 몰라도 순서대로 읽고 따라 하면 일상 작업을 수행할 수 있게 구성했습니다.
+</p>
 
-<h3>이 프로그램이 해결해 주는 문제</h3>
+<div class="standard">
+이 가이드는 현장 오퍼레이터가 직접 읽고 관리하는 문서입니다. 개발 이력이나 내부 전환 정보는
+사용자 작업에 필요한 범위만 포함합니다.
+</div>
+
 <table>
-  <tr><th style="width: 30%;">기존 방식의 문제</th><th>이 프로그램의 해결</th></tr>
+  <tr><th>대상</th><th>이 문서에서 봐야 할 부분</th><th>목표</th></tr>
   <tr>
-    <td>ATX 장비가 슬롯마다 <code>summary_*.csv</code> 를 쏟아내 한 로트의 전체 상태 파악이 어려움</td>
-    <td>폴더 하나만 지정하면 12슬롯이 한 화면에 자동 정렬</td>
-  </tr>
-  <tr>
-    <td>로트카드 Manual 측정 값을 눈으로 읽어 수기 입력하고, Windows 캡처 도구로 이미지를 따로 저장해야 함</td>
-    <td>앱 안에서 Sweep 화면을 바로 Capture → OCR → QR 스캔 흐름으로 처리</td>
-  </tr>
-  <tr>
-    <td>이력이 각 PC 의 Excel 파일에 흩어져 일일 생산량 집계가 번거로움</td>
-    <td>SQLite DB 에 자동 저장 → History Statistics 로 즉시 집계</td>
-  </tr>
-  <tr>
-    <td>다른 PC 로 데이터를 이전하려면 Excel 을 수작업으로 합쳐야 함</td>
-    <td>CSV/CSV+Images 또는 Export Bundle 로 목적에 맞게 반출·백업</td>
+    <td>현장 오퍼레이터</td>
+    <td>설치, 첫 실행, ATX Mode, Manual Mode, CSV Export</td>
+    <td>측정값과 QR을 정확히 등록하고 반출 파일을 생성</td>
   </tr>
 </table>
 
-<h3>누가 쓰는가</h3>
+<h3>이 문서의 사용 방법</h3>
 <ul>
-  <li><strong>공장 측정 오퍼레이터</strong> — ATX 결과 Import, Manual Capture/OCR, QR 매칭</li>
-  <li><strong>품질 관리자</strong> — History Statistics 생산량 모니터링, CSV Export 검토</li>
-  <li><strong>IT 담당자</strong> — 인스톨러 배포, PC 간 데이터 이전</li>
-</ul>
-
-<h3>언제 쓰는가</h3>
-<ul>
-  <li>ATX 장비로 측정 직후 → 폴더 Import 로 12슬롯 일괄 등록</li>
-  <li>로트카드로 Manual 측정 시 → Region/Window Capture 로 이미지 등록 후 OCR 자동 입력</li>
-  <li>일간·주간 보고서 작성 전 → History Statistics 로 통계 확인</li>
-  <li>고객/서버 제출 → CSV 또는 CSV+Images Export</li>
-  <li>PC 교체·백업·본사 취합 → Export Bundle 생성·공유</li>
+  <li>처음 사용하는 경우: 1장부터 9장까지 순서대로 진행합니다.</li>
+  <li>ATX 장비 결과만 처리하는 경우: 3장, 4장, 5장, 6장, 9장을 봅니다.</li>
+  <li>수동 측정 이미지를 캡처하는 경우: 3장, 4장, 5장, 7장, 8장, 9장을 봅니다.</li>
+  <li>이전 데이터를 확인하거나 백업하는 경우: 10장, 11장, 12장을 봅니다.</li>
 </ul>
 
 <figure class="screenshot">
-  <div class="screenshot-placeholder">[스크린샷: 메인 윈도우 — 4탭 (ATX Mode / Manual Mode / CSV Export / History) 개요]</div>
-  <figcaption>그림 1-1. 프로그램 메인 화면 전체 구조</figcaption>
+  <div class="screenshot-placeholder">
+    <span>[스크린샷: 메인 윈도우 전체 — ATX Mode / Manual Mode / CSV Export / History 탭이 모두 보이는 상태]</span>
+    <code class="screenshot-target">assets/user-guide/fig-01-01-main-window.png</code>
+  </div>
+  <figcaption>그림 1-1. 프로그램 전체 화면 구조</figcaption>
 </figure>
-
-<div class="tip">
-모든 기능은 <strong>오프라인에서도 동작</strong> 합니다. 네트워크가 필요한 것은 "서버 업로드" 기능 하나뿐입니다.
-</div>
-
 </section>
 
-<!-- ================================================================== -->
 <section id="s2">
-<h2>2. 설치</h2>
+<h2>2. 프로그램 개요와 전체 작업 흐름</h2>
 
-<h3>시스템 요구사항</h3>
-<ul>
-  <li>Windows 10 / 11 (64-bit)</li>
-  <li>여유 공간 약 <strong>600 MB</strong> (Tesseract OCR 엔진 포함)</li>
-  <li>관리자 권한 <strong>불필요</strong> (사용자 권한으로 설치)</li>
-  <li>인터넷 연결 <strong>불필요</strong> (서버 업로드 기능 제외)</li>
+<p>
+MC QR Code Chip Carrier Manager는 반도체 측정 공정에서 발생하는 ATX 장비 결과, Manual 로트카드 이미지,
+QR 코드, 이력 DB, CSV 반출을 하나의 데스크톱 앱으로 묶는 도구입니다. 핵심 목적은
+측정값과 QR ID를 같은 슬롯에 안정적으로 연결하고, 이후 품질/서버 제출용 자료를 같은 구조로 만드는 것입니다.
+</p>
+
+<h3>2.1 프로그램이 해결하는 문제</h3>
+<table>
+  <tr><th>기존 방식의 어려움</th><th>프로그램에서 처리하는 방식</th></tr>
+  <tr>
+    <td>ATX 장비가 슬롯별 summary CSV를 따로 생성해 로트 전체 확인이 어려움</td>
+    <td>ATX 폴더를 한 번 선택하면 전체 슬롯을 카드와 테이블로 통합 표시</td>
+  </tr>
+  <tr>
+    <td>Manual 측정값을 눈으로 읽어 Excel에 입력하면서 오타가 발생</td>
+    <td>화면 캡처 후 OCR로 Frequency/Q를 자동 입력하고, 필요 시 수기 보정</td>
+  </tr>
+  <tr>
+    <td>QR 스캔 후 어떤 이미지와 매칭됐는지 추적하기 어려움</td>
+    <td>선택 카드 기준으로 QR을 매칭하고 캡처 파일명을 QR 기반으로 자동 확정</td>
+  </tr>
+  <tr>
+    <td>일자별 이력, 통계, 백업이 분산됨</td>
+    <td>로컬 SQLite DB에 저장하고 History에서 조회/통계/Bundle 백업 처리</td>
+  </tr>
+</table>
+
+<h3>2.2 10분 Quick Start</h3>
+<div class="summary-grid">
+  <div class="summary-card">
+    <h4>ATX 작업</h4>
+    <ol>
+      <li><strong>ATX Mode</strong> 선택</li>
+      <li>장비 결과 폴더 Import</li>
+      <li>슬롯 카드와 측정값 확인</li>
+      <li>QR 입력창에 스캐너로 QR 등록</li>
+      <li><strong>CSV Export</strong>에서 ATX 탭 저장</li>
+    </ol>
+  </div>
+  <div class="summary-card">
+    <h4>Manual 작업</h4>
+    <ol>
+      <li><strong>Manual Mode</strong> 선택</li>
+      <li>Probe Type 탭 선택</li>
+      <li><strong>📸 Capture</strong> 또는 단축키로 이미지 캡처</li>
+      <li>OCR 결과 확인 후 필요 시 Apply</li>
+      <li>QR 스캔 후 Export</li>
+    </ol>
+  </div>
+  <div class="summary-card">
+    <h4>반출 작업</h4>
+    <ol>
+      <li><strong>CSV Export</strong> 선택</li>
+      <li>ATX 또는 Manual 탭 선택</li>
+      <li>미리보기와 진행률 확인</li>
+      <li>Save CSV 또는 CSV+Images 선택</li>
+      <li>미완성 슬롯 처리 옵션 선택</li>
+    </ol>
+  </div>
+  <div class="summary-card">
+    <h4>조회/백업 작업</h4>
+    <ol>
+      <li><strong>History</strong> 선택</li>
+      <li>Records에서 날짜/Probe/Upload 상태 필터</li>
+      <li>Load Record로 상세 확인</li>
+      <li>Export Bundle 또는 Quick Backup 실행</li>
+      <li>다른 PC에서 Import Bundle로 복원</li>
+    </ol>
+  </div>
+</div>
+
+<h3>2.3 주요 용어</h3>
+<table>
+  <tr><th>용어</th><th>뜻</th><th>현장에서 확인할 위치</th></tr>
+  <tr><td>PO Number</td><td>작업 또는 생산 로트를 식별하는 번호</td><td>ATX 폴더명, History Records, CSV</td></tr>
+  <tr><td>Production Date</td><td>생산일자. CSV에는 `YYYYMMDD` 형식으로 반출</td><td>상단 생산일자 선택 콤보</td></tr>
+  <tr><td>Probe Type</td><td>측정에 사용한 Probe 종류</td><td>ATX Import 결과, Manual 탭 이름, Export 테이블</td></tr>
+  <tr><td>Slot</td><td>측정 대상 위치. ATX는 장비 슬롯, Manual은 캡처 순서 기준</td><td>카드 번호 `#1`, `#2` 또는 Export `#` 컬럼</td></tr>
+  <tr><td>QR ID</td><td>QR 스캐너로 읽은 개별 식별값</td><td>하단 QR 입력창, 카드 상태, Export 테이블</td></tr>
+  <tr><td>Zoom-In</td><td>Frequency/Q를 읽는 확대 캡처 이미지</td><td>Manual 이미지 뷰어의 Zoom-In 탭</td></tr>
+  <tr><td>Zoom-Out</td><td>전체 문맥 확인용 캡처 이미지</td><td>Manual 이미지 뷰어의 Zoom-Out 탭, CSV+Images `ZOOMOUT` 폴더</td></tr>
+  <tr><td>ROI</td><td>OCR이 숫자를 읽을 영역</td><td>Calibrate OCR 다이얼로그의 Frequency ROI / Q Factor ROI</td></tr>
+  <tr><td>Bundle</td><td>DB 기록과 이미지를 묶은 ZIP 백업 파일</td><td>History Records의 Export Bundle / Import Bundle</td></tr>
+  <tr><td>Upload Status</td><td>서버 업로드 상태</td><td>History Records의 Upload 컬럼과 필터</td></tr>
+</table>
+
+<div class="tip">
+처음에는 ATX와 Manual 중 실제 사용할 흐름 하나만 익혀도 됩니다. 두 흐름 모두 최종적으로 CSV Export와 History에 연결됩니다.
+</div>
+</section>
+
+<section id="s3">
+<h2>3. 설치 전 준비사항</h2>
+
+<h3>3.1 PC 요구사항</h3>
+<table>
+  <tr><th>항목</th><th>권장 기준</th><th>비고</th></tr>
+  <tr><td>운영체제</td><td>Windows 10 / 11 64-bit</td><td>현장 Windows PC 기준</td></tr>
+  <tr><td>디스크 여유 공간</td><td>최소 600 MB 이상</td><td>Tesseract OCR 엔진과 DLL 포함</td></tr>
+  <tr><td>권한</td><td>일반 사용자 권한</td><td>관리자 권한 없이 설치 가능</td></tr>
+  <tr><td>네트워크</td><td>기본 기능은 불필요</td><td>서버 Upload 기능만 네트워크 필요</td></tr>
+  <tr><td>입력 장치</td><td>QR 스캐너 또는 키보드</td><td>QR 스캐너는 키보드 입력처럼 동작해야 함</td></tr>
+</table>
+
+<h3>3.2 작업 전 체크리스트</h3>
+<ul class="checklist">
+  <li>설치 파일 `McQrManager-Setup-x.y.z.exe`를 받았습니다.</li>
+  <li>ATX 작업이면 `summary_*.csv` 파일이 들어 있는 원본 폴더 위치를 알고 있습니다.</li>
+  <li>Manual 작업이면 캡처할 Sweep 화면 또는 팝업 창을 열 수 있습니다.</li>
+  <li>QR 스캐너가 메모장 등에서 정상 입력되는지 확인했습니다.</li>
+  <li>생산일자와 Probe Type을 현장 기준으로 알고 있습니다.</li>
+  <li>서버 Upload를 사용할 경우 네트워크와 로그인 정보가 준비되어 있습니다.</li>
 </ul>
 
-<h3>설치 단계</h3>
+<h3>3.3 데이터 보존 원칙</h3>
+<div class="note">
+프로그램 실행 파일은 설치 폴더에 들어가지만, 작업 데이터베이스와 캡처 이미지는 사용자 데이터 폴더에 저장됩니다.
+따라서 앱을 업그레이드하거나 재설치해도 DB는 자동으로 삭제되지 않습니다.
+</div>
 
+<table>
+  <tr><th>데이터</th><th>기본 위치</th><th>삭제 여부</th></tr>
+  <tr><td>측정 이력 DB</td><td>`%LOCALAPPDATA%\MCQRCodeChipCarrier\chip_carrier.db`</td><td>언인스톨해도 보존</td></tr>
+  <tr><td>Manual 캡처 이미지</td><td>`%LOCALAPPDATA%\MCQRCodeChipCarrier\captures\`</td><td>카드 삭제 후에도 파일 보존</td></tr>
+  <tr><td>설치 파일과 DLL</td><td>`C:\Program Files\McQrManager\` 또는 사용자 선택 경로</td><td>언인스톨 시 제거</td></tr>
+</table>
+</section>
+
+<section id="s4">
+<h2>4. 설치 및 첫 실행</h2>
+
+<div class="standard">
+설치 완료 기준은 단순히 설치 마법사가 끝나는 것이 아니라, 앱이 실행되고 상단 탭과 생산일자 선택 영역이 보이며,
+Manual/ATX 화면으로 이동할 수 있는 상태입니다.
+</div>
+
+<h3>4.1 설치 절차</h3>
 <ol class="steps">
   <li>
     <strong>설치 파일 실행</strong>
-    <p>IT 담당자에게 받은 최신 <code>McQrManager-Setup-x.y.z.exe</code> 파일을 더블클릭합니다.</p>
-  </li>
-  <li>
-    <strong>SmartScreen 경고 대응 (처음 설치 시)</strong>
-    <p>"Windows에서 PC를 보호했습니다" 창이 뜨면 <strong>"추가 정보"</strong> → <strong>"실행"</strong> 순서로 클릭합니다. (코드 서명 인증서 도입 전까지 표시되는 정상적인 메시지입니다.)</p>
+    <p>사내 배포 경로에서 받은 최신 `McQrManager-Setup-x.y.z.exe` 파일을 더블클릭합니다.</p>
     <figure class="screenshot">
-      <div class="screenshot-placeholder">[스크린샷: SmartScreen 경고 창 — "추가 정보" 링크]</div>
+      <div class="screenshot-placeholder">
+        <span>[스크린샷: Windows 탐색기에서 McQrManager-Setup-x.y.z.exe 파일을 선택한 상태]</span>
+        <code class="screenshot-target">assets/user-guide/fig-04-01-installer-file.png</code>
+      </div>
+      <figcaption>그림 4-1. 설치 파일 실행</figcaption>
     </figure>
   </li>
   <li>
-    <strong>언어 선택</strong>
-    <p>"한국어" 또는 "English" 중 선택 후 <strong>확인</strong>.</p>
+    <strong>SmartScreen 경고 대응</strong>
+    <p>"Windows에서 PC를 보호했습니다" 창이 뜨면 <strong>추가 정보</strong>를 누른 뒤 <strong>실행</strong>을 선택합니다.</p>
+    <div class="warning">
+    코드 서명 인증서가 아직 적용되지 않은 사내 배포본에서는 SmartScreen 경고가 표시될 수 있습니다. 설치 파일 출처가 사내 배포 경로인지 먼저 확인하세요.
+    </div>
+    <figure class="screenshot">
+      <div class="screenshot-placeholder">
+        <span>[스크린샷: SmartScreen 경고 창 — 추가 정보와 실행 버튼 위치]</span>
+        <code class="screenshot-target">assets/user-guide/fig-04-02-smartscreen-warning.png</code>
+      </div>
+      <figcaption>그림 4-2. SmartScreen 경고 대응</figcaption>
+    </figure>
   </li>
   <li>
-    <strong>설치 경로 선택</strong>
-    <p>기본값 <code>C:\Program Files\McQrManager\</code> 권장. 특별한 이유가 없다면 그대로 <strong>다음</strong>.</p>
+    <strong>설치 언어와 경로 확인</strong>
+    <p>설치 언어는 한국어 또는 영어를 선택합니다. 기본 설치 경로를 그대로 사용해도 됩니다.</p>
+    <p>관리자 권한이 없는 PC에서도 설치할 수 있도록 사용자 권한 설치가 지원됩니다.</p>
   </li>
   <li>
-    <strong>추가 작업 선택</strong>
-    <p><em>바탕화면 아이콘 만들기</em> 체크박스 — 필요 시 선택. 기본은 해제 상태.</p>
+    <strong>설치 완료 후 실행</strong>
+    <p>마지막 화면에서 실행 옵션이 보이면 체크한 상태로 마침을 누릅니다. 또는 시작 메뉴에서 프로그램을 실행합니다.</p>
   </li>
   <li>
-    <strong>설치 진행</strong>
-    <p><strong>설치</strong> 클릭 → 1~2 분 대기. 진행률 바가 100% 에 도달하면 완료.</p>
-  </li>
-  <li>
-    <strong>완료</strong>
-    <p><em>MC QR Code Chip Carrier Manager 실행</em> 체크박스가 선택된 상태로 <strong>마침</strong> 클릭 → 첫 실행으로 이어집니다.</p>
+    <strong>첫 실행 확인</strong>
+    <p>상단에 <strong>ATX Mode</strong>, <strong>Manual Mode</strong>, <strong>CSV Export</strong>, <strong>History</strong> 탭이 보이면 정상입니다.</p>
+    <figure class="screenshot">
+      <div class="screenshot-placeholder">
+        <span>[스크린샷: 첫 실행 후 메인 화면 — 상단 4개 탭과 생산일자 콤보가 보이는 상태]</span>
+        <code class="screenshot-target">assets/user-guide/fig-04-03-first-run.png</code>
+      </div>
+      <figcaption>그림 4-3. 첫 실행 정상 화면</figcaption>
+    </figure>
   </li>
 </ol>
 
-<div class="note">
-이 프로그램은 <strong>VC++ Redistributable 등 별도 설치 불필요</strong>합니다. Tesseract OCR 엔진까지 모두 포함되어 있습니다.
-</div>
-
-</section>
-
-<!-- ================================================================== -->
-<section id="s3">
-<h2>3. 첫 실행</h2>
-
-<ol class="steps">
-  <li>
-    <strong>로그인 다이얼로그</strong>
-    <p>사용자 이름을 입력하고 <strong>확인</strong>. 이 이름은 이후 모든 측정 기록에 "작업자"로 저장됩니다.</p>
-    <figure class="screenshot">
-      <div class="screenshot-placeholder">[스크린샷: 로그인 다이얼로그]</div>
-    </figure>
-  </li>
-  <li>
-    <strong>DB 자동 생성</strong>
-    <p>최초 실행 시 <code>%LOCALAPPDATA%\MCQRCodeChipCarrier\chip_carrier.db</code> 가 자동으로 생성됩니다. 사용자가 따로 할 일은 없습니다.</p>
-  </li>
-  <li>
-    <strong>메인 윈도우 — 4개 탭 투어</strong>
-    <p>상단의 4개 탭을 한 번씩 눌러보세요.</p>
-    <ul>
-      <li><strong>ATX Mode</strong> — 측정 장비의 summary CSV 폴더를 Import 하는 화면</li>
-      <li><strong>Manual Mode</strong> — Sweep 화면을 캡처하거나 이미지를 불러와 OCR 로 값 입력</li>
-      <li><strong>CSV Export</strong> — ATX / Manual 데이터를 CSV 또는 CSV+Images 로 반출·업로드</li>
-      <li><strong>History</strong> — 과거 측정 이력 조회와 Statistics 분석</li>
-    </ul>
-  </li>
-</ol>
-
-</section>
-
-<!-- ================================================================== -->
-<section id="s4">
-<h2>4. ATX 모드 — 측정 장비 결과 자동 Import</h2>
-
-<p>ATX 장비가 생성한 <code>summary_*.csv</code> 파일이 들어있는 폴더를 지정하면 12슬롯을 한 번에 등록합니다.</p>
-
-<ol class="steps">
-  <li>
-    <strong>ATX Mode 진입 → Browse 버튼 클릭</strong>
-    <figure class="screenshot">
-      <div class="screenshot-placeholder">[스크린샷: ATX 탭의 Import 버튼 위치]</div>
-    </figure>
-  </li>
-  <li>
-    <strong>폴더 선택</strong>
-    <p>측정 장비가 결과를 저장한 폴더를 선택합니다. 안에 <code>summary_1.csv ~ summary_12.csv</code> 같은 파일들이 있어야 합니다.</p>
-  </li>
-  <li>
-    <strong>메타 입력</strong>
-    <p>좌측 입력 패널에서:</p>
-    <ul>
-      <li><strong>PO 번호</strong> (필수) — 로트 식별자</li>
-      <li><strong>주문 수량</strong></li>
-      <li><strong>프로브 유형</strong> (드롭다운)</li>
-      <li><strong>생산 일자</strong> (기본: 오늘)</li>
-    </ul>
-  </li>
-  <li>
-    <strong>QR 스캐너로 슬롯별 QR 등록</strong>
-    <p>각 슬롯 카드에 QR 코드 입력 칸이 있습니다. USB QR 스캐너로 순서대로 스캔하면 자동으로 다음 슬롯으로 이동합니다.</p>
-    <figure class="screenshot">
-      <div class="screenshot-placeholder">[스크린샷: 12슬롯 카드 + QR 입력 필드]</div>
-    </figure>
-  </li>
-  <li>
-    <strong>슬롯 값 수정이 필요할 때</strong>
-    <p>카드를 우클릭하고 <strong>수정...</strong> 을 선택하면 별도 다이얼로그에서 Probe Type / Frequency / Q / QR ID / Source 를 수정할 수 있습니다. OK 를 누르면 중복 QR 검사를 거쳐 DB 에 자동 저장됩니다.</p>
-  </li>
-  <li>
-    <strong>저장 또는 업로드</strong>
-    <ul>
-      <li><strong>로컬 DB 저장</strong> — Import / QR / 수정 결과는 History 에 반영됩니다.</li>
-      <li><strong>CSV Export 또는 Upload</strong> — CSV Export 탭에서 활성 ATX 탭 기준으로 진행합니다.</li>
-    </ul>
-    <p>둘 다 History 탭에 즉시 반영됩니다.</p>
-  </li>
-</ol>
-
-<h3>자주 발생하는 트러블</h3>
-<table>
-  <tr><th style="width: 40%;">증상</th><th>원인 / 해결</th></tr>
-  <tr>
-    <td>"summary CSV 를 찾을 수 없음"</td>
-    <td>잘못된 폴더 선택. <code>summary_1.csv</code> 등이 있는지 탐색기로 직접 확인.</td>
-  </tr>
-  <tr>
-    <td>슬롯 수가 12개가 아님 (예: 11개)</td>
-    <td>일부 summary 파일 누락. 장비에서 해당 슬롯 재측정.</td>
-  </tr>
-  <tr>
-    <td>QR 스캐너로 스캔했는데 반응 없음</td>
-    <td>QR 입력 칸에 포커스가 있는지 확인. 첫 칸을 마우스로 클릭 후 스캔.</td>
-  </tr>
-</table>
-
-</section>
-
-<!-- ================================================================== -->
-<section id="s5">
-<h2>5. Manual Mode — Capture/OCR 자동 입력</h2>
-
-<p>Manual Mode 는 Sweep 이미지를 앱 안에서 바로 캡처하고, OCR 로 Frequency / Q-factor 를 읽은 뒤, 방금 생성된 카드에 바로 QR 을 스캔하는 흐름을 기준으로 합니다. 기존처럼 Load 또는 드래그 앤 드롭으로 이미지를 추가하는 방식도 유지됩니다.</p>
-
-<ol class="steps">
-  <li>
-    <strong>Manual Mode 진입 후 Probe Type 탭 선택</strong>
-    <p>캡처는 현재 선택된 Probe Type 탭에 추가됩니다. <em>Overview</em> 탭에서는 캡처가 시작되지 않습니다.</p>
-    <figure class="screenshot">
-      <div class="screenshot-placeholder">[스크린샷: Manual Mode — Probe Type 탭 + Capture 메뉴]</div>
-    </figure>
-  </li>
-  <li>
-    <strong>Zoom-In 이미지 캡처</strong>
-    <p><strong>📸 Capture</strong> 메뉴에서 다음 중 하나를 선택합니다.</p>
-    <table>
-      <tr><th>메뉴</th><th>단축키</th><th>용도</th></tr>
-      <tr><td>Zoom-In · Region Capture</td><td>F6</td><td>드래그한 영역만 캡처</td></tr>
-      <tr><td>Zoom-In · Window Capture</td><td>F7</td><td>클릭한 Sweep 창 전체 캡처</td></tr>
-    </table>
-    <p>캡처가 끝나면 새 카드가 자동 생성되고 선택됩니다. 좌측 미리보기에는 방금 캡처한 이미지가 표시되며 QR 입력창에 포커스가 이동합니다.</p>
-  </li>
-  <li>
-    <strong>QR 스캐너로 방금 카드에 QR 등록</strong>
-    <p>QR 을 스캔하면 캡처 파일명이 <code>pending_XXXX.png</code> 에서 <code>slot_XX_{QRID}.png</code> 형식으로 자동 확정됩니다. 파일명을 외울 필요가 없습니다.</p>
-  </li>
-  <li>
-    <strong>Zoom-Out 이미지가 필요한 경우 선택 카드에 추가</strong>
-    <p>Sweep 프로그램을 Zoom-Out 상태로 바꾼 뒤, 현재 선택된 카드에 Zoom-Out 이미지를 첨부합니다.</p>
-    <table>
-      <tr><th>메뉴</th><th>단축키</th><th>용도</th></tr>
-      <tr><td>Zoom-Out · Region Capture</td><td>F8</td><td>선택 카드의 Zoom-Out 영역 캡처</td></tr>
-      <tr><td>Zoom-Out · Window Capture</td><td>F9</td><td>선택 카드의 Zoom-Out 창 전체 캡처</td></tr>
-    </table>
-  </li>
-  <li>
-    <strong>Zoom-In / Zoom-Out 미리보기 전환</strong>
-    <p>좌측 <strong>Zoom-In</strong>, <strong>Zoom-Out</strong> 버튼으로 선택 카드의 이미지를 전환해 확인합니다. Zoom-Out 이미지가 없는 카드에서 Zoom-Out 을 누르면 안내 로그 후 Zoom-In 으로 돌아갑니다.</p>
-  </li>
-  <li>
-    <strong>OCR 결과 확인 + 수기 보정</strong>
-    <p>OCR 이 끝나면 Frequency / Q-factor 칸에 숫자가 자동 입력됩니다. 값이 틀렸거나 빈 칸이면 직접 수정한 뒤 <strong>Apply</strong> 를 누릅니다.</p>
-  </li>
-  <li>
-    <strong>잘못 캡처한 카드 삭제</strong>
-    <p>카드를 우클릭해 삭제하면 남은 카드가 현재 화면 순서 기준으로 <code>#1, #2, #3...</code> 재정렬됩니다. 앱 내부 캡처 파일도 QR 이 확정된 경우 새 순번에 맞춰 동기화됩니다.</p>
-  </li>
-</ol>
-
-<h3>5.1 기존 이미지 Load / Drag & Drop</h3>
-
-<p>기존 방식도 그대로 사용할 수 있습니다. <strong>Load</strong> 버튼으로 파일/폴더를 선택하거나 탐색기에서 JPG / PNG 파일을 카드 영역으로 드래그 앤 드롭합니다.</p>
-
-<div class="note">
-폴더 선택 시 Zoom-Out backtick 접미사 파일은 슬롯으로 중복 등록되지 않도록 자동 필터링됩니다.
-</div>
-
-<h3>5.2 ROI Calibrator (해상도 다른 이미지 추가 시)</h3>
-
-<p>기본 제공 프로파일에 없는 새 해상도의 이미지를 사용할 때 OCR 이 제대로 되지 않으면 상단 <strong>🎯 Calibrate OCR</strong> 버튼으로 ROI(관심 영역)를 직접 설정합니다.</p>
-
-<ol class="steps">
-  <li>
-    <strong>🎯 Calibrate OCR 열기</strong>
-    <figure class="screenshot">
-      <div class="screenshot-placeholder">[스크린샷: ROI Calibrator 다이얼로그 — Frequency/Q ROI 박스]</div>
-    </figure>
-  </li>
-  <li>
-    <strong>샘플 이미지 로드</strong>
-    <p><em>Load reference image...</em> 버튼으로 문제가 된 해상도의 이미지를 불러옵니다.</p>
-  </li>
-  <li>
-    <strong>ROI 좌표 조정 후 Test OCR</strong>
-    <p>Frequency ROI 와 Q Factor ROI 를 숫자 영역에 맞춘 뒤 <strong>Run OCR on current ROI</strong> 로 추출 결과를 확인합니다.</p>
-  </li>
-  <li>
-    <strong>Save</strong>
-    <p>해당 해상도 기준 ROI 프로파일이 저장되고, 다음부터 같은 해상도 이미지에 자동 적용됩니다.</p>
-  </li>
-</ol>
-
-<div class="tip">
-이미지 미리보기는 원본 파일을 리사이즈하지 않고 현재 화면 영역 안에 맞춰 표시합니다. 캡처 크기나 비율이 달라도 앱 레이아웃은 자동으로 흔들리지 않습니다.
-</div>
-
-</section>
-
-<!-- ================================================================== -->
-<section id="s6">
-<h2>6. History Records — 측정 이력 조회</h2>
-
-<ol class="steps">
-  <li>
-    <strong>History 탭 진입 → Records 선택</strong>
-    <figure class="screenshot">
-      <div class="screenshot-placeholder">[스크린샷: History Records — 상단 필터 + 이력 테이블 + 상세 패널]</div>
-    </figure>
-  </li>
-  <li>
-    <strong>필터 설정</strong>
-    <ul>
-      <li><strong>날짜 범위</strong> — 캘린더 위젯으로 시작/종료일 선택</li>
-      <li><strong>PO 번호</strong> — 부분 일치 검색</li>
-      <li><strong>Probe Type</strong> — 드롭다운</li>
-      <li><strong>Upload Status</strong> — pending / uploaded / failed</li>
-      <li><strong>QR 코드</strong> — 특정 QR 로 검색</li>
-    </ul>
-  </li>
-  <li>
-    <strong>정렬</strong>
-    <p>컬럼 헤더 클릭으로 정렬. 기본은 최신순 (<code>production_date DESC</code>).</p>
-  </li>
-  <li>
-    <strong>기록 선택 → 슬롯 상세 확인</strong>
-    <p>기록을 선택하면 하단 상세 패널에서 이미지 미리보기와 슬롯 테이블을 확인할 수 있습니다. History 화면에는 전용 Log 박스가 없으므로 상세 영역을 더 크게 사용할 수 있습니다.</p>
-  </li>
-  <li>
-    <strong>업로드 실패 건 재전송</strong>
-    <p><em>Upload Status = failed</em> 로 필터한 뒤 필요한 이력을 선택해 재전송합니다.</p>
-  </li>
-  <li>
-    <strong>Bundle 백업 / 복원</strong>
-    <p>선택한 이력은 <strong>Export Bundle</strong> 로 ZIP 백업할 수 있고, 다른 PC 에서는 <strong>Import Bundle</strong> 로 복원할 수 있습니다.</p>
-  </li>
-</ol>
-
-<div class="note">
-History 탭에서는 상단 <strong>🎯 Calibrate OCR</strong> 버튼이 숨겨집니다. OCR 보정은 ATX / Manual / CSV Export 화면에서 실행하세요.
-</div>
-
-</section>
-
-<!-- ================================================================== -->
-<section id="s7">
-<h2>7. History Statistics — 생산량 분석</h2>
-
-<figure class="screenshot">
-  <div class="screenshot-placeholder">[스크린샷: History Statistics — Today KPI + Period Summary + Production/Quality 차트]</div>
-</figure>
-
-<h3>7.1 상단 — Today + Period Summary</h3>
-<ul>
-  <li><strong>Today Sets</strong> — 오늘 측정한 세트(로트) 수</li>
-  <li><strong>Today Slots</strong> — 오늘 측정한 슬롯 총 개수</li>
-  <li><strong>Today Complete %</strong> — QR 입력 완료율</li>
-  <li><strong>Period Summary</strong> — 선택 기간/Probe Type 기준 세트·슬롯·완료율 리스트</li>
+<h3>4.2 설치 후 정상 확인 체크리스트</h3>
+<ul class="checklist">
+  <li>프로그램 제목이 `MC QR Code Chip Carrier Manager`로 표시됩니다.</li>
+  <li>상단 생산일자가 오늘 날짜 또는 선택 가능한 날짜로 표시됩니다.</li>
+  <li>Manual Mode로 이동하면 `📸 Capture`, `Load`, `+ Add Tab`, `Refresh OCR` 버튼이 보입니다.</li>
+  <li>CSV Export로 이동하면 ATX / Manual 탭이 보입니다.</li>
+  <li>History로 이동하면 Records / Statistics 탭이 보입니다.</li>
 </ul>
 
-<h3>7.2 필터</h3>
-<p>Statistics 상단의 필터:</p>
-<table>
-  <tr><th>항목</th><th>설명</th></tr>
-  <tr><td>Period</td><td>Daily / Weekly / Monthly 등 집계 단위</td></tr>
-  <tr><td>Probe Type</td><td>전체 또는 특정 Probe Type</td></tr>
-</table>
+<h3>4.3 업그레이드와 재설치</h3>
+<p>
+동일한 MC 2.x 계열 설치본은 같은 AppId를 사용하므로 Windows가 같은 제품의 업데이트로 인식합니다.
+설치본을 새로 실행해도 기존 작업 DB는 설치 폴더 밖에 있으므로 보존됩니다.
+</p>
 
-<h3>7.3 차트 해석</h3>
-<table>
-  <tr><th>영역</th><th>차트</th></tr>
-  <tr><td>Production</td><td>Production Trend, Production by Probe Type</td></tr>
-  <tr><td>Quality Analysis</td><td>Frequency SPC, Q Factor SPC, Frequency Distribution, Q Factor Distribution</td></tr>
-</table>
-
-<div class="tip">
-그래프는 한 화면에 억지로 모두 끼우기보다 읽을 수 있는 최소 높이를 보장합니다. 필요하면 Statistics 내부 스크롤로 아래 차트를 확인하세요.
+<div class="danger">
+DB 파일을 직접 삭제하면 History와 기존 작업 이력이 사라집니다. PC 교체나 초기화 전에는 반드시 History Records에서 Export Bundle 또는 Quick Backup을 먼저 실행하세요.
 </div>
 
+<h3>4.4 실행하면 안 되는 파일</h3>
+<p>
+개발 또는 빌드 작업을 하는 PC에서는 `build\McQrManager\McQrManager.exe`라는 중간 산출물이 보일 수 있습니다.
+이 파일은 정상 배포 실행 파일이 아니며 `python311.dll` 오류가 발생할 수 있습니다.
+</p>
+
+<table>
+  <tr><th>구분</th><th>실행 여부</th><th>설명</th></tr>
+  <tr><td>`Output\McQrManager-Setup-2.1.0.exe`</td><td>실행 가능</td><td>최종 설치 파일</td></tr>
+  <tr><td>`dist\McQrManager\McQrManager.exe`</td><td>개발/검증용 실행 가능</td><td>PyInstaller onedir 최종 산출물</td></tr>
+  <tr><td>`build\McQrManager\McQrManager.exe`</td><td>실행 금지</td><td>PyInstaller 중간 작업 폴더. DLL 누락 가능</td></tr>
+</table>
 </section>
 
-<!-- ================================================================== -->
-<section id="s8">
-<h2>8. CSV Export / Bundle — 반출·업로드·백업</h2>
+<section id="s5">
+<h2>5. 화면 구성과 공통 조작</h2>
 
-<p>데이터 제출용 CSV 와 PC 이전용 Bundle 은 목적이 다릅니다. 고객/서버 제출은 <strong>CSV Export</strong>, PC 백업/복원은 <strong>History Records 의 Export Bundle</strong> 을 사용하세요.</p>
+<h3>5.1 상단 탭</h3>
+<table>
+  <tr><th>탭</th><th>주요 용도</th><th>작업 완료 후 연결되는 화면</th></tr>
+  <tr><td>ATX Mode</td><td>ATX 장비의 summary CSV 폴더 Import, QR 매칭, 슬롯 수정</td><td>CSV Export, History</td></tr>
+  <tr><td>Manual Mode</td><td>화면 캡처, 이미지 Load, OCR, 수기 보정, QR 매칭</td><td>CSV Export, History</td></tr>
+  <tr><td>CSV Export</td><td>CSV 저장, CSV+Images 저장, 서버 Upload</td><td>History Upload Status</td></tr>
+  <tr><td>History</td><td>과거 기록 조회, 통계, Bundle 백업/복원</td><td>PC 이전, 품질 분석</td></tr>
+</table>
 
-<h3>8.1 CSV Export 탭</h3>
+<h3>5.2 공통 입력 영역</h3>
+<ul>
+  <li><strong>생산일자</strong>: 상단의 `생산일자:` 콤보에서 선택합니다. CSV에는 `YYYYMMDD` 형식으로 저장됩니다.</li>
+  <li><strong>QR 입력창</strong>: 화면 하단에 있습니다. 카드 선택 후 QR 스캐너를 찍으면 선택 슬롯에 QR이 매칭됩니다.</li>
+  <li><strong>진행률</strong>: 하단 또는 상단에 `0 / 12 matched` 같은 형식으로 QR 매칭 상태가 표시됩니다.</li>
+  <li><strong>Log</strong>: ATX, Manual, CSV Export 화면 하단에서 처리 결과와 경고를 확인합니다. History 화면은 상세 조회 공간 확보를 위해 전용 Log 박스가 없습니다.</li>
+</ul>
 
+<figure class="screenshot">
+  <div class="screenshot-placeholder">
+    <span>[스크린샷: QR 입력창, 진행률, Log 영역이 보이는 메인 화면 하단]</span>
+    <code class="screenshot-target">assets/user-guide/fig-05-01-common-input-status.png</code>
+  </div>
+  <figcaption>그림 5-1. 공통 입력과 상태 표시 영역</figcaption>
+</figure>
+
+<h3>5.3 카드 선택과 QR 매칭</h3>
 <ol class="steps">
   <li>
-    <strong>CSV Export 탭 진입</strong>
-    <p>우측 테이블은 <strong>ATX</strong> / <strong>Manual</strong> 2탭으로 나뉩니다. Save CSV, CSV+Images, Upload 는 현재 활성 탭의 데이터 기준으로 동작합니다.</p>
+    <strong>카드 선택</strong>
+    <p>ATX 또는 Manual 화면에서 작업할 카드를 클릭합니다. 선택된 카드는 테두리 또는 강조 색으로 표시됩니다.</p>
   </li>
   <li>
-    <strong>데이터 완성 상태 확인</strong>
-    <p>상단 진행률은 활성 Export 탭 기준으로 표시됩니다. 좌측 미리보기는 선택한 슬롯 이미지를 보여줍니다.</p>
+    <strong>QR 입력창 확인</strong>
+    <p>하단 QR 입력창의 placeholder가 선택 카드 번호와 Probe Type을 보여주는지 확인합니다.</p>
   </li>
   <li>
-    <strong>Save CSV 또는 CSV+Images 선택</strong>
-    <table>
-      <tr><th>메뉴</th><th>결과</th></tr>
-      <tr><td>Save CSV</td><td>CSV 파일만 저장</td></tr>
-      <tr><td>CSV + Images</td><td>CSV 와 <code>ZOOMIN/</code>, <code>ZOOMOUT/</code> 이미지 폴더를 함께 저장</td></tr>
-    </table>
+    <strong>QR 스캔</strong>
+    <p>QR 스캐너로 코드를 찍습니다. 스캐너는 일반 키보드 입력처럼 QR 문자열을 입력하고 Enter를 보내는 방식이어야 합니다.</p>
   </li>
   <li>
-    <strong>미완성 데이터 옵션 선택</strong>
-    <p>QR 미입력 또는 값 누락 슬롯이 있으면 다음 중 선택합니다.</p>
-    <table>
-      <tr><th>옵션</th><th>동작</th></tr>
-      <tr><td>QR 있는 값만 반출/업로드</td><td>QR ID가 있는 슬롯만 CSV 행으로 생성</td></tr>
-      <tr><td>전체 슬롯 반출/업로드</td><td>현재까지 입력된 값을 전체 슬롯 순서대로 CSV 행으로 생성</td></tr>
-      <tr><td>취소</td><td>작업 취소</td></tr>
-    </table>
+    <strong>매칭 결과 확인</strong>
+    <p>카드 상태가 QR 완료 상태로 바뀌고, 진행률 숫자가 증가하면 정상입니다.</p>
   </li>
 </ol>
 
-<h3>8.2 CSV 컬럼</h3>
+<div class="warning">
+이미 다른 슬롯에 사용된 QR ID를 입력하면 중복 방지를 위해 차단됩니다. 중복 경고가 뜨면 실제 제품 QR 또는 선택 카드가 맞는지 확인하세요.
+</div>
+</section>
 
-<table>
-  <tr><th>순서</th><th>컬럼명</th></tr>
-  <tr><td>1</td><td>QR ID</td></tr>
-  <tr><td>2</td><td>생산일자[YYYYMMDD]</td></tr>
-  <tr><td>3</td><td>Frequency (KHz)</td></tr>
-  <tr><td>4</td><td>Drive (%)</td></tr>
-  <tr><td>5</td><td>Q</td></tr>
-  <tr><td>6</td><td>Probe Type</td></tr>
-</table>
+<section id="s6">
+<h2>6. ATX Mode 사용 가이드</h2>
 
-<div class="note">
-<code>Drive (%)</code> 는 현재 화면 입력 항목은 아니지만 서버 업로드 자료 구조 유지를 위해 CSV 에 포함됩니다. 값이 없으면 빈 칸으로 저장됩니다.
+<div class="standard">
+ATX Mode는 장비가 이미 생성한 `summary_*.csv` 파일을 로트 단위로 불러와 슬롯별 Frequency/Q/Probe 정보를 자동 등록하는 화면입니다.
 </div>
 
-<h3>8.3 CSV+Images 폴더 구조</h3>
+<h3>6.1 사용 시점과 완료 기준</h3>
+<table>
+  <tr><th>항목</th><th>기준</th></tr>
+  <tr><td>사용 시점</td><td>ATX 장비에서 측정 결과 폴더가 생성된 후</td></tr>
+  <tr><td>입력 데이터</td><td>`summary_1.csv`, `summary_2.csv` 등 슬롯별 summary CSV</td></tr>
+  <tr><td>완료 기준</td><td>모든 슬롯 측정값 확인, 필요한 QR 매칭, CSV Export 가능 상태</td></tr>
+</table>
 
-<p>생성 폴더명 기본값은 ATX 원본 폴더명 또는 Manual 이미지 공통 부모 폴더명을 우선 사용합니다. 예를 들어 원본 폴더가 <code>P2601002_12M_AC160</code> 이면 기본 Export 폴더명도 동일합니다.</p>
+<h3>6.2 ATX 폴더 Import</h3>
+<ol class="steps">
+  <li>
+    <strong>ATX Mode 선택</strong>
+    <p>상단 탭에서 <strong>ATX Mode</strong>를 클릭합니다.</p>
+    <figure class="screenshot">
+      <div class="screenshot-placeholder">
+        <span>[스크린샷: ATX Mode 탭이 선택되고 Folder Group과 Import 버튼이 보이는 상태]</span>
+        <code class="screenshot-target">assets/user-guide/fig-06-01-atx-mode-start.png</code>
+      </div>
+      <figcaption>그림 6-1. ATX Mode 시작 화면</figcaption>
+    </figure>
+  </li>
+  <li>
+    <strong>장비 결과 폴더 선택</strong>
+    <p>Import 또는 Browse 버튼으로 ATX 장비가 저장한 폴더를 선택합니다. 폴더명은 PO Number와 Probe 정보를 포함하는 것이 좋습니다.</p>
+    <p>예: `P2601002_12M_AC160`</p>
+  </li>
+  <li>
+    <strong>summary CSV 확인</strong>
+    <p>선택한 폴더 안에 `summary_*.csv` 파일이 있어야 합니다. 파일이 없으면 Import가 실패합니다.</p>
+  </li>
+  <li>
+    <strong>슬롯 카드 확인</strong>
+    <p>Import가 끝나면 우측에 슬롯 카드가 생성됩니다. 각 카드에서 Frequency, Q, QR 상태를 확인합니다.</p>
+    <figure class="screenshot">
+      <div class="screenshot-placeholder">
+        <span>[스크린샷: ATX Import 후 슬롯 카드 12개가 보이고 첫 번째 카드가 선택된 상태]</span>
+        <code class="screenshot-target">assets/user-guide/fig-06-02-atx-slot-cards.png</code>
+      </div>
+      <figcaption>그림 6-2. ATX 슬롯 카드 확인</figcaption>
+    </figure>
+  </li>
+  <li>
+    <strong>QR 매칭</strong>
+    <p>슬롯 카드를 클릭한 뒤 QR 스캐너로 해당 제품 QR을 입력합니다. 다음 슬롯으로 이동해 반복합니다.</p>
+  </li>
+</ol>
+
+<h3>6.3 슬롯 수정</h3>
+<p>
+측정값, Probe Type, QR ID, Source를 수정해야 할 때는 카드 우클릭 메뉴를 사용합니다.
+</p>
+<ol class="steps">
+  <li>
+    <strong>수정할 카드 우클릭</strong>
+    <p>카드에서 마우스 오른쪽 버튼을 누르고 <strong>수정...</strong>을 선택합니다.</p>
+  </li>
+  <li>
+    <strong>다이얼로그에서 값 수정</strong>
+    <p>Probe Type, Frequency, Q-factor, QR ID, Source 값을 확인하고 필요한 항목만 바꿉니다.</p>
+  </li>
+  <li>
+    <strong>OK 또는 Cancel</strong>
+    <p>OK를 누르면 중복 QR 검사를 통과한 뒤 저장됩니다. Cancel을 누르면 원본 슬롯은 바뀌지 않습니다.</p>
+  </li>
+</ol>
+
+<figure class="screenshot">
+  <div class="screenshot-placeholder">
+    <span>[스크린샷: ATX 카드 우클릭 메뉴에서 수정... 항목이 보이는 상태와 Slot Edit Dialog]</span>
+    <code class="screenshot-target">assets/user-guide/fig-06-03-atx-slot-edit-dialog.png</code>
+  </div>
+  <figcaption>그림 6-3. ATX 슬롯 수정 다이얼로그</figcaption>
+</figure>
+
+<h3>6.4 ATX 작업 완료 확인</h3>
+<ul class="checklist">
+  <li>선택한 폴더의 PO Number와 Probe Type이 예상과 일치합니다.</li>
+  <li>슬롯 수가 장비 결과와 일치합니다.</li>
+  <li>Frequency/Q 값이 빈 칸이거나 비정상인 슬롯을 확인했습니다.</li>
+  <li>필요한 QR ID를 모두 입력했습니다.</li>
+  <li>CSV Export의 ATX 탭에서 동일 데이터가 보입니다.</li>
+</ul>
+
+<h3>6.5 ATX Mode 자주 발생하는 문제</h3>
+<table>
+  <tr><th>증상</th><th>가능한 원인</th><th>조치</th></tr>
+  <tr><td>summary CSV를 찾을 수 없음</td><td>잘못된 폴더 선택</td><td>탐색기에서 `summary_*.csv`가 있는 폴더를 직접 확인</td></tr>
+  <tr><td>슬롯 수가 예상과 다름</td><td>summary 파일 누락 또는 장비 설정 차이</td><td>폴더 내 파일 개수와 장비 결과를 비교</td></tr>
+  <tr><td>QR 중복 경고</td><td>같은 QR을 다른 슬롯에 이미 입력</td><td>History/카드 상태를 확인하고 실제 QR을 다시 스캔</td></tr>
+  <tr><td>Export 탭에 ATX 데이터가 안 보임</td><td>ATX Import 전이거나 다른 탭 확인 중</td><td>CSV Export에서 ATX 탭을 선택</td></tr>
+</table>
+</section>
+
+<section id="s7">
+<h2>7. Manual Mode Capture/OCR 사용 가이드</h2>
+
+<div class="standard">
+Manual Mode의 표준 공정은 <strong>Probe Type 선택 → Zoom-In 캡처 → OCR 확인 → QR 스캔</strong>입니다.
+파일명을 외우지 않아도, 방금 캡처한 카드에 바로 QR을 찍는 흐름으로 설계되어 있습니다.
+</div>
+
+<h3>7.1 Manual 작업 준비</h3>
+<ul class="checklist">
+  <li>Manual Mode 탭으로 이동했습니다.</li>
+  <li>작업할 Probe Type 탭을 선택했습니다. Overview 탭에서는 캡처를 시작하지 않습니다.</li>
+  <li>Sweep 이미지 또는 측정 팝업 창이 화면에 열려 있습니다.</li>
+  <li>QR 스캐너가 준비되어 있습니다.</li>
+</ul>
+
+<figure class="screenshot">
+  <div class="screenshot-placeholder">
+    <span>[스크린샷: Manual Mode — Probe Type 탭이 선택되고 📸 Capture 메뉴 버튼이 보이는 상태]</span>
+    <code class="screenshot-target">assets/user-guide/fig-07-01-manual-capture-menu.png</code>
+  </div>
+  <figcaption>그림 7-1. Manual Mode 작업 시작 화면</figcaption>
+</figure>
+
+<h3>7.2 Capture 메뉴와 단축키</h3>
+<table>
+  <tr><th>작업</th><th>단축키</th><th>사용 시점</th><th>결과</th></tr>
+  <tr><td>Zoom-In · Region Capture</td><td><kbd>F6</kbd></td><td>숫자 영역을 직접 드래그할 때</td><td>새 Manual 카드 생성</td></tr>
+  <tr><td>Zoom-In · Window Capture</td><td><kbd>F7</kbd></td><td>Sweep 팝업 창 전체를 일정 크기로 캡처할 때</td><td>새 Manual 카드 생성</td></tr>
+  <tr><td>Zoom-Out · Region Capture</td><td><kbd>F8</kbd></td><td>선택 카드의 전체 화면 문맥 이미지를 추가할 때</td><td>선택 카드의 Zoom-Out 이미지 생성</td></tr>
+  <tr><td>Zoom-Out · Window Capture</td><td><kbd>F9</kbd></td><td>선택 카드의 전체 창 이미지를 추가할 때</td><td>선택 카드의 Zoom-Out 이미지 생성</td></tr>
+</table>
+
+<div class="warning">
+Zoom-Out 캡처는 새 카드를 만들지 않습니다. 이미 선택된 카드에 보조 이미지를 붙이는 작업입니다.
+먼저 Zoom-In 캡처로 카드가 생성되어 있어야 합니다.
+</div>
+
+<h3>7.3 Zoom-In 캡처 후 OCR/QR 작업</h3>
+<ol class="steps">
+  <li>
+    <strong>Probe Type 탭 선택</strong>
+    <p>현재 작업할 Probe Type 탭을 클릭합니다. 탭이 없으면 `+ Add Tab`으로 추가합니다.</p>
+  </li>
+  <li>
+    <strong>캡처 시작</strong>
+    <p><strong>📸 Capture</strong> 메뉴에서 `Zoom-In · Region Capture` 또는 `Zoom-In · Window Capture`를 선택합니다.
+    단축키를 사용하려면 <kbd>F6</kbd> 또는 <kbd>F7</kbd>을 누릅니다.</p>
+  </li>
+  <li>
+    <strong>영역 또는 창 선택</strong>
+    <p>Region Capture는 마우스로 영역을 드래그합니다. Window Capture는 캡처할 Sweep 창을 클릭합니다.
+    취소하려면 <kbd>Esc</kbd> 또는 우클릭을 사용합니다.</p>
+    <figure class="screenshot">
+      <div class="screenshot-placeholder">
+        <span>[스크린샷: Region Capture 오버레이에서 Sweep 숫자 영역을 드래그하는 상태]</span>
+        <code class="screenshot-target">assets/user-guide/fig-07-02-region-capture-overlay.png</code>
+      </div>
+      <figcaption>그림 7-2. Region Capture 선택</figcaption>
+    </figure>
+  </li>
+  <li>
+    <strong>카드 자동 생성 확인</strong>
+    <p>캡처가 저장되면 우측에 새 카드가 생성되고 자동 선택됩니다. 좌측 Sweep Image에 방금 캡처한 이미지가 표시됩니다.</p>
+  </li>
+  <li>
+    <strong>OCR 결과 확인</strong>
+    <p>Frequency (KHz), Q 입력칸에 숫자가 자동 입력되었는지 확인합니다. 틀리면 직접 수정하고 <strong>Apply</strong>를 누릅니다.</p>
+  </li>
+  <li>
+    <strong>QR 스캔</strong>
+    <p>하단 QR 입력창에 포커스가 자동 이동합니다. QR 스캐너를 찍으면 선택 카드에 QR이 매칭됩니다.</p>
+  </li>
+</ol>
+
+<h3>7.4 Zoom-Out 캡처</h3>
+<p>
+Zoom-Out 이미지는 같은 슬롯의 전체 문맥을 보존하는 용도입니다. CSV+Images Export 시 `ZOOMOUT` 폴더에 같이 반출됩니다.
+</p>
+<ol class="steps">
+  <li>
+    <strong>Zoom-In 카드 선택</strong>
+    <p>Zoom-Out 이미지를 붙일 Manual 카드를 클릭합니다.</p>
+  </li>
+  <li>
+    <strong>Zoom-Out 캡처 실행</strong>
+    <p>캡처 메뉴에서 `Zoom-Out · Region Capture` 또는 `Zoom-Out · Window Capture`를 선택합니다.
+    단축키는 <kbd>F8</kbd>, <kbd>F9</kbd>입니다.</p>
+  </li>
+  <li>
+    <strong>이미지 뷰어 전환 확인</strong>
+    <p>좌측 이미지 뷰어 상단의 <strong>Zoom-In</strong> / <strong>Zoom-Out</strong> 버튼으로 두 이미지를 전환해 확인합니다.</p>
+  </li>
+</ol>
+
+<h3>7.5 기존 이미지 Load / Drag & Drop</h3>
+<p>
+캡처 기능을 쓰지 않고 기존 이미지 파일을 불러올 수도 있습니다. `Load` 버튼을 누르거나 이미지 파일을 Manual 화면으로 드래그 앤 드롭합니다.
+이 방식으로 불러온 외부 원본 이미지는 QR 매칭 후에도 자동 rename하지 않습니다.
+</p>
+
+<h3>7.6 잘못 캡처한 카드 삭제</h3>
+<p>
+잘못 캡처한 카드를 삭제하면 남은 Manual 카드는 현재 화면 순서 기준으로 `#1`, `#2`, `#3` 순서로 다시 정렬됩니다.
+QR ID, Frequency, Q, Probe Type, 이미지 경로는 해당 카드와 함께 유지됩니다.
+</p>
+
+<div class="note">
+앱 내부 캡처 파일은 순번 재정렬에 맞춰 파일명이 동기화될 수 있습니다. 외부에서 Load한 원본 이미지는 파일명을 바꾸지 않습니다.
+</div>
+
+<h3>7.7 Manual 작업 완료 확인</h3>
+<ul class="checklist">
+  <li>Probe Type 탭이 올바릅니다.</li>
+  <li>카드 번호가 현재 작업 순서와 일치합니다.</li>
+  <li>Frequency와 Q 값이 실제 화면과 일치합니다.</li>
+  <li>필요한 카드에 QR ID가 매칭되었습니다.</li>
+  <li>Zoom-Out 이미지가 필요한 슬롯은 Zoom-Out 탭에서 확인됩니다.</li>
+  <li>CSV Export의 Manual 탭에서 동일 데이터가 보입니다.</li>
+</ul>
+</section>
+
+<section id="s8">
+<h2>8. OCR ROI Calibrator 사용 가이드</h2>
+
+<div class="standard">
+OCR이 실패하거나 다른 해상도의 이미지가 들어왔을 때만 ROI Calibrator를 사용합니다.
+정상적으로 숫자가 읽히는 해상도에서는 매번 조정할 필요가 없습니다.
+</div>
+
+<h3>8.1 Calibrator가 필요한 상황</h3>
+<ul>
+  <li>Frequency 또는 Q가 항상 빈 칸으로 남습니다.</li>
+  <li>로그에 "저장된 ROI 프로파일 없음" 또는 해상도 관련 안내가 표시됩니다.</li>
+  <li>캡처 창 크기나 Windows 배율이 바뀐 뒤 OCR이 갑자기 실패합니다.</li>
+  <li>새 장비 화면 또는 새 레이아웃의 Sweep 이미지를 사용합니다.</li>
+</ul>
+
+<h3>8.2 ROI 의미</h3>
+<table>
+  <tr><th>항목</th><th>의미</th><th>맞춰야 하는 영역</th></tr>
+  <tr><td>Frequency ROI</td><td>Frequency (KHz) 숫자를 읽는 박스</td><td>Frequency 값 숫자만 포함</td></tr>
+  <tr><td>Q Factor ROI</td><td>Q 값 숫자를 읽는 박스</td><td>Q 값 숫자만 포함</td></tr>
+  <tr><td>x, y</td><td>이미지 왼쪽 위 기준 위치</td><td>숫자 박스의 시작점</td></tr>
+  <tr><td>w, h</td><td>ROI 너비와 높이</td><td>숫자가 잘리지 않고 들어가는 크기</td></tr>
+</table>
+
+<h3>8.3 Calibrator 사용 절차</h3>
+<ol class="steps">
+  <li>
+    <strong>Calibrate OCR 열기</strong>
+    <p>상단 <strong>🎯 Calibrate OCR</strong> 버튼을 누릅니다. History 탭에서는 이 버튼이 숨겨져 있으므로 ATX, Manual, CSV Export 화면에서 실행합니다.</p>
+    <figure class="screenshot">
+      <div class="screenshot-placeholder">
+        <span>[스크린샷: Calibrate OCR 버튼 위치 — History가 아닌 탭에서 보이는 상태]</span>
+        <code class="screenshot-target">assets/user-guide/fig-08-01-calibrate-ocr-button.png</code>
+      </div>
+      <figcaption>그림 8-1. Calibrate OCR 진입</figcaption>
+    </figure>
+  </li>
+  <li>
+    <strong>기준 이미지 로드</strong>
+    <p>`Load reference image...`를 눌러 실제 작업에 사용할 이미지와 같은 해상도의 샘플 이미지를 선택합니다.</p>
+  </li>
+  <li>
+    <strong>ROI 박스 조정</strong>
+    <p>Frequency ROI와 Q Factor ROI가 각각 숫자 부분만 포함하도록 x, y, w, h 값을 조정합니다.</p>
+    <figure class="screenshot">
+      <div class="screenshot-placeholder">
+        <span>[스크린샷: ROI Calibrator — Frequency ROI와 Q Factor ROI 박스가 숫자 영역 위에 맞춰진 상태]</span>
+        <code class="screenshot-target">assets/user-guide/fig-08-02-roi-calibrator.png</code>
+      </div>
+      <figcaption>그림 8-2. ROI 박스 조정</figcaption>
+    </figure>
+  </li>
+  <li>
+    <strong>Test OCR 실행</strong>
+    <p>`Run OCR on current ROI`를 눌러 Frequency와 Q가 읽히는지 확인합니다.</p>
+  </li>
+  <li>
+    <strong>Save 또는 Cancel</strong>
+    <p>정상적으로 읽히면 Save를 누릅니다. Cancel을 누르면 변경한 ROI는 저장되지 않습니다.</p>
+  </li>
+</ol>
+
+<h3>8.4 ROI 조정 팁</h3>
+<ul>
+  <li>숫자 주변의 라벨 텍스트까지 포함하면 OCR 오탐이 늘어날 수 있습니다.</li>
+  <li>숫자가 너무 작게 들어가면 w/h를 약간 키웁니다.</li>
+  <li>다른 해상도 이미지는 별도 프로파일로 저장됩니다.</li>
+  <li>Windows 배율 125%/150%에서는 캡처 이미지 크기가 달라질 수 있으므로 실제 운영 배율에서 보정합니다.</li>
+</ul>
+</section>
+
+<section id="s9">
+<h2>9. CSV Export / Upload / CSV+Images 사용 가이드</h2>
+
+<div class="standard">
+CSV Export 화면의 모든 작업은 현재 활성 탭 기준입니다. ATX 데이터를 반출하려면 ATX 탭을, Manual 데이터를 반출하려면 Manual 탭을 선택한 뒤 Save 또는 Upload를 실행합니다.
+</div>
+
+<h3>9.1 CSV Export 화면 구성</h3>
+<ol class="steps">
+  <li>
+    <strong>CSV Export 탭 선택</strong>
+    <p>상단에서 <strong>CSV Export</strong>를 클릭합니다.</p>
+  </li>
+  <li>
+    <strong>ATX / Manual 탭 선택</strong>
+    <p>우측 테이블 위의 ATX 또는 Manual 탭을 선택합니다. 진행률, 미리보기, Save/Upload는 이 활성 탭 기준으로 동작합니다.</p>
+    <figure class="screenshot">
+      <div class="screenshot-placeholder">
+        <span>[스크린샷: CSV Export 화면 — ATX/Manual 탭과 Save CSV, Upload 버튼이 보이는 상태]</span>
+        <code class="screenshot-target">assets/user-guide/fig-09-01-csv-export-tabs.png</code>
+      </div>
+      <figcaption>그림 9-1. CSV Export 화면</figcaption>
+    </figure>
+  </li>
+  <li>
+    <strong>슬롯 테이블 확인</strong>
+    <p>Probe Type, Freq, Q, QR ID, Status 컬럼을 확인합니다. QR이 없는 슬롯은 상태가 미완성으로 표시될 수 있습니다.</p>
+  </li>
+</ol>
+
+<h3>9.2 Save CSV</h3>
+<p>
+CSV 파일만 필요한 경우 <strong>Save CSV</strong>를 사용합니다. 저장 위치와 파일명을 선택하면 CSV가 생성됩니다.
+</p>
+
+<h3>9.3 CSV+Images</h3>
+<p>
+CSV와 이미지 폴더를 함께 제출해야 하는 경우 Save CSV 메뉴에서 CSV+Images 작업을 선택합니다.
+생성 폴더명 기본값은 원본 폴더명 또는 이미지 공통 부모 폴더명을 우선 사용합니다.
+</p>
 
 <pre><code>P2601002_12M_AC160/
 ├── P2601002_12M_AC160_QR.csv
 ├── ZOOMIN/
-└── ZOOMOUT/</code></pre>
-
-<h3>8.4 Bundle Export / Import</h3>
-
-<p>Bundle 은 History Records 화면에서 사용하는 ZIP 백업/이전 기능입니다.</p>
-
-<ol class="steps">
-  <li>
-    <strong>History Records 에서 Export Bundle</strong>
-    <p>필요한 기록을 선택하고 <strong>Export Bundle</strong> 을 클릭합니다. 이미지 포함 옵션을 켜면 Zoom-In 과 Zoom-Out sibling 이미지가 함께 포함됩니다.</p>
-  </li>
-  <li>
-    <strong>다른 PC 에서 Import Bundle</strong>
-    <p><strong>Import Bundle</strong> 을 클릭하고 ZIP 파일을 선택합니다. 미리보기에서 스키마 버전 / 레코드 수 / 날짜 범위 / 이미지 포함 여부를 확인합니다.</p>
-  </li>
-  <li>
-    <strong>중복 정책 선택</strong>
-    <table>
-      <tr><th>정책</th><th>동작</th></tr>
-      <tr><td><strong>Skip</strong> (기본)</td><td>겹치는 QR 이 있으면 해당 세트 건너뜀</td></tr>
-      <tr><td><strong>Overwrite</strong></td><td>기존 세트를 삭제하고 번들 데이터로 교체</td></tr>
-      <tr><td><strong>Merge</strong></td><td>기존 세트는 유지하고 새 QR 슬롯만 추가</td></tr>
-    </table>
-  </li>
-</ol>
-
-<div class="warning">
-Bundle ZIP 은 JSONL + 이미지 파일로 열어볼 수 있으나 <strong>수동 편집하지 마세요</strong>. 상세 스키마는 <code>docs/export_schema.md</code> 를 참조하세요.
-</div>
-
-</section>
-
-<!-- ================================================================== -->
-<section id="s9">
-<h2>9. 설정</h2>
-
-<p>메뉴 → Edit → Settings (또는 <kbd>Ctrl</kbd>+<kbd>,</kbd>)</p>
-
-<h3>주요 항목</h3>
-<ul>
-  <li><strong>사용자 이름</strong> — 로그인 시 입력한 이름 변경</li>
-  <li><strong>서버 업로드 URL</strong> — 회사 내부 서버 엔드포인트</li>
-  <li><strong>OCR ROI 프로파일</strong> — 상단 <em>🎯 Calibrate OCR</em> 버튼으로 Calibrator 진입 (§5.2 참조)</li>
-  <li><strong>로그 레벨</strong> — All / Warnings+ / Errors only</li>
-  <li><strong>DB 경로</strong> (읽기 전용) — <code>%LOCALAPPDATA%\MCQRCodeChipCarrier\chip_carrier.db</code></li>
-  <li><strong>캡처 이미지 경로</strong> — <code>%LOCALAPPDATA%\MCQRCodeChipCarrier\captures\</code></li>
-</ul>
+│   ├── QR123456.png
+│   └── slot_02.png
+└── ZOOMOUT/
+    ├── QR123456.png
+    └── slot_02.png</code></pre>
 
 <div class="note">
-설정은 DB 의 <code>app_settings</code> 테이블에 저장되므로 앱 재시작 후에도 유지됩니다. 업그레이드해도 보존됩니다.
+QR ID가 없는 슬롯 이미지는 `slot_01.png` 같은 슬롯명 기반으로 저장됩니다. 같은 이름이 이미 있으면 `_1`, `_2` 접미사가 붙습니다.
 </div>
 
+<h3>9.4 미완성 데이터 옵션</h3>
+<p>
+QR ID가 없는 슬롯이 있으면 경고창이 뜨고 반출 정책을 선택할 수 있습니다.
+</p>
+<table>
+  <tr><th>옵션</th><th>결과</th><th>사용 상황</th></tr>
+  <tr><td>QR 있는 값만 반출/업로드</td><td>QR ID가 있는 슬롯만 CSV 행으로 생성</td><td>서버가 빈 QR을 허용하지 않을 때</td></tr>
+  <tr><td>전체 슬롯 반출/업로드</td><td>현재까지 입력된 모든 슬롯을 순서대로 CSV 행으로 생성</td><td>측정값 자체를 먼저 보존해야 할 때</td></tr>
+  <tr><td>취소</td><td>저장 또는 업로드를 중단</td><td>누락 QR을 먼저 보완할 때</td></tr>
+</table>
+
+<h3>9.5 CSV 컬럼</h3>
+<table>
+  <tr><th>순서</th><th>컬럼명</th><th>값 규칙</th></tr>
+  <tr><td>1</td><td>QR ID</td><td>QR이 없으면 빈 칸</td></tr>
+  <tr><td>2</td><td>생산일자[YYYYMMDD]</td><td>상단 생산일자 기준</td></tr>
+  <tr><td>3</td><td>Frequency (KHz)</td><td>값이 없으면 빈 칸</td></tr>
+  <tr><td>4</td><td>Drive (%)</td><td>현재 GUI 입력 항목은 아니며 값이 없으면 빈 칸</td></tr>
+  <tr><td>5</td><td>Q</td><td>값이 없으면 빈 칸</td></tr>
+  <tr><td>6</td><td>Probe Type</td><td>슬롯 값 우선, 없으면 세트 기본값</td></tr>
+</table>
+
+<h3>9.6 Upload</h3>
+<p>
+Upload는 서버 제출용 기능입니다. 서버 연결이 필요하며, 업로드가 끝나면 History의 Upload 상태가 갱신됩니다.
+업로드 중 탭을 바꿔도 시작 시점의 데이터 기준으로 상태가 기록됩니다.
+</p>
+
+<h3>9.7 Export 완료 확인</h3>
+<ul class="checklist">
+  <li>활성 탭이 반출하려는 모드(ATX 또는 Manual)와 일치합니다.</li>
+  <li>CSV 헤더가 `QR ID`, `생산일자[YYYYMMDD]`, `Frequency (KHz)`, `Drive (%)`, `Q`, `Probe Type` 순서입니다.</li>
+  <li>미완성 데이터 옵션을 현장 기준에 맞게 선택했습니다.</li>
+  <li>CSV+Images인 경우 `ZOOMIN`과 `ZOOMOUT` 폴더가 생성되었습니다.</li>
+  <li>Upload 작업이면 History에서 Upload 상태를 확인했습니다.</li>
+</ul>
 </section>
 
-<!-- ================================================================== -->
 <section id="s10">
-<h2>10. 트러블슈팅</h2>
+<h2>10. History Records 사용 가이드</h2>
 
-<h3>Q1. OCR 이 전부 실패해요</h3>
-<ol>
-  <li>이미지 해상도가 기본 프로파일과 다른지 확인 → ROI Calibrator 에서 신규 프로파일 추가 (§5.2)</li>
-  <li>이미지가 흐릿하거나 너무 어두운지 확인 → 카메라 조명·초점 조정</li>
-  <li>OCR 결과가 항상 <code>None</code> 이면 Tesseract 가 번들에 포함되지 않았을 수 있음 → IT 담당자에게 재설치 요청</li>
-</ol>
-
-<h3>Q2. 한글 폴더나 한글 사용자 계정에서 오류가 나요</h3>
-<p>이 프로그램은 Windows 8.3 단축 경로(short path) 를 자동 변환해 Tesseract 호환 문제를 회피합니다. 재현되면 로그를 첨부해 개발팀에 보고하세요.</p>
-
-<h3>Q3. 서버 업로드가 실패해요</h3>
-<ol>
-  <li>Settings 에서 서버 URL 이 올바른지 확인</li>
-  <li>네트워크 연결 상태 확인 (사내망 / VPN)</li>
-  <li>History 에서 "failed" 로 필터 → 우클릭 → <em>Retry Upload</em></li>
-</ol>
-
-<h3>Q4. 앱이 아예 켜지지 않아요</h3>
-<p>DB 파일 손상 가능성. <strong>데이터가 손실될 수 있으니 신중히</strong>:</p>
-<ol>
-  <li><code>%LOCALAPPDATA%\MCQRCodeChipCarrier\chip_carrier.db</code> 를 다른 이름으로 백업</li>
-  <li>원본 DB 삭제</li>
-  <li>앱 재실행 (신규 DB 자동 생성)</li>
-  <li>백업한 DB 를 SQLite 도구로 열어 복구 가능한 데이터 확인</li>
-</ol>
-
-<div class="danger">
-DB 파일을 삭제하면 모든 이력이 사라집니다. 정기적으로 Export 번들로 백업하세요 (§8).
+<div class="standard">
+History Records는 저장된 측정 세트를 다시 찾고, 상세 슬롯과 이미지를 확인하며, Bundle 백업/복원을 수행하는 화면입니다.
 </div>
 
-<h3>Q5. SmartScreen 경고가 뜹니다</h3>
-<p>현재 코드 서명 인증서가 없어 Windows 가 "알 수 없는 게시자" 로 표시합니다. <strong>"추가 정보" → "실행"</strong> 로 진행하세요. 정상적인 동작입니다.</p>
-
-<h3>Q6. 이전 버전(NX 1.0.0) 데이터를 불러오고 싶어요</h3>
-<p>§12 (부록 — 1.0.0 → 2.0.0 마이그레이션) 을 참조하세요.</p>
-
-<h3>Q7. 캡처 이미지가 너무 커서 화면이 깨지는 것 같아요</h3>
-<p>현재 버전은 원본 이미지를 보존하고 화면에서는 고정 뷰포트 안에 맞춰 표시합니다. 그래도 레이아웃이 어색하면 splitter 를 수동으로 조절하거나 창 크기를 넓혀 확인하세요.</p>
-
-<h3>로그 파일 위치</h3>
-<p>현재는 UI 로그창에 표시됩니다. History 화면은 상세 조회 공간 확보를 위해 전용 Log 박스가 없습니다. 문제 상황은 화면 로그 스크린샷과 함께 지원팀에 보내주세요.</p>
-
-</section>
-
-<!-- ================================================================== -->
-<section id="s11">
-<h2>11. FAQ</h2>
-
-<h3>Q. 여러 사람이 같은 DB 를 공유할 수 있나요?</h3>
-<p>아니오. 현재는 <strong>1 PC = 1 DB</strong> 구조입니다. 여러 PC 간 데이터 공유는 Export/Import 번들로 해결합니다.</p>
-
-<h3>Q. 데이터는 어디에 저장되나요?</h3>
-<p>DB 는 <code>%LOCALAPPDATA%\MCQRCodeChipCarrier\chip_carrier.db</code> 에 저장됩니다. Manual 캡처 이미지는 <code>%LOCALAPPDATA%\MCQRCodeChipCarrier\captures\</code> 아래에 날짜/Probe Type 별로 저장됩니다.</p>
-
-<h3>Q. 앱을 업그레이드하면 기존 데이터가 지워지나요?</h3>
-<p>아니오. DB 는 설치 경로 외부에 있어 업그레이드·재설치 시 보존됩니다.</p>
-
-<h3>Q. 인터넷 없어도 쓸 수 있나요?</h3>
-<p>네. 서버 업로드 기능을 제외한 모든 기능이 오프라인에서 동작합니다.</p>
-
-<h3>Q. OCR 이 한국어를 인식하나요?</h3>
-<p>현재는 영문 + 숫자 전용입니다. 로트카드의 숫자 값 추출에 최적화되어 있습니다. 한국어 OCR 은 차기 버전 검토 항목입니다.</p>
-
-<h3>Q. 이 프로그램의 라이선스는?</h3>
-<p>사내 전용 프로그램입니다. 포함된 Tesseract 는 Apache License 2.0 입니다 (`third_party/tesseract/LICENSE.txt` 참조).</p>
-
-</section>
-
-<!-- ================================================================== -->
-<section id="s12">
-<h2>12. 부록 — 1.0.0 (NX) → 2.x (MC) 마이그레이션</h2>
-
-<p>이전 버전 <strong>NX QR Chip Carrier Manager 1.0.0</strong> 사용자가 최신 MC 2.x 로 데이터를 이전하는 절차입니다.</p>
-
-<div class="warning">
-두 버전은 AppId 가 달라 Windows 는 <strong>별도 제품</strong>으로 인식합니다. 업그레이드 설치가 아니라 <strong>신규 설치</strong>이며, DB 경로도 변경되므로 자동 이관되지 않습니다.
-</div>
-
-<h3>절차</h3>
-
+<h3>10.1 기록 검색</h3>
 <ol class="steps">
   <li>
-    <strong>NX 1.0.0 에서 전체 Export</strong>
-    <ul>
-      <li>History 탭 → 전체 기간 선택</li>
-      <li>메뉴 → File → Export Bundle → 이미지 포함 체크</li>
-      <li>저장 경로: USB / 네트워크 드라이브 / 바탕화면</li>
-    </ul>
+    <strong>History 탭 선택</strong>
+    <p>상단에서 <strong>History</strong>를 클릭한 뒤 <strong>Records</strong> 하위 탭을 선택합니다.</p>
   </li>
   <li>
-    <strong>(선택) NX DB 백업</strong>
-    <p><code>%LOCALAPPDATA%\NXQRChipCarrierManager\</code> 폴더 전체를 복사하여 별도 보관. 만약 번들에 누락이 있어도 SQLite 도구로 복구 가능.</p>
+    <strong>필터 설정</strong>
+    <p>Week, Probe, Upload 상태, Search 입력창을 사용해 필요한 기록만 좁힙니다.</p>
   </li>
   <li>
-    <strong>MC 2.x 설치</strong>
-    <p>§2 절차대로 설치. NX 1.0.0 은 유지해도 되고 언인스톨해도 됩니다.</p>
-  </li>
-  <li>
-    <strong>MC 2.x 에서 Import</strong>
-    <ul>
-      <li>메뉴 → File → Import Bundle</li>
-      <li>1번에서 만든 ZIP 선택</li>
-      <li>중복 정책: <strong>Overwrite</strong> (신규 설치라 충돌 없음)</li>
-      <li>Import 클릭 → History 에 모든 데이터 복원 확인</li>
-    </ul>
-  </li>
-  <li>
-    <strong>(선택) NX 1.0.0 언인스톨</strong>
-    <p>제어판 → 앱 및 기능 → <em>NX QR Chip Carrier Manager</em> 제거. DB 폴더(<code>%LOCALAPPDATA%\NXQRChipCarrierManager\</code>)는 수동으로 삭제해야 완전히 정리됩니다.</p>
+    <strong>검색 또는 새로고침</strong>
+    <p>Search 또는 Refresh를 눌러 목록을 갱신합니다.</p>
+    <figure class="screenshot">
+      <div class="screenshot-placeholder">
+        <span>[스크린샷: History Records — 상단 필터, 기록 테이블, Load Record 버튼이 보이는 상태]</span>
+        <code class="screenshot-target">assets/user-guide/fig-10-01-history-records.png</code>
+      </div>
+      <figcaption>그림 10-1. History Records 검색 화면</figcaption>
+    </figure>
   </li>
 </ol>
 
-<div class="tip">
-문제가 생겨도 NX 1.0.0 DB 와 번들 ZIP 이 둘 다 있으면 언제든 복구 가능합니다. 마이그레이션 완료 후 충분한 기간(예: 1개월) 작업 이상 없음을 확인한 뒤 NX 1.0.0 과 구 DB 를 정리하세요.
-</div>
+<h3>10.2 기록 상세 확인</h3>
+<ol class="steps">
+  <li>
+    <strong>기록 선택</strong>
+    <p>테이블에서 확인할 기록 행을 클릭합니다.</p>
+  </li>
+  <li>
+    <strong>Load Record</strong>
+    <p><strong>Load Record</strong>를 누르면 하단 상세 패널에 이미지와 슬롯 테이블이 표시됩니다.</p>
+  </li>
+  <li>
+    <strong>슬롯 클릭</strong>
+    <p>상세 슬롯 테이블에서 행을 선택하면 왼쪽 이미지 미리보기가 해당 슬롯 이미지로 바뀝니다.</p>
+  </li>
+</ol>
 
+<h3>10.3 삭제와 백업</h3>
+<table>
+  <tr><th>버튼</th><th>기능</th><th>주의사항</th></tr>
+  <tr><td>Check All / Uncheck All</td><td>목록의 기록 선택 상태 변경</td><td>Bundle Export 또는 Delete 전에 사용</td></tr>
+  <tr><td>Delete</td><td>선택 기록 삭제</td><td>삭제 전 백업 권장</td></tr>
+  <tr><td>Export Bundle</td><td>선택 기록을 ZIP으로 백업</td><td>PC 이전/복원용 표준 방식</td></tr>
+  <tr><td>Import Bundle</td><td>ZIP 백업을 현재 PC DB로 가져오기</td><td>중복 정책을 확인</td></tr>
+  <tr><td>Quick Backup</td><td>빠른 백업 생성</td><td>작업 종료 전 정기 백업에 적합</td></tr>
+  <tr><td>Quick Restore</td><td>빠른 백업 복원</td><td>복원 전 현재 상태 확인 필요</td></tr>
+</table>
+
+<div class="note">
+History 화면에는 별도 Log 박스가 없습니다. 상세 이미지와 슬롯 테이블을 더 크게 보기 위한 구성입니다.
+</div>
+</section>
+
+<section id="s11">
+<h2>11. History Statistics 해석 가이드</h2>
+
+<p>
+History Statistics는 저장된 DB 이력을 기준으로 생산량과 품질 경향을 보는 화면입니다. 일간/주간/월간 단위로
+로트를 비교하고, Probe Type별 차이를 확인할 때 사용합니다.
+</p>
+
+<figure class="screenshot">
+  <div class="screenshot-placeholder">
+    <span>[스크린샷: History Statistics — 필터, Today KPI, Period Summary, Overall 카드, Production/Quality 차트가 보이는 상태]</span>
+    <code class="screenshot-target">assets/user-guide/fig-11-01-history-statistics.png</code>
+  </div>
+  <figcaption>그림 11-1. History Statistics 전체 구조</figcaption>
+</figure>
+
+<h3>11.1 필터</h3>
+<table>
+  <tr><th>필터</th><th>설명</th><th>사용 예</th></tr>
+  <tr><td>Period</td><td>Daily, Weekly, Monthly 등 집계 단위 선택</td><td>주간 생산량 확인 시 Weekly</td></tr>
+  <tr><td>Probe Type</td><td>전체 또는 특정 Probe만 선택</td><td>AC160만 품질 경향 확인</td></tr>
+</table>
+
+<h3>11.2 KPI 영역</h3>
+<table>
+  <tr><th>영역</th><th>의미</th><th>확인 포인트</th></tr>
+  <tr><td>Today</td><td>오늘 저장된 세트, 슬롯, 완료율</td><td>당일 작업량 확인</td></tr>
+  <tr><td>Period Summary</td><td>기간별 Probe/세트/슬롯/완료율 리스트</td><td>기간별 비교와 스크롤 확인</td></tr>
+  <tr><td>Overall</td><td>전체 집계, 평균 Frequency/Q, Trend</td><td>전체 경향과 이상 변화 확인</td></tr>
+</table>
+
+<h3>11.3 차트 해석</h3>
+<table>
+  <tr><th>차트</th><th>의미</th><th>주의해서 볼 부분</th></tr>
+  <tr><td>Production Trend</td><td>기간별 슬롯/세트 생산 흐름</td><td>갑작스러운 생산량 감소 또는 증가</td></tr>
+  <tr><td>Production by Probe Type</td><td>Probe Type별 생산량</td><td>특정 Probe에 작업이 몰리는지 확인</td></tr>
+  <tr><td>Frequency SPC</td><td>Frequency 평균과 관리선</td><td>관리선 밖 변화, 급격한 편차</td></tr>
+  <tr><td>Q Factor SPC</td><td>Q 평균과 관리선</td><td>관리선 밖 변화, 특정 기간 이상치</td></tr>
+  <tr><td>Distribution</td><td>Frequency/Q 값 분포</td><td>분포가 한쪽으로 치우치는지 확인</td></tr>
+</table>
+
+<div class="tip">
+차트가 한 화면에 모두 보이지 않으면 Statistics 화면 내부 스크롤로 아래 차트를 확인합니다. 그래프는 잘리지 않는 높이를 우선합니다.
+</div>
+</section>
+
+<section id="s12">
+<h2>12. 백업, 복원, PC 이전</h2>
+
+<h3>12.1 백업 방식 선택</h3>
+<table>
+  <tr><th>상황</th><th>권장 방식</th><th>이유</th></tr>
+  <tr><td>하루 작업 종료</td><td>Quick Backup</td><td>간단히 현재 DB 상태 보존</td></tr>
+  <tr><td>특정 로트만 전달</td><td>Export Bundle</td><td>선택 기록과 이미지 포함 가능</td></tr>
+  <tr><td>PC 교체</td><td>Export Bundle + 새 PC Import Bundle</td><td>이력과 이미지 이전</td></tr>
+  <tr><td>서버/고객 제출</td><td>CSV 또는 CSV+Images</td><td>제출 자료 구조에 맞춤</td></tr>
+</table>
+
+<h3>12.2 Export Bundle 생성</h3>
+<ol class="steps">
+  <li><strong>History Records 이동</strong><p>History 탭에서 Records를 선택합니다.</p></li>
+  <li><strong>백업할 기록 선택</strong><p>필터와 체크박스를 사용해 필요한 기록을 선택합니다.</p></li>
+  <li><strong>Export Bundle 클릭</strong><p>ZIP 저장 위치를 선택합니다. 이미지 포함 옵션이 있으면 현장 정책에 맞게 선택합니다.</p></li>
+  <li><strong>ZIP 파일 보관</strong><p>USB, 공유 드라이브, 백업 폴더 등 안전한 위치에 저장합니다.</p></li>
+</ol>
+
+<h3>12.3 Import Bundle 복원</h3>
+<ol class="steps">
+  <li><strong>새 PC에 프로그램 설치</strong><p>4장 절차대로 최신 설치본을 설치합니다.</p></li>
+  <li><strong>History Records 이동</strong><p>Import Bundle 버튼을 누릅니다.</p></li>
+  <li><strong>Bundle ZIP 선택</strong><p>이전 PC에서 만든 ZIP 파일을 선택합니다.</p></li>
+  <li><strong>중복 정책 확인</strong><p>신규 PC라면 Overwrite 또는 기본 정책으로 복원합니다. 기존 데이터가 있는 PC에서는 중복 정책을 신중히 선택합니다.</p></li>
+  <li><strong>복원 결과 확인</strong><p>History 목록과 상세 이미지가 정상인지 확인합니다.</p></li>
+</ol>
+
+<div class="warning">
+Bundle ZIP은 내부에 JSONL과 이미지 파일이 들어 있지만, 직접 편집하지 마세요. 수동 편집하면 Import가 실패하거나 데이터 정합성이 깨질 수 있습니다.
+</div>
+</section>
+
+<section id="s13">
+<h2>13. 설정 및 데이터 저장 위치</h2>
+
+<h3>13.1 주요 저장 위치</h3>
+<table>
+  <tr><th>항목</th><th>위치</th><th>설명</th></tr>
+  <tr><td>로컬 DB</td><td>`%LOCALAPPDATA%\MCQRCodeChipCarrier\chip_carrier.db`</td><td>측정 세트, 슬롯, QR, ROI 설정</td></tr>
+  <tr><td>Manual 캡처</td><td>`%LOCALAPPDATA%\MCQRCodeChipCarrier\captures\{YYYYMMDD}\{probe}\`</td><td>Zoom-In/Zoom-Out PNG 이미지</td></tr>
+  <tr><td>설치 파일</td><td>설치 시 선택한 `{app}` 경로</td><td>실행 파일, DLL, Tesseract</td></tr>
+  <tr><td>Export 결과</td><td>사용자가 선택한 저장 위치</td><td>CSV, CSV+Images, Bundle ZIP</td></tr>
+</table>
+
+<h3>13.2 설정 항목</h3>
+<ul>
+  <li><strong>OCR ROI 프로파일</strong>: 이미지 해상도별 Frequency/Q 영역 설정</li>
+  <li><strong>윈도우 위치/크기</strong>: 앱 종료 후 다음 실행 시 복원될 수 있음</li>
+  <li><strong>로그 레벨</strong>: 화면별 Log 영역에서 All / Warnings+ / Errors only 선택</li>
+  <li><strong>생산일자</strong>: 상단 콤보에서 선택하며 CSV/History에 반영</li>
+</ul>
+
+<h3>13.3 삭제하면 안 되는 것</h3>
+<div class="danger">
+`%LOCALAPPDATA%\MCQRCodeChipCarrier\chip_carrier.db`를 삭제하면 History와 QR 매칭 이력이 사라집니다.
+문제 해결을 위해 파일을 지우기 전 반드시 Export Bundle 또는 Quick Backup을 먼저 생성하세요.
+</div>
+</section>
+
+<section id="s14">
+<h2>14. 트러블슈팅</h2>
+
+<h3>14.1 설치/실행 문제</h3>
+<table>
+  <tr><th>증상</th><th>가능한 원인</th><th>조치</th></tr>
+  <tr><td>SmartScreen 경고</td><td>코드 서명 미적용</td><td>사내 배포 파일인지 확인 후 추가 정보 → 실행</td></tr>
+  <tr><td>`python311.dll` 오류</td><td>`build\McQrManager\McQrManager.exe` 실행</td><td>설치본 또는 `dist\McQrManager\McQrManager.exe` 실행</td></tr>
+  <tr><td>앱이 켜지지 않음</td><td>설치 파일 누락 또는 보안 프로그램 차단</td><td>재설치 후 오류 화면을 작성자에게 전달</td></tr>
+</table>
+
+<h3>14.2 OCR 문제</h3>
+<table>
+  <tr><th>증상</th><th>가능한 원인</th><th>조치</th></tr>
+  <tr><td>Both ROIs failed to read</td><td>ROI 위치 불일치 또는 해상도 프로파일 없음</td><td>Calibrate OCR에서 ROI 재설정</td></tr>
+  <tr><td>Frequency만 실패</td><td>Frequency ROI가 숫자를 벗어남</td><td>Frequency ROI만 조정 후 Test OCR</td></tr>
+  <tr><td>Q만 실패</td><td>Q Factor ROI가 숫자를 벗어남</td><td>Q Factor ROI만 조정 후 Test OCR</td></tr>
+  <tr><td>캡처 이미지가 너무 큼</td><td>창 전체 캡처 또는 배율 차이</td><td>화면 표시는 Fit 처리됨. OCR 실패 시 ROI 보정</td></tr>
+  <tr><td>Tesseract 오류</td><td>포터블 OCR 엔진 누락</td><td>설치본 재설치 후 동일하면 작성자에게 문의</td></tr>
+</table>
+
+<h3>14.3 작업/Export 문제</h3>
+<table>
+  <tr><th>증상</th><th>가능한 원인</th><th>조치</th></tr>
+  <tr><td>CSV에 일부 슬롯이 없음</td><td>미완성 경고에서 QR 있는 값만 선택</td><td>전체 슬롯 반출을 선택하거나 QR 입력 후 재반출</td></tr>
+  <tr><td>Upload 실패</td><td>네트워크 또는 서버 거부</td><td>History에서 Upload 상태 확인, 빈 QR ID 포함 여부 확인</td></tr>
+  <tr><td>Manual 카드 번호가 바뀜</td><td>삭제 후 순번 재정렬</td><td>정상 동작. 남은 카드 기준으로 #1부터 다시 정렬됨</td></tr>
+  <tr><td>Zoom-Out이 Export에 없음</td><td>해당 카드에 Zoom-Out 캡처가 없음</td><td>Manual에서 카드 선택 후 F8/F9로 Zoom-Out 추가</td></tr>
+</table>
+
+<h3>14.4 지원 요청 시 전달할 정보</h3>
+<ul class="checklist">
+  <li>프로그램 버전: 예 `2.1.0`</li>
+  <li>작업 모드: ATX / Manual / CSV Export / History</li>
+  <li>오류 발생 시점: Import, Capture, OCR, QR Scan, Export, Upload 중 어디인지</li>
+  <li>화면 캡처: Log 영역과 오류 팝업이 보이도록 캡처</li>
+  <li>가능하면 문제가 된 원본 폴더명 또는 이미지 해상도</li>
+</ul>
+</section>
+
+<section id="s15">
+<h2>15. FAQ</h2>
+
+<h3>Q. 인터넷이 없어도 사용할 수 있나요?</h3>
+<p>네. ATX Import, Manual Capture/OCR, QR 매칭, History, CSV 저장은 오프라인에서 동작합니다. 서버 Upload만 네트워크가 필요합니다.</p>
+
+<h3>Q. 앱을 업그레이드하면 기존 데이터가 사라지나요?</h3>
+<p>아니오. DB는 설치 폴더가 아니라 `%LOCALAPPDATA%\MCQRCodeChipCarrier\chip_carrier.db`에 저장되므로 일반 업그레이드로 삭제되지 않습니다.</p>
+
+<h3>Q. 여러 PC가 같은 DB를 동시에 공유할 수 있나요?</h3>
+<p>현재는 1 PC = 1 로컬 DB 구조입니다. 여러 PC 간 데이터 이동은 Export Bundle / Import Bundle로 처리합니다.</p>
+
+<h3>Q. OCR이 한글도 읽나요?</h3>
+<p>현재 OCR은 Frequency와 Q 같은 숫자 추출에 맞춰져 있습니다. 한국어 문장 인식은 현재 운영 범위가 아닙니다.</p>
+
+<h3>Q. QR 없는 슬롯도 CSV에 남길 수 있나요?</h3>
+<p>네. 미완성 데이터 경고창에서 전체 슬롯 반출/업로드를 선택하면 QR이 없는 슬롯도 빈 QR 칸으로 CSV에 포함됩니다.</p>
+
+<h3>Q. Manual 카드 삭제 시 실제 이미지 파일도 삭제되나요?</h3>
+<p>아니오. 현재는 DB/카드 삭제만 수행하고 캡처 원본 파일은 보존합니다. 파일 정리 정책은 별도 운영 기준이 필요합니다.</p>
+
+</section>
+
+<section id="s16">
+<h2>16. 부록</h2>
+
+<h3>16.1 단축키 요약</h3>
+<table>
+  <tr><th>단축키</th><th>기능</th><th>조건</th></tr>
+  <tr><td><kbd>F6</kbd></td><td>Zoom-In Region Capture</td><td>Manual Mode, Probe Type 탭 선택</td></tr>
+  <tr><td><kbd>F7</kbd></td><td>Zoom-In Window Capture</td><td>Manual Mode, Probe Type 탭 선택</td></tr>
+  <tr><td><kbd>F8</kbd></td><td>Zoom-Out Region Capture</td><td>Manual Mode, 기존 카드 선택</td></tr>
+  <tr><td><kbd>F9</kbd></td><td>Zoom-Out Window Capture</td><td>Manual Mode, 기존 카드 선택</td></tr>
+  <tr><td><kbd>Esc</kbd></td><td>캡처 취소</td><td>캡처 오버레이 표시 중</td></tr>
+</table>
+
+<h3>16.2 CSV 컬럼 표준</h3>
+<pre><code>QR ID,생산일자[YYYYMMDD],Frequency (KHz),Drive (%),Q,Probe Type</code></pre>
+
+<h3>16.3 CSV+Images 표준 폴더 구조</h3>
+<pre><code>{folder_name}/
+├── {folder_name}_QR.csv
+├── ZOOMIN/
+└── ZOOMOUT/</code></pre>
+
+<h3>16.4 일일 작업 종료 체크리스트</h3>
+<ul class="checklist">
+  <li>오늘 작업한 ATX/Manual 데이터가 History에 저장되어 있습니다.</li>
+  <li>필요한 QR 매칭이 완료되었습니다.</li>
+  <li>CSV 또는 CSV+Images 반출 파일을 생성했습니다.</li>
+  <li>서버 Upload가 필요한 경우 Upload 상태를 확인했습니다.</li>
+  <li>중요 작업일이면 Quick Backup 또는 Export Bundle을 생성했습니다.</li>
+</ul>
 </section>
 
 <footer style="margin-top: 60px; padding-top: 20px; border-top: 1px solid #e4e4e9; color: #888; font-size: 13px;">
-  <p>MC QR Code Chip Carrier Manager v2.1 · 사용자 가이드 · 2026-05-14</p>
-  <p>상세 기술 문서: <a href="PRD.md">PRD.md</a> · 번들 스키마: <a href="export_schema.md">export_schema.md</a></p>
+  <p>MC QR Code Chip Carrier Manager v2.1.0 · 사용자 가이드 · 2026-05-14</p>
+  <p>작성자: Levi.Beak · Mail: <a href="mailto:levi.beak@parksystems.com">levi.beak@parksystems.com</a></p>
+  <p>문서 원본: user-guide.html · 현장 배포본: MC_QR_Manager_User_Guide_v2.1.0.pdf</p>
 </footer>
 
 </main>

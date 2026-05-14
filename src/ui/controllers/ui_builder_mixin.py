@@ -143,6 +143,11 @@ class UIBuilderMixin:
 
         toolbar_layout.addStretch()
 
+        self.btn_user_guide = QPushButton("📘 설명서")
+        self.btn_user_guide.setToolTip("사용자 가이드를 앱 내부 창으로 엽니다.")
+        self.btn_user_guide.clicked.connect(self._open_user_guide)
+        toolbar_layout.addWidget(self.btn_user_guide)
+
         # F-14: 전역 ROI 캘리브레이터 진입점 — 모드와 무관하게 항상 접근 가능
         self.btn_calibrate_global = QPushButton("🎯 Calibrate OCR")
         self.btn_calibrate_global.setProperty("accent", "true")
@@ -154,6 +159,12 @@ class UIBuilderMixin:
         toolbar_layout.addWidget(self.btn_calibrate_global)
 
         parent_layout.addLayout(toolbar_layout)
+
+    def _open_user_guide(self):
+        from src.ui.dialogs.user_guide_dialog import UserGuideDialog
+
+        dlg = UserGuideDialog(self)
+        dlg.exec()
 
     # ─── ATX 모드 페이지 ───
     def _build_atx_page(self):
