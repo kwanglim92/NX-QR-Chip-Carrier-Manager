@@ -8,7 +8,7 @@ from PySide6.QtWidgets import (
     QPushButton, QLineEdit, QDoubleSpinBox, QDateEdit,
     QGroupBox, QFormLayout, QTextEdit, QProgressBar,
     QStackedWidget, QToolBar, QStatusBar, QTabWidget,
-    QComboBox, QSpinBox, QToolButton, QMenu,
+    QComboBox, QSpinBox, QToolButton, QMenu, QSizePolicy,
 )
 
 from src.ui.theme import ACCENT, FG, FG2, BG, BG2, BG3, GREEN, PURPLE
@@ -236,12 +236,15 @@ class UIBuilderMixin:
 
         # ── 좌측 패널: 이미지 뷰어 + 입력 폼 ──
         left = QWidget()
+        left.setMinimumWidth(560)
+        left.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Expanding)
         left_layout = QVBoxLayout(left)
         left_layout.setContentsMargins(4, 4, 4, 4)
 
         # 이미지 뷰어 (Zoom-In / Zoom-Out 토글 포함)
         img_group = QGroupBox("Sweep Image")
         img_layout = QVBoxLayout(img_group)
+        img_layout.setSpacing(8)
 
         zoom_toggle_row = QHBoxLayout()
         zoom_toggle_row.setSpacing(4)
@@ -249,7 +252,7 @@ class UIBuilderMixin:
         self.btn_zoom_in_view.setCheckable(True)
         self.btn_zoom_in_view.setChecked(True)
         self.btn_zoom_in_view.setProperty("accent", "true")
-        self.btn_zoom_in_view.setFixedHeight(24)
+        self.btn_zoom_in_view.setMinimumSize(96, 30)
         self.btn_zoom_in_view.clicked.connect(
             lambda: self._on_zoom_view_toggled("zoomin")
         )
@@ -257,7 +260,7 @@ class UIBuilderMixin:
 
         self.btn_zoom_out_view = QPushButton("Zoom-Out")
         self.btn_zoom_out_view.setCheckable(True)
-        self.btn_zoom_out_view.setFixedHeight(24)
+        self.btn_zoom_out_view.setMinimumSize(96, 30)
         self.btn_zoom_out_view.clicked.connect(
             lambda: self._on_zoom_view_toggled("zoomout")
         )
@@ -266,6 +269,7 @@ class UIBuilderMixin:
         img_layout.addLayout(zoom_toggle_row)
 
         self.manual_image_viewer = ImageViewer()
+        self.manual_image_viewer.setMinimumHeight(280)
         img_layout.addWidget(self.manual_image_viewer)
         left_layout.addWidget(img_group, 1)
 
@@ -302,6 +306,7 @@ class UIBuilderMixin:
 
         # ── 우측 패널: Probe Type 탭 + 카드 그리드 ──
         right = QWidget()
+        right.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         right_layout = QVBoxLayout(right)
         right_layout.setContentsMargins(4, 4, 4, 4)
 
@@ -411,7 +416,9 @@ class UIBuilderMixin:
         self.manual_tabs.addTab(overview_page, "Overview")
 
         splitter.addWidget(right)
-        splitter.setSizes([400, 600])
+        splitter.setStretchFactor(0, 0)
+        splitter.setStretchFactor(1, 1)
+        splitter.setSizes([800, 1000])
 
         page_layout = QVBoxLayout(page)
         page_layout.setContentsMargins(0, 0, 0, 0)

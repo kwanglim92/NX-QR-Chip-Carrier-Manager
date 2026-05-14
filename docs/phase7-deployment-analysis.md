@@ -3,6 +3,7 @@
 > **Status**: 분석 단계. 실제 구현은 별도 작업(Phase 7)으로 분리.
 > **기준일**: 2026-04-22 (Phase 6 종료 시점)
 > **대상**: NX QR Chip Carrier Manager (PySide6 데스크톱 앱) — 현재는 **MC QR Code Chip Carrier Manager** 로 리브랜드됨 (Phase 9). 아래 "NxQrManager.spec", "dist/NxQrManager/", "%LOCALAPPDATA%/NXQRChipCarrierManager/" 등은 분석 당시의 명칭으로, 현재 이름은 각각 "McQrManager.spec", "dist/McQrManager/", "%LOCALAPPDATA%/MCQRCodeChipCarrier/" 입니다. 이 문서는 **이력 보존용**으로 원문 유지됩니다.
+> **최신 기준**: 현재 제품 요구사항, 최신 기능, 테스트 현황은 [`docs/PRD.md`](./PRD.md) 를 기준으로 확인합니다.
 
 ---
 

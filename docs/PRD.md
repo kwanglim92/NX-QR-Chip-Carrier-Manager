@@ -2,9 +2,9 @@
 
 | 항목 | 내용 |
 |------|------|
-| **문서 버전** | 2.0 |
-| **작성일** | 2026-04-24 |
-| **앱 버전** | 2.0.0 (MC 브랜드) |
+| **문서 버전** | 2.1 |
+| **작성일** | 2026-05-14 |
+| **앱 버전** | 2.0.0+ (MC 브랜드 / 운영 UX 개선 반영) |
 | **이전 버전** | 1.0.0 (NX 브랜드) |
 | **대상 독자** | 개발 / 운영 / QA / 품질관리 |
 | **내부 코드명** | `McQrManager` (이전: `NxQrManager`) |
@@ -20,15 +20,15 @@
 1. **ATX 장비 CSV 파편화**  
    ATX 측정 장비가 슬롯별로 `summary_*.csv` 파일을 쏟아내지만, PO 번호·QR 코드·생산 날짜가 각 파일에 독립적으로 저장돼 있어 한 로트의 전체 상태를 한눈에 볼 수 없습니다.
 
-2. **Manual 측정의 수기 입력 오류**  
-   로트카드(Lot Card) 수기 측정은 운영자가 눈으로 값을 읽어 Excel 에 입력하는 방식이라 오탈자가 빈번하게 발생합니다. 특히 Frequency / Q-factor 같은 소수점 값에서 실수가 잦습니다.
+2. **Manual 측정의 수기 입력 오류와 캡처 공정 낭비**
+   로트카드(Lot Card) 수기 측정은 운영자가 눈으로 값을 읽어 Excel 에 입력하는 방식이라 오탈자가 빈번하게 발생합니다. 특히 Frequency / Q-factor 같은 소수점 값에서 실수가 잦습니다. 또한 기존에는 Windows 캡처 도구로 이미지를 저장한 뒤 다시 앱에 불러오는 공정이 필요했습니다.
 
 3. **이력 분산 + 집계 불가**  
    측정 이력이 각 PC 의 로컬 Excel 파일에 흩어져 있어, 일일 생산량이나 주간 추이를 집계하려면 수작업으로 파일을 모아 통계를 내야 합니다.
 
 ### 1.2 해결 방향
 
-- **단일 데스크톱 앱** 으로 ATX 자동 파싱 + Manual OCR + 이력 DB 를 통합
+- **단일 데스크톱 앱** 으로 ATX 자동 파싱 + Manual Capture/OCR + 이력 DB 를 통합
 - **`%LOCALAPPDATA%` SQLite(WAL 모드)** — 오프라인 공장 환경에서도 동작 보장
 - **PostgreSQL 이관 친화 스키마** — 향후 중앙 서버 집약 시 수정 최소화 (ON CONFLICT UPSERT, TEXT 날짜, GROUP_CONCAT 금지)
 - **PyInstaller + Inno Setup 단일 설치본** — 사용자 환경에 Python 설치 불필요, Tesseract 포터블 번들
@@ -38,7 +38,7 @@
 | 구분 | 역할 | 사용 시나리오 |
 |------|------|---------------|
 | 1차 | 공장 측정 오퍼레이터 (비개발자) | ATX 결과 Import / Manual 로트카드 OCR / 저장 |
-| 2차 | 품질 관리자 | Dashboard 생산량 모니터링 / Export 번들 배포 / History 필터 조회 |
+| 2차 | 품질 관리자 | History Statistics 생산량 모니터링 / CSV Export 검토 / History 필터 조회 |
 | 3차 | IT 담당자 | Inno Setup 인스톨러 배포 / PC 간 데이터 이전 (Import 번들) |
 
 ---
@@ -66,8 +66,9 @@ main.py                           ← Entry Point (QApplication 부팅)
 │   ├─ database.py                — SQLite CRUD + PG 호환 UPSERT
 │   ├─ models.py                  — MeasurementSet / SlotData dataclass
 │   ├─ atx_parser.py              — summary_*.csv 파싱
-│   ├─ csv_exporter.py            — Quick Backup CSV
+│   ├─ csv_exporter.py            — CSV / CSV+Images Export
 │   ├─ bundle.py                  — JSONL + ZIP 번들 (F-18)
+│   ├─ capture_files.py           — Manual 캡처 파일명/Zoom-In-Out 경로 규칙
 │   ├─ image_parser.py            — Tesseract 기반 OCR (F-14)
 │   ├─ ocr_worker.py              — QThread 비동기 OCR
 │   ├─ ocr_settings.py            — 해상도별 ROI 프로파일
@@ -80,7 +81,8 @@ main.py                           ← Entry Point (QApplication 부팅)
 │   ├─ widgets/                   — 재사용 위젯 (카드, 테이블, 그리드, 차트)
 │   ├─ controllers/               — 페이지별 Mixin (ATX/Manual/History/Export/Upload/UI Builder)
 │   └─ dialogs/
-│       └─ roi_calibrator.py      — ROI 시각적 편집기 (QGraphicsView)
+│       ├─ roi_calibrator.py      — ROI 시각적 편집기 (QGraphicsView)
+│       └─ slot_edit_dialog.py    — ATX 슬롯 편집 다이얼로그
 └─ third_party/tesseract/         — 포터블 바이너리 + tessdata (번들)
 ```
 
@@ -90,6 +92,7 @@ main.py                           ← Entry Point (QApplication 부팅)
 |------|------|------|
 | `C:\Program Files\McQrManager\` | 실행 파일, DLL, Tesseract | 언인스톨 시 제거 |
 | `%LOCALAPPDATA%\MCQRCodeChipCarrier\chip_carrier.db` | 측정 이력 DB | **언인스톨 해도 보존** |
+| `%LOCALAPPDATA%\MCQRCodeChipCarrier\captures\` | Manual 캡처 이미지(Zoom-In/Zoom-Out) | 사용자 데이터로 보존 |
 | 사용자 지정 폴더 | ATX summary CSV 원본, Manual 로트카드 이미지 | 사용자 관리 |
 
 ### 2.4 배포 토폴로지
@@ -106,10 +109,10 @@ main.py                           ← Entry Point (QApplication 부팅)
 
 | 항목 | 내용 |
 |------|------|
-| 입력 | 로트카드 JPG/PNG 이미지 |
+| 입력 | 로트카드 JPG/PNG 이미지, 앱 내 화면 캡처 이미지 |
 | 출력 | Frequency / Q-factor 자동 추출, UI pre-fill |
 | 실패 대응 | 조용히 수기 입력 모드로 전환 (경고 없음) |
-| 구성 파일 | `image_parser.py`, `ocr_worker.py`, `ocr_settings.py`, `tesseract_setup.py`, `roi_calibrator.py` |
+| 구성 파일 | `image_parser.py`, `ocr_worker.py`, `ocr_settings.py`, `tesseract_setup.py`, `capture_files.py`, `screen_capture_overlay.py`, `roi_calibrator.py` |
 
 **핵심 특성**
 - **숫자 whitelist OCR** — `--psm 7 -c tessedit_char_whitelist=0123456789.` 로 오탐 원천 차단
@@ -118,6 +121,37 @@ main.py                           ← Entry Point (QApplication 부팅)
 - **비동기 파이프라인** — QThreadPool (4 스레드) 로 20장 배치 처리 시 UI freeze 없음
 - **범위 검증** — `_FREQ_RANGE = (50.0, 5000.0)`, `_Q_RANGE = (10.0, 10000.0)` 벗어나면 추출 실패 처리
 - **한글/공백 경로 대응** — Windows 8.3 short path 자동 변환 (`tesseract_setup.py`)
+
+### F-14A Manual Capture-First 워크플로우
+
+| 항목 | 내용 |
+|------|------|
+| 진입 | Manual Mode `📸 Capture` 메뉴 |
+| Zoom-In 캡처 | `F6` Region Capture / `F7` Window Capture |
+| Zoom-Out 캡처 | `F8` Region Capture / `F9` Window Capture |
+| 저장 위치 | `%LOCALAPPDATA%\MCQRCodeChipCarrier\captures\{YYYYMMDD}\{probe}\{zoomin,zoomout}\` |
+| 파일명 | QR 전 `pending_XXXX.png`, QR 후 `slot_XX_{QRID}.png` |
+
+**핵심 특성**
+- **Capture-First 공정** — 캡처 후 새 Manual 카드 자동 생성/선택, QR 입력창 자동 포커스
+- **Region Capture** — 드래그 영역을 PNG 로 저장
+- **Window Capture** — Windows 창 클릭 캡처. Sweep 팝업처럼 일정 크기의 창을 반복 캡처하는 공정에 최적화
+- **Zoom-In / Zoom-Out 분리 관리** — Zoom-In 은 슬롯 생성 기준, Zoom-Out 은 선택 카드의 sibling 이미지로 첨부
+- **순번 안정화** — 잘못 캡처한 카드를 삭제하면 남은 Manual 카드가 현재 화면 순서 기준으로 `#1, #2, #3...` 재정렬
+- **파일명 자동 확정** — QR 매칭 후 앱 내부 캡처 파일을 QR ID 기반 이름으로 rename. Zoom-Out sibling 도 함께 동기화
+- **고정 뷰포트 미리보기** — 큰 캡처나 비율이 다른 캡처가 들어와도 원본 파일은 보존하고, 화면에서는 현재 영역 안에 Fit 표시해 UI 레이아웃 흔들림 방지
+
+### F-14B ATX 슬롯 다이얼로그 편집
+
+| 항목 | 내용 |
+|------|------|
+| 진입 | ATX 카드 우클릭 → `수정...` |
+| 편집 필드 | Probe Type, Frequency, Q-factor, QR ID, Source |
+| 저장 | OK 시 중복 QR 검사 후 DB 자동 저장 |
+| 취소 | Cancel 시 원본 `SlotData` 변경 없음 |
+
+- ATX 좌측 `Selected Slot Edit` 그룹과 `Apply Slot Edit` 버튼은 제거되었습니다.
+- FreqSweep Image 영역이 좌측 패널 공간을 더 넓게 사용합니다.
 
 ### F-15 측정 이력 SQLite (PostgreSQL 이관 친화)
 
@@ -145,8 +179,10 @@ main.py                           ← Entry Point (QApplication 부팅)
 
 - 더블 클릭 → SlotDetailTable (12슬롯 상세) 팝업
 - 업로드 실패 건 재전송 (Upload Mixin)
+- `History > Records` 하단 전용 Log 영역은 제거하고, 상세 패널과 이미지 미리보기 영역을 확대
+- History 모드에서는 상단 `Calibrate OCR` 버튼을 숨겨 조회 화면을 단순화
 
-### F-17 생산량 대시보드
+### F-17 History Statistics 생산량 분석
 
 | 기간 | 집계 단위 |
 |------|-----------|
@@ -163,8 +199,25 @@ main.py                           ← Entry Point (QApplication 부팅)
 3. 프로브 유형별 누적 바 — Probe Type 별 슬롯 합계
 4. 주간 히트맵 — 요일 × 시간 생산량
 
-**Today 카드 (상단)**
-- 오늘 측정 세트 수 / 총 슬롯 수 / QR 성공률 / 업로드 대기 건
+**화면 구성**
+- 상단: 필터, Today KPI, 기간별 요약 리스트
+- 중단: Overall KPI 카드
+- 하단: Production / Quality Analysis 차트
+- 기간별 요약 리스트는 Today 영역 옆에 배치해 차트 영역을 과도하게 밀어내지 않음
+
+### F-17A CSV Export / Upload
+
+| 항목 | 내용 |
+|------|------|
+| 탭 구조 | `ATX` / `Manual` 2탭 |
+| CSV 컬럼 | `QR ID`, `생산일자[YYYYMMDD]`, `Frequency (KHz)`, `Drive (%)`, `Q`, `Probe Type` |
+| 미완성 데이터 정책 | `QR 있는 값만 반출/업로드` 또는 `전체 슬롯 반출/업로드` 선택 |
+| CSV+Images 구조 | `{folder_name}/{folder_name}_QR.csv`, `ZOOMIN/`, `ZOOMOUT/` |
+
+- ATX/Manual MeasurementSet 은 동시에 보존되며, Export 화면에서는 활성 탭 기준으로 Save/Upload/Preview/Progress 를 처리합니다.
+- CSV+Images 기본 폴더명은 원본 `MeasurementSet.source_folder`의 마지막 폴더명을 우선 사용합니다.
+- `Drive (%)`는 현재 GUI 입력 항목은 아니며, CSV/Upload 자료 구조 유지용 컬럼으로만 포함합니다.
+- QR 없는 슬롯까지 반출하는 경우 QR/Frequency/Drive/Q 결측값은 빈 칸으로 기록합니다.
 
 ### F-18 Export / Import 번들
 
@@ -177,9 +230,13 @@ main.py                           ← Entry Point (QApplication 부팅)
 
 상세 스키마는 [`docs/export_schema.md`](./export_schema.md) 참조.
 
+- Bundle Export 는 zoom-in / zoom-out 이미지를 모두 포함합니다.
+- Bundle Import 는 기존 DB 스키마와 호환되며, zoom-out 경로는 zoom-in 이미지 경로에서 결정적으로 파생합니다.
+
 ### 부가 — SystemLogger 다중 싱크
 
-- ATX / Manual / Export / History 4 페이지에 로그 브로드캐스트
+- ATX / Manual / Export 중심으로 로그 브로드캐스트
+- History 화면은 조회/분석 공간 확보를 위해 전용 Log 박스 미노출
 - QTextEdit dead sink 자동 정리 (RuntimeError 방어)
 - 레벨 필터: All / Warnings+ / Errors only (페이지별 콤보박스)
 - `MAX_LINES = 1000` (자동 트리밍)
@@ -196,7 +253,9 @@ main.py                           ← Entry Point (QApplication 부팅)
 | 다국어 | 한/영 선택 가능 | Inno Setup Korean.isl + Default.isl |
 | 재설치 보존 | 업그레이드 시 이력 유지 | DB 경로가 설치 경로 외부 |
 | 비동기 UI | 20장 OCR 시에도 UI freeze 없음 | QThreadPool (4 스레드) |
-| 로그 | 사용자 피드백 | SystemLogger 4페이지 브로드캐스트 |
+| 로그 | 사용자 피드백 | 페이지별 SystemLogger 싱크, History 전용 로그 UI는 제거 |
+| 이미지 표시 안정성 | 큰 캡처/비정형 비율에서도 레이아웃 고정 | ImageViewer 고정 뷰포트 Fit 표시 |
+| 캡처 품질 | OCR/Export 원본 보존 | PNG 원본 저장, 화면 표시만 축소 |
 
 ---
 
@@ -234,11 +293,14 @@ NX 1.0.0: {{A8F2D4E5-B612-4B19-8C3E-7F5D9A0E4B21}   ← 구버전 (별도 제품
 
 ## 6. 테스트 커버리지
 
-- **pytest 72건 회귀 테스트**
+- **pytest 100건 수집 / 85 passed / 15 skipped** (2026-05-14 기준)
 - 범위:
   - DB CRUD / UPSERT / 기간 집계 (`test_database.py`)
   - OCR 파서 / ROI 설정 / 비동기 워커 (`test_image_parser.py`, `test_ocr_settings.py`, `test_ocr_worker.py`)
   - 번들 직렬화 / Import 중복 정책 (`test_bundle.py`)
+  - CSV Export 컬럼/미완성 데이터 정책 (`test_csv_exporter.py`)
+  - Manual 캡처 파일명/Zoom-In-Out 경로 규칙 (`test_capture_files.py`)
+  - Manual 카드 삭제 후 순번 안정화 (`test_manual_slot_order.py`)
   - 로거 다중 싱크 / dead sink 정리 (`test_system_logger.py`)
   - 빌드 산출물 구조 (`test_build_artifacts.py` — 선택적, `dist/` 존재 시만)
 - 실행: `pytest` (기본) / `pytest -m "not slow"` (빠른 실행)
@@ -253,6 +315,9 @@ NX 1.0.0: {{A8F2D4E5-B612-4B19-8C3E-7F5D9A0E4B21}   ← 구버전 (별도 제품
 | 단일 PC DB | 번들 Export/Import 로 PC 간 이전 가능 |
 | SmartScreen 경고 | EV 코드 서명 인증서 도입 전까지 유지 |
 | 서버 업로더 | HTTP 멀티파트. 엔드포인트는 별도 구축 필요 |
+| Window Capture 배율 의존성 | Windows API 기반. 125%/150% 배율 및 멀티모니터 실장비 검증 필요 |
+| 캡처 파일 정리 | 카드 삭제 시 DB/카드만 삭제, 실제 캡처 파일은 보존 |
+| Drive 관리 | `Drive (%)`는 CSV/Upload 컬럼으로만 유지, GUI 입력 항목은 미구현 |
 
 ---
 
@@ -278,7 +343,7 @@ NX 1.0.0: {{A8F2D4E5-B612-4B19-8C3E-7F5D9A0E4B21}   ← 구버전 (별도 제품
 
 ---
 
-## 부록 A. 디렉터리 구조 (2.0.0 기준)
+## 부록 A. 디렉터리 구조 (2.0.0+ 기준)
 
 ```
 MC QR Code Chip Carrier/                  ← 프로젝트 루트
@@ -306,7 +371,7 @@ MC QR Code Chip Carrier/                  ← 프로젝트 루트
 │       ├─ controllers/
 │       ├─ widgets/
 │       └─ dialogs/
-├─ tests/                                 ← pytest 72건
+├─ tests/                                 ← pytest 100건 수집 / 85 passed / 15 skipped
 └─ third_party/
     └─ tesseract/                         ← 포터블 바이너리 (.exe + DLLs + tessdata/)
 ```
@@ -328,3 +393,4 @@ MC QR Code Chip Carrier/                  ← 프로젝트 루트
 |------|------|----------|
 | 1.0.0 (NX) | 2026-04-23 | F-14~F-18 초기 구현 + 배포 |
 | 2.0.0 (MC) | 2026-04-24 | NX→MC 브랜드 전환 / AppId 재발급 / DB 경로 변경 / 유지보수 구조 정리 |
+| 2.0.0+ | 2026-05-14 | ATX 슬롯 다이얼로그 편집 / Export ATX·Manual 탭 분리 / CSV 미완성 데이터 옵션 / Manual Capture-First / Zoom-In-Out 분리 캡처 / History UX 개선 / ImageViewer 고정 뷰포트 |
