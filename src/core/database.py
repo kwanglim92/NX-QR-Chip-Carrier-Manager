@@ -10,7 +10,7 @@ from pathlib import Path
 
 from src.core.models import MeasurementSet, SlotData
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 3
 DB_FILENAME = "chip_carrier.db"
 APP_DIR_NAME = "MCQRCodeChipCarrier"
 
@@ -83,7 +83,9 @@ def init_db(conn: sqlite3.Connection):
             qr_id              TEXT,
             image_path         TEXT,
             source             TEXT NOT NULL DEFAULT 'summary_csv',
-            probe_type         TEXT
+            probe_type         TEXT,
+            serial_number      TEXT,
+            contact_mode       INTEGER NOT NULL DEFAULT 0
         );
 
         CREATE INDEX IF NOT EXISTS idx_slots_ms_id ON slots(measurement_set_id);
@@ -110,9 +112,19 @@ def init_db(conn: sqlite3.Connection):
 
 def _migrate(conn: sqlite3.Connection, current_version: int):
     """증분 스키마 마이그레이션."""
-    # 향후 버전 업그레이드 시 여기에 추가
-    # if current_version < 2:
-    #     conn.execute("ALTER TABLE ...")
+    if current_version < 2:
+        # slots.serial_number 추가 (탭 단위 시리얼 번호 영속화).
+        # 이미 존재하면 건너뜀 — 멱등 보장.
+        cols = {r["name"] for r in conn.execute("PRAGMA table_info(slots)").fetchall()}
+        if "serial_number" not in cols:
+            conn.execute("ALTER TABLE slots ADD COLUMN serial_number TEXT")
+    if current_version < 3:
+        # slots.contact_mode 추가 (컨택 모드 = QR-only 슬롯).
+        cols = {r["name"] for r in conn.execute("PRAGMA table_info(slots)").fetchall()}
+        if "contact_mode" not in cols:
+            conn.execute(
+                "ALTER TABLE slots ADD COLUMN contact_mode INTEGER NOT NULL DEFAULT 0"
+            )
     conn.execute(
         "UPDATE meta SET value=? WHERE key='schema_version'",
         (str(SCHEMA_VERSION),),
@@ -200,11 +212,13 @@ def save_measurement_set(conn: sqlite3.Connection, ms: MeasurementSet) -> int:
         conn.execute("""
             INSERT INTO slots
                 (measurement_set_id, slot_index, slot_code, frequency, drive,
-                 q_factor, qr_id, image_path, source, probe_type)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                 q_factor, qr_id, image_path, source, probe_type, serial_number,
+                 contact_mode)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             ms_id, slot.slot_index, slot.slot_code, slot.frequency, slot.drive,
             slot.q_factor, slot.qr_id, slot.image_path, slot.source, slot.probe_type,
+            slot.serial_number, int(slot.contact_mode),
         ))
 
     conn.commit()
@@ -244,6 +258,8 @@ def load_measurement_set(conn: sqlite3.Connection, ms_id: int) -> MeasurementSet
             image_path=sr["image_path"],
             source=sr["source"],
             probe_type=sr["probe_type"],
+            serial_number=sr["serial_number"],
+            contact_mode=bool(sr["contact_mode"]),
         )
         ms.slots.append(slot)
 

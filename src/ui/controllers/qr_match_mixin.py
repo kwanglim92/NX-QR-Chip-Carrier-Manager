@@ -99,21 +99,19 @@ class QRMatchMixin:
         self._refresh_overview()
 
         # 현재 탭 내 다음 미매칭 카드로 자동 이동
-        current_tab_idx = self.manual_tabs.currentIndex()
-        if current_tab_idx < self.manual_tabs.count() - 1:
-            probe_type = self.manual_tabs.tabText(current_tab_idx)
-            grid = self._manual_grids.get(probe_type)
-            if grid:
-                for s_idx in grid.get_slot_indices():
-                    if s_idx == idx:
-                        continue
-                    s = self.measurement_set.find_slot_by_index(s_idx)
-                    if s and s.qr_id is None:
-                        self._on_manual_card_selected(s_idx)
-                        return
+        grid = self._current_manual_grid()
+        if grid is not None:
+            for s_idx in grid.get_slot_indices():
+                if s_idx == idx:
+                    continue
+                s = self.measurement_set.find_slot_by_index(s_idx)
+                if s and s.qr_id is None:
+                    self._on_manual_card_selected(s_idx)
+                    return
 
-                # 현재 탭 모두 매칭 완료
-                self.logger.ok(f"'{probe_type}' 탭 QR 매칭 완료!")
+            # 현재 탭 모두 매칭 완료
+            tab_label = self._format_tab_title(grid.tip_name, grid.serial_number)
+            self.logger.ok(f"'{tab_label}' 탭 QR 매칭 완료!")
 
     def _finalize_manual_capture_image(
         self, slot, qr_id: str, force: bool = False

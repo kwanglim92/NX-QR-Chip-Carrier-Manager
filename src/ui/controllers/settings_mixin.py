@@ -1,7 +1,12 @@
 """설정 저장/복원 컨트롤러 (SKILL 14 패턴, SQLite 통합)."""
 from __future__ import annotations
 
-from src.core.database import load_all_settings, save_all_settings
+from src.core.database import (
+    load_all_settings,
+    load_setting,
+    save_all_settings,
+    save_setting,
+)
 
 DEFAULT_SETTINGS = {
     "window_geometry": "",
@@ -13,6 +18,9 @@ DEFAULT_SETTINGS = {
 }
 
 _RESET_ON_START_KEYS = {"last_production_date"}
+
+# 관리형 Tip 카탈로그 — app_settings 에 독립 키로 즉시 영속화 (self._settings 와 분리)
+TIP_CATALOG_KEY = "manual_tip_catalog"
 
 
 class SettingsMixin:
@@ -85,3 +93,30 @@ class SettingsMixin:
             recent.remove(folder_path)
         recent.insert(0, folder_path)
         self._settings["recent_folders"] = recent[:5]
+
+    # ─── Tip 카탈로그 (관리형) ───
+
+    def _load_tip_catalog(self) -> list[str]:
+        """저장된 Tip 카탈로그 목록 반환 (정규화된 문자열 리스트)."""
+        cat = load_setting(self._db_conn, TIP_CATALOG_KEY, [])
+        if not isinstance(cat, list):
+            return []
+        seen: set[str] = set()
+        cleaned: list[str] = []
+        for name in cat:
+            n = str(name).strip()
+            if n and n not in seen:
+                seen.add(n)
+                cleaned.append(n)
+        return cleaned
+
+    def _save_tip_catalog(self, catalog: list[str]) -> None:
+        """Tip 카탈로그 저장 (공백/빈값/중복 제거, 순서 보존)."""
+        seen: set[str] = set()
+        cleaned: list[str] = []
+        for name in catalog:
+            n = str(name).strip()
+            if n and n not in seen:
+                seen.add(n)
+                cleaned.append(n)
+        save_setting(self._db_conn, TIP_CATALOG_KEY, cleaned)

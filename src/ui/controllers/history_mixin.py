@@ -236,36 +236,32 @@ class HistoryMixin:
         # 기존 탭 정리
         self._reset_manual_all_silent()
 
-        # Probe Type별 그룹핑
-        probe_groups: dict[str, list] = {}
+        # 시리얼(탭) 기준 그룹핑 — 없으면 Tip 이름/Unknown 으로 폴백(레거시 데이터)
+        groups: dict[str, list] = {}
         for slot in ms.slots:
-            pt = slot.probe_type or "Unknown"
-            if pt not in probe_groups:
-                probe_groups[pt] = []
-            probe_groups[pt].append(slot)
+            key = slot.serial_number or slot.probe_type or "Unknown"
+            groups.setdefault(key, []).append(slot)
 
         # 탭 생성 + 카드 추가
         from src.ui.widgets.manual_card import ManualCard
-        from src.ui.widgets.manual_grid_widget import ManualGridWidget
 
         self._manual_slot_counter = 0
 
-        for probe_type, slots in probe_groups.items():
-            grid = ManualGridWidget()
-            grid.set_columns(self.manual_col_spin.value())
-            grid.card_clicked.connect(self._on_manual_card_selected)
-            grid.card_removed.connect(self._on_manual_card_removed)
-            grid.images_dropped.connect(
-                lambda paths, pt=probe_type: self._on_images_dropped(pt, paths)
+        for group_key, slots in groups.items():
+            first = slots[0]
+            serial = first.serial_number or group_key
+            tip_name = first.probe_type or ""
+            grid = self._create_manual_grid(serial, tip_name, first.contact_mode)
+
+            # Overview(맨 앞) 뒤에 append
+            self.manual_tabs.addTab(
+                grid, self._format_tab_title(tip_name, serial)
             )
 
-            self._manual_grids[probe_type] = grid
-
-            overview_idx = self.manual_tabs.count() - 1
-            self.manual_tabs.insertTab(overview_idx, grid, probe_type)
-
             for slot in slots:
-                card = ManualCard(slot.slot_index, slot.image_path)
+                card = ManualCard(
+                    slot.slot_index, slot.image_path, contact_mode=slot.contact_mode
+                )
                 card.update_data(
                     frequency=slot.frequency,
                     q_factor=slot.q_factor,
@@ -280,7 +276,9 @@ class HistoryMixin:
         self._update_progress()
 
         if ms.slots:
-            self.manual_tabs.setCurrentIndex(0)
+            # Overview(0) 다음 첫 그리드 탭 선택
+            if self.manual_tabs.count() > 1:
+                self.manual_tabs.setCurrentIndex(1)
             self._on_manual_card_selected(ms.slots[0].slot_index)
 
     def _reset_manual_all_silent(self):
@@ -289,9 +287,11 @@ class HistoryMixin:
             grid.deleteLater()
         self._manual_grids.clear()
 
-        # 뒤에서부터 제거: 마지막 Overview 탭은 남김
-        for i in reversed(range(self.manual_tabs.count() - 1)):
-            self.manual_tabs.removeTab(i)
+        # 뒤에서부터 제거: 그리드 탭만 (Overview 보존, 위치 무관)
+        from src.ui.widgets.manual_grid_widget import ManualGridWidget
+        for i in reversed(range(self.manual_tabs.count())):
+            if isinstance(self.manual_tabs.widget(i), ManualGridWidget):
+                self.manual_tabs.removeTab(i)
 
         self._manual_slot_counter = 0
         self.selected_manual_index = -1

@@ -151,6 +151,8 @@ def export_bundle(
                 "image_path": sr["image_path"],
                 "source": sr["source"],
                 "probe_type": sr["probe_type"],
+                "serial_number": sr["serial_number"],
+                "contact_mode": bool(sr["contact_mode"]),
             })
 
     # 3) 임시 디렉토리에 번들 조립 후 ZIP 압축
@@ -491,12 +493,14 @@ def _merge_into_existing(
         conn.execute("""
             INSERT INTO slots
                 (measurement_set_id, slot_index, slot_code, frequency, drive,
-                 q_factor, qr_id, image_path, source, probe_type)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                 q_factor, qr_id, image_path, source, probe_type, serial_number,
+                 contact_mode)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             ms_id, next_idx, str(s.get("slot_code") or next_idx + 1),
             s.get("frequency"), s.get("drive"), s.get("q_factor"),
             qr, img, s.get("source") or "summary_csv", s.get("probe_type"),
+            s.get("serial_number"), int(bool(s.get("contact_mode", False))),
         ))
         next_idx += 1
 
@@ -538,6 +542,8 @@ def _record_to_measurement_set(
             image_path=img,
             source=s.get("source") or "summary_csv",
             probe_type=s.get("probe_type"),
+            serial_number=s.get("serial_number"),
+            contact_mode=bool(s.get("contact_mode", False)),
         ))
     return ms
 

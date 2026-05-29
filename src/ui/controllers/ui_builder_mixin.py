@@ -253,7 +253,7 @@ class UIBuilderMixin:
         left_layout.setContentsMargins(4, 4, 4, 4)
 
         # 이미지 뷰어 (Zoom-In / Zoom-Out 토글 포함)
-        img_group = QGroupBox("Sweep Image")
+        self.manual_img_group = img_group = QGroupBox("Sweep Image")
         img_layout = QVBoxLayout(img_group)
         img_layout.setSpacing(8)
 
@@ -281,24 +281,34 @@ class UIBuilderMixin:
 
         self.manual_image_viewer = ImageViewer()
         self.manual_image_viewer.setMinimumHeight(280)
+        self.manual_image_viewer.setCursor(Qt.PointingHandCursor)
+        self.manual_image_viewer.setToolTip(
+            "클릭: 클립보드 이미지 붙여넣기 (없으면 파일/폴더 불러오기)"
+        )
+        self.manual_image_viewer.clicked.connect(self._paste_or_browse_manual_image)
         img_layout.addWidget(self.manual_image_viewer)
         left_layout.addWidget(img_group, 1)
 
         # 측정값 입력 폼
-        data_group = QGroupBox("Measurement Input")
+        self.manual_data_group = data_group = QGroupBox("Measurement Input")
         data_form = QFormLayout(data_group)
 
         self.manual_freq_input = QDoubleSpinBox()
         self.manual_freq_input.setRange(0, 9999)
         self.manual_freq_input.setDecimals(0)
         self.manual_freq_input.setSpecialValueText(" ")
-        data_form.addRow("Frequency (KHz):", self.manual_freq_input)
+        data_form.addRow("Frequency (kHz):", self.manual_freq_input)
 
         self.manual_q_input = QDoubleSpinBox()
         self.manual_q_input.setRange(0, 9999)
         self.manual_q_input.setDecimals(0)
         self.manual_q_input.setSpecialValueText(" ")
         data_form.addRow("Q:", self.manual_q_input)
+
+        # Enter 키로 Apply 실행 → 다음 미입력 카드로 자동 이동 (QDoubleSpinBox 는
+        # returnPressed 가 없어 내부 lineEdit 신호를 경유)
+        self.manual_freq_input.lineEdit().returnPressed.connect(self._apply_manual_entry)
+        self.manual_q_input.lineEdit().returnPressed.connect(self._apply_manual_entry)
 
         left_layout.addWidget(data_group)
 
@@ -308,8 +318,18 @@ class UIBuilderMixin:
         self.btn_apply_manual.clicked.connect(self._apply_manual_entry)
         left_layout.addWidget(self.btn_apply_manual)
 
+        # Log 패널 토글 버튼 (숨기면 이미지 영역이 넓어짐)
+        self.btn_toggle_log = QPushButton("🗎 Log 숨기기")
+        self.btn_toggle_log.setCheckable(True)
+        self.btn_toggle_log.setToolTip(
+            "로그 패널 표시/숨김 — 숨기면 좌측 이미지 영역이 넓어집니다."
+        )
+        self.btn_toggle_log.toggled.connect(self._toggle_manual_log_panel)
+        left_layout.addWidget(self.btn_toggle_log)
+
         # Manual 페이지 로그창 (OCR 결과 등을 즉시 확인)
         manual_log_grp, manual_log_te, _manual_log_combo = self._make_log_box(max_h=120)
+        self.manual_log_grp = manual_log_grp
         left_layout.addWidget(manual_log_grp)
         self.logger.add_sink(manual_log_te)
 
@@ -406,6 +426,7 @@ class UIBuilderMixin:
         ctrl_row.addWidget(btn_refresh_ocr)
 
         btn_reset = QPushButton("Reset")
+        btn_reset.setToolTip("모든 탭과 데이터를 초기화 (탭까지 삭제)")
         btn_reset.clicked.connect(self._reset_manual_all)
         ctrl_row.addWidget(btn_reset)
 
@@ -413,10 +434,12 @@ class UIBuilderMixin:
 
         # QTabWidget: Probe Type 탭들 + 전체 현황 탭
         self.manual_tabs = QTabWidget()
+        self.manual_tabs.currentChanged.connect(self._on_manual_tab_changed)
         right_layout.addWidget(self.manual_tabs, 1)
 
-        # 전체 현황 탭 (고정, 마지막)
+        # 전체 현황 탭 (고정, 맨 앞 index 0) — 이후 추가되는 그리드 탭은 뒤에 append
         overview_page = QWidget()
+        self.manual_overview_page = overview_page
         self._overview_layout = QVBoxLayout(overview_page)
         self._overview_layout.setContentsMargins(12, 12, 12, 12)
 
@@ -430,6 +453,7 @@ class UIBuilderMixin:
         splitter.setStretchFactor(0, 0)
         splitter.setStretchFactor(1, 1)
         splitter.setSizes([800, 1000])
+        self.manual_splitter = splitter
 
         page_layout = QVBoxLayout(page)
         page_layout.setContentsMargins(0, 0, 0, 0)
@@ -469,6 +493,8 @@ class UIBuilderMixin:
         save_menu = QMenu(self.btn_save_csv)
         save_menu.addAction("CSV Only", self._export_csv)
         save_menu.addAction("CSV + Images", self._export_csv_with_images)
+        save_menu.addSeparator()
+        save_menu.addAction("머지 후 저장 (CSV+이미지)…", self._merge_export_with_images)
         self.btn_save_csv.setMenu(save_menu)
         action_bar.addWidget(self.btn_save_csv)
 
@@ -479,6 +505,8 @@ class UIBuilderMixin:
         upload_menu = QMenu(self.btn_upload)
         upload_menu.addAction("Upload CSV", self._upload_csv_only)
         upload_menu.addAction("Upload CSV + Images", self._upload_csv_with_images)
+        upload_menu.addSeparator()
+        upload_menu.addAction("머지 후 업로드…", self._merge_upload)
         self.btn_upload.setMenu(upload_menu)
         action_bar.addWidget(self.btn_upload)
 
@@ -529,7 +557,7 @@ class UIBuilderMixin:
 
         self.export_tabs = QTabWidget()
         self.export_atx_table = SlotDetailTable()
-        self.export_manual_table = SlotDetailTable()
+        self.export_manual_table = SlotDetailTable(show_serial=True, name_header="Tip Name")
         self.export_atx_table.slot_selected.connect(self._on_export_slot_detail_selected)
         self.export_manual_table.slot_selected.connect(self._on_export_slot_detail_selected)
         self.export_tabs.addTab(self.export_atx_table, "ATX")

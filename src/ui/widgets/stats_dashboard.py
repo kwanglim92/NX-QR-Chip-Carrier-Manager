@@ -496,7 +496,7 @@ class StatsDashboard(QWidget):
 
         ax.set_xticks(x)
         ax.set_xticklabels(self._shorten_labels(labels), rotation=45, ha="right", fontsize=8)
-        ax.set_ylabel("Frequency (KHz)", color=FG2, fontsize=10)
+        ax.set_ylabel("Frequency (kHz)", color=FG2, fontsize=10)
         ax.legend(fontsize=7, facecolor=BG2, edgecolor=BG3, labelcolor=FG2,
                   loc="upper right", handlelength=1.5, handletextpad=0.4,
                   borderpad=0.3, labelspacing=0.3)
@@ -601,7 +601,7 @@ class StatsDashboard(QWidget):
                 bbox=dict(boxstyle="round,pad=0.3", facecolor=BG2,
                           edgecolor=BG3, alpha=0.9))
 
-        ax.set_xlabel("Frequency (KHz)", color=FG2, fontsize=10)
+        ax.set_xlabel("Frequency (kHz)", color=FG2, fontsize=10)
         ax.set_ylabel("Count", color=FG2, fontsize=10)
         fig.tight_layout(rect=[0.02, 0.12, 0.98, 0.90])
         self._canvas_freq_hist.draw()
