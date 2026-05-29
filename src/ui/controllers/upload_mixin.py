@@ -5,6 +5,7 @@ import csv
 from pathlib import Path
 
 from PySide6.QtCore import QThread, Signal, QObject
+from PySide6.QtWidgets import QDialog
 
 from src.core.csv_exporter import (
     CSV_EXPORT_QR_ONLY,
@@ -109,8 +110,29 @@ class UploadMixin:
             return self._get_export_measurement_set()
         return self.measurement_set
 
-    def _start_upload(self, with_images: bool):
-        ms = self._get_upload_measurement_set()
+    def _merge_upload(self):
+        """여러 파트(시리얼)를 묶어 하나의 배치로 업로드 (이미지 포함)."""
+        if not self._ensure_logged_in():
+            return
+        parts = self._manual_parts_summary()
+        if not parts:
+            self.logger.warn("머지할 Manual 데이터가 없습니다")
+            return
+
+        from src.ui.dialogs.merge_export_dialog import MergeExportDialog
+
+        dlg = MergeExportDialog(parts, self)
+        if dlg.exec() != QDialog.Accepted:
+            return
+        merged = self._build_merged_ms(dlg.selected_serials(), dlg.box_serial())
+        if not merged.slots:
+            self.logger.warn("선택된 파트에 데이터가 없습니다")
+            return
+        self._start_upload(with_images=True, ms=merged)
+
+    def _start_upload(self, with_images: bool, ms=None):
+        if ms is None:
+            ms = self._get_upload_measurement_set()
         if not ms or not ms.slots:
             self.logger.warn("내보낼 데이터가 없습니다")
             return

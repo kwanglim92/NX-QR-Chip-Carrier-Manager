@@ -19,6 +19,7 @@ from src.core.csv_exporter import (
     export_csv,
     export_with_images,
 )
+from src.core.models import MeasurementSet
 
 
 _WINDOWS_FORBIDDEN_FILENAME_CHARS = '<>:"/\\|?*'
@@ -219,6 +220,83 @@ class ExportMixin:
             self._statusbar.showMessage(f"내보내기 완료: {output_dir}")
         except Exception as e:
             self.logger.error(f"내보내기 실패: {e}")
+
+    # ─── 머지 내보내기 (여러 시리얼 → 하나의 박스) ───
+
+    def _manual_parts_summary(self) -> list[tuple[str, str, int]]:
+        """Manual measurement_set의 (시리얼, Tip명, 카드수) 목록 (삽입 순서 보존)."""
+        ms = getattr(self, "measurement_sets", {}).get("manual")
+        if not ms:
+            return []
+        parts: dict[str, list] = {}
+        for s in ms.slots:
+            key = s.serial_number or ""
+            if key not in parts:
+                parts[key] = [s.probe_type or "", 0]
+            parts[key][1] += 1
+        return [(serial, tip, cnt) for serial, (tip, cnt) in parts.items()]
+
+    def _build_merged_ms(self, selected_serials, box_serial: str) -> MeasurementSet:
+        """선택 시리얼의 슬롯만 모은 임시 MeasurementSet (슬롯은 원본 참조)."""
+        src = getattr(self, "measurement_sets", {}).get("manual")
+        merged = MeasurementSet(
+            mode="manual",
+            production_date=self.date_edit.date().toString("yyyyMMdd"),
+            po_number=box_serial,
+        )
+        if src:
+            merged.slots = [
+                s for s in src.slots if (s.serial_number or "") in selected_serials
+            ]
+        return merged
+
+    def _merge_export_with_images(self):
+        """여러 파트(시리얼)를 박스 시리얼 이름의 단일 CSV+이미지 폴더로 내보내기."""
+        parts = self._manual_parts_summary()
+        if not parts:
+            self.logger.warn("머지할 Manual 데이터가 없습니다")
+            return
+
+        from src.ui.dialogs.merge_export_dialog import MergeExportDialog
+
+        dlg = MergeExportDialog(parts, self)
+        if dlg.exec() != QDialog.Accepted:
+            return
+
+        box_serial = dlg.box_serial()
+        merged = self._build_merged_ms(dlg.selected_serials(), box_serial)
+        if not merged.slots:
+            self.logger.warn("선택된 파트에 데이터가 없습니다")
+            return
+
+        policy = self._choose_incomplete_export_policy(
+            merged, "QR 있는 값만 반출", "전체 슬롯 반출"
+        )
+        if policy is None:
+            return
+        if not self._has_export_rows(merged, policy):
+            self.logger.warn("내보낼 데이터가 없습니다 (QR ID가 매칭된 슬롯 없음)")
+            return
+
+        parent_dir = QFileDialog.getExistingDirectory(self, "저장할 위치 선택")
+        if not parent_dir:
+            return
+
+        folder_name = _sanitize_export_folder_name(box_serial) or "merged"
+        output_dir = str(Path(parent_dir) / folder_name)
+        try:
+            result = export_with_images(
+                merged, output_dir, f"{folder_name}_QR.csv", policy
+            )
+            zoomout_count = result.get("zoomout_image_count", 0)
+            self.logger.ok(
+                f"머지 내보내기 완료: '{box_serial}' "
+                f"(파트 {len(dlg.selected_serials())}개, Zoom-In {result['image_count']}개 / "
+                f"Zoom-Out {zoomout_count}개)\n  {output_dir}"
+            )
+            self._statusbar.showMessage(f"머지 내보내기 완료: {output_dir}")
+        except Exception as e:
+            self.logger.error(f"머지 내보내기 실패: {e}")
 
     def _on_date_changed(self):
         if getattr(self, "current_mode", "") == "export":

@@ -1,7 +1,7 @@
 """FreqSweep 및 수동 측정 이미지 뷰어."""
 from __future__ import annotations
 
-from PySide6.QtCore import QRectF, Qt
+from PySide6.QtCore import QRectF, Qt, Signal
 from PySide6.QtGui import QColor, QPainter, QPen, QPixmap
 from PySide6.QtWidgets import QSizePolicy, QWidget
 
@@ -15,6 +15,8 @@ class ImageViewer(QWidget):
     bounds. This prevents large or unusual captures from resizing the app UI.
     """
 
+    clicked = Signal()  # 좌클릭 — 호출자가 붙여넣기/불러오기 등에 연결
+
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setMinimumHeight(200)
@@ -23,6 +25,11 @@ class ImageViewer(QWidget):
         self._current_path: str | None = None
         self._pixmap = QPixmap()
         self._message = "Select an image"
+
+    def mousePressEvent(self, event):
+        if event.button() == Qt.LeftButton:
+            self.clicked.emit()
+        super().mousePressEvent(event)
 
     def load_image(self, path: str | None):
         self._current_path = path

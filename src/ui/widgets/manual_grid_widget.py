@@ -3,7 +3,8 @@ from __future__ import annotations
 
 from PySide6.QtCore import Signal, Qt
 from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QGridLayout, QLabel, QScrollArea, QSizePolicy,
+    QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QLabel, QScrollArea,
+    QSizePolicy, QSpinBox, QPushButton,
 )
 
 from src.ui.theme import FG2, BG, BG3, ACCENT
@@ -14,9 +15,21 @@ class ManualGridWidget(QWidget):
     card_clicked = Signal(int)          # slot_index
     card_removed = Signal(int)          # slot_index
     images_dropped = Signal(list)       # list[str] 파일 경로
+    create_empty_requested = Signal(int)  # 빈 카드 N개 생성
+    clear_requested = Signal()            # 이 탭 카드 비우기
 
-    def __init__(self, parent=None):
+    def __init__(
+        self,
+        serial_number: str = "",
+        tip_name: str = "",
+        contact_mode: bool = False,
+        parent=None,
+    ):
         super().__init__(parent)
+        # 탭 정체성: 시리얼(고유 키) + Tip 이름(라벨, 중복 허용) + 컨택 모드
+        self.serial_number: str = serial_number
+        self.tip_name: str = tip_name
+        self.contact_mode: bool = contact_mode
         self._cards: dict[int, ManualCard] = {}
         self._selected_index: int = -1
         self._columns: int = 4
@@ -25,6 +38,30 @@ class ManualGridWidget(QWidget):
 
         outer = QVBoxLayout(self)
         outer.setContentsMargins(0, 0, 0, 0)
+        outer.setSpacing(4)
+
+        # per-tab 툴바: 빈 카드 N개 생성 + 이 탭 비우기 (선택 탭에만 작용)
+        toolbar = QHBoxLayout()
+        toolbar.setContentsMargins(0, 0, 0, 0)
+        toolbar.setSpacing(4)
+        toolbar.addWidget(QLabel("빈 카드"))
+        self._empty_spin = QSpinBox()
+        self._empty_spin.setRange(1, 200)
+        self._empty_spin.setValue(12)
+        self._empty_spin.setFixedWidth(60)
+        toolbar.addWidget(self._empty_spin)
+        btn_create = QPushButton("생성")
+        btn_create.setToolTip("이 탭에 빈 카드를 지정 개수만큼 미리 생성")
+        btn_create.clicked.connect(
+            lambda: self.create_empty_requested.emit(self._empty_spin.value())
+        )
+        toolbar.addWidget(btn_create)
+        toolbar.addStretch()
+        btn_clear = QPushButton("이 탭 비우기")
+        btn_clear.setToolTip("이 탭의 카드만 모두 삭제")
+        btn_clear.clicked.connect(self.clear_requested.emit)
+        toolbar.addWidget(btn_clear)
+        outer.addLayout(toolbar)
 
         # 스크롤 영역
         scroll = QScrollArea()

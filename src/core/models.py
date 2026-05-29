@@ -23,9 +23,14 @@ class SlotData:
     image_path: str | None = None
     source: str = "summary_csv"
     probe_type: str | None = None
+    serial_number: str | None = None
+    contact_mode: bool = False
 
     @property
     def is_complete(self) -> bool:
+        # 컨택 모드: 테스트(이미지·주파수·Q)를 하지 않으므로 QR만 있으면 완료
+        if self.contact_mode:
+            return self.qr_id is not None
         return all([
             self.qr_id is not None,
             self.frequency is not None,

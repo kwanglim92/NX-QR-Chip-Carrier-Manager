@@ -48,7 +48,7 @@ class SlotEditDialog(QDialog):
         self.freq_input.setRange(0, 999999)
         self.freq_input.setSpecialValueText(" ")
         self.freq_input.setValue(truncate_measurement_value(slot.frequency) or 0)
-        form.addRow("Frequency (KHz):", self.freq_input)
+        form.addRow("Frequency (kHz):", self.freq_input)
 
         self.q_input = QSpinBox()
         self.q_input.setRange(0, 999999)

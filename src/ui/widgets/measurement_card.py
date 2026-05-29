@@ -99,7 +99,7 @@ class MeasurementCard(QFrame):
             self._has_freq = False
         else:
             self._freq_label.setText(
-                f"Freq: {truncate_measurement_value(frequency)} KHz"
+                f"Freq: {truncate_measurement_value(frequency)} kHz"
             )
             self._has_freq = True
 
