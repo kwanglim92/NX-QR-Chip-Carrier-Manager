@@ -98,6 +98,14 @@ class ChipCarrierManagerApp(
         self._save_window_geometry()
         self._collect_settings_from_ui()
         self._save_settings()
+        # 종료 중 늦게 끝난 OCR 콜백이 닫힌 DB 연결에 쓰는 것을 방지:
+        # 풀을 비우고 대기한 뒤, 남은 배치를 무효화한다(batch None 가드 활용).
+        pool = getattr(self, "_ocr_pool", None)
+        if pool is not None:
+            pool.clear()
+            pool.waitForDone(3000)
+        if hasattr(self, "_ocr_batches"):
+            self._ocr_batches.clear()
         if hasattr(self, "_db_conn") and self._db_conn:
             self._db_conn.close()
         super().closeEvent(event)

@@ -417,13 +417,17 @@ def _apply_record(
     slots_in = record.get("slots") or []
     qr_ids_in = {s.get("qr_id") for s in slots_in if s.get("qr_id")}
 
-    # 중복 세트 식별: QR ID 오버랩을 기준
+    # 중복 세트 식별: QR ID 오버랩을 기준.
+    # ORDER BY 없는 LIMIT 1 은 비결정적이므로 measurement_set_id 오름차순으로
+    # 정렬해 항상 같은(가장 낮은 id) 세트를 선택한다. 들어오는 QR 이 여러
+    # 기존 세트에 걸치는 드문 경우에도 결과가 재현 가능해진다.
     existing_ms_id: int | None = None
     if qr_ids_in:
         placeholders = ",".join(["?"] * len(qr_ids_in))
         row = conn.execute(
-            f"SELECT DISTINCT measurement_set_id FROM slots "
-            f"WHERE qr_id IN ({placeholders}) LIMIT 1",
+            f"SELECT measurement_set_id FROM slots "
+            f"WHERE qr_id IN ({placeholders}) "
+            f"ORDER BY measurement_set_id LIMIT 1",
             list(qr_ids_in),
         ).fetchone()
         if row:
@@ -441,6 +445,7 @@ def _apply_record(
                 existing_ms_id = row["id"]
 
     # ── 정책 분기 ──
+    was_overwrite = False
     if existing_ms_id is not None:
         if on_duplicate == "skip":
             result.skipped += 1
@@ -448,6 +453,7 @@ def _apply_record(
         if on_duplicate == "overwrite":
             delete_measurement_set(conn, existing_ms_id)
             existing_ms_id = None  # 아래 신규 삽입 경로
+            was_overwrite = True
             result.overwritten += 1
         elif on_duplicate == "merge":
             _merge_into_existing(conn, existing_ms_id, slots_in, images_base)
@@ -457,7 +463,9 @@ def _apply_record(
     # ── 신규 세트 생성 ──
     ms = _record_to_measurement_set(record, images_base)
     save_measurement_set(conn, ms)
-    if existing_ms_id is None and on_duplicate != "overwrite":
+    # overwrite 로 치환한 경우는 overwritten 으로 이미 집계됨 — 그 외 신규
+    # 삽입(overwrite 모드의 비중복 신규 레코드 포함)만 imported 로 집계
+    if not was_overwrite:
         result.imported += 1
 
 

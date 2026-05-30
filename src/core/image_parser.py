@@ -128,32 +128,37 @@ def extract_measurements(
         logger.debug("OCR: 이미지 로드 실패 %r: %s", image_path, e)
         return MeasurementReading()
 
-    # ROI 범위 사전 체크 — 해상도가 ROI 가정과 다르면 UI 수준 경고
+    # ROI 범위 사전 체크 — 해상도가 ROI 가정과 다르면 UI 수준 경고.
+    # 두 필드는 독립 판정이므로 한쪽 ROI 만 범위를 벗어나거나 누락돼도
+    # 다른 쪽은 그대로 읽는다(전체 폐기하지 않음).
     W, H = img.size
+    oob_names: set[str] = set()
     for name, (x, y, w, h) in active_roi.items():
         if x + w > W or y + h > H:
+            oob_names.add(name)
             logger.warning(
                 "OCR: ROI %s=%s 가 이미지 범위 초과 (이미지 %dx%d). "
                 "Manual 탭의 'Calibrate ROI…' 버튼으로 좌표를 재조정하세요.",
                 name, (x, y, w, h), W, H,
             )
-            if debug:
-                return MeasurementReading(
-                    raw_frequency_text=f"<ROI out of bounds: image {W}x{H}>",
-                    raw_q_text=f"<ROI out of bounds: image {W}x{H}>",
-                )
-            return MeasurementReading()
+
+    freq_roi = active_roi.get("frequency")
+    q_roi = active_roi.get("q_factor")
+    freq_ok = freq_roi is not None and "frequency" not in oob_names
+    q_ok = q_roi is not None and "q_factor" not in oob_names
 
     if debug:
-        freq, raw_freq = _ocr_single_roi(
-            img, active_roi["frequency"], pytesseract, return_raw=True
-        )
-        q, raw_q = _ocr_single_roi(
-            img, active_roi["q_factor"], pytesseract, return_raw=True
-        )
+        if freq_ok:
+            freq, raw_freq = _ocr_single_roi(img, freq_roi, pytesseract, return_raw=True)
+        else:
+            freq, raw_freq = None, f"<ROI 범위 초과/누락: image {W}x{H}>"
+        if q_ok:
+            q, raw_q = _ocr_single_roi(img, q_roi, pytesseract, return_raw=True)
+        else:
+            q, raw_q = None, f"<ROI 범위 초과/누락: image {W}x{H}>"
     else:
-        freq = _ocr_single_roi(img, active_roi["frequency"], pytesseract)
-        q = _ocr_single_roi(img, active_roi["q_factor"], pytesseract)
+        freq = _ocr_single_roi(img, freq_roi, pytesseract) if freq_ok else None
+        q = _ocr_single_roi(img, q_roi, pytesseract) if q_ok else None
         raw_freq = ""
         raw_q = ""
 
@@ -201,10 +206,13 @@ def _ocr_single_roi(
         x, y, w, h = roi
         crop = img.crop((x, y, x + w, y + h))
 
-        # 한글/공백 포함 경로 환경에서도 안전하도록 ``--tessdata-dir`` 로 직접 전달.
-        # ``tesseract_setup.get_tessdata_dir()`` 는 Windows에서 8.3 short path로
-        # 반환하므로 공백이 없어 따옴표/이스케이프가 필요 없다. pytesseract의
-        # shlex.split 파싱이 안전하게 토큰화한다.
+        # 한글/공백 포함 경로 환경 대응: ``--tessdata-dir`` 로 직접 전달한다.
+        # ``get_tessdata_dir()`` 는 Windows에서 8.3 short path(공백 없음)를
+        # 반환하므로 그대로 토큰화해도 안전하다.
+        # NOTE: 경로를 따옴표로 감싸면 오히려 깨진다 — pytesseract 가 Windows에서
+        # ``shlex.split(config, posix=False)`` 로 파싱해 따옴표를 제거하지 않으므로
+        # 리터럴 따옴표가 경로 값에 그대로 남는다. (8.3 비활성+공백 경로는
+        # 이 config 문자열 경로로는 해결 불가 — TESSDATA_PREFIX 환경변수 필요.)
         config = _OCR_CONFIG
         try:
             from src.core.tesseract_setup import get_tessdata_dir

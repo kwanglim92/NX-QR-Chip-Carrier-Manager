@@ -618,8 +618,11 @@ def get_period_quality_stats(
 def update_upload_status(
     conn: sqlite3.Connection, ms_id: int, status: str, timestamp: str | None = None
 ):
+    # timestamp 가 None 이면 기존 uploaded_at 을 보존(실패 재시도가 과거 성공
+    # 업로드 시각을 NULL 로 덮어쓰지 않도록 COALESCE 사용).
     conn.execute(
-        "UPDATE measurement_sets SET upload_status=?, uploaded_at=? WHERE id=?",
+        "UPDATE measurement_sets SET upload_status=?, "
+        "uploaded_at=COALESCE(?, uploaded_at) WHERE id=?",
         (status, timestamp, ms_id),
     )
     conn.commit()
@@ -701,9 +704,10 @@ def import_db(source_path: str) -> bool:
     db_path = get_db_path()
     shutil.copy2(source_path, str(db_path))
 
-    # WAL/SHM 파일 제거 (새 연결에서 재생성됨)
-    for ext in (".wal", ".shm"):
-        p = db_path.with_suffix(db_path.suffix + ext)
+    # WAL/SHM 파일 제거 (새 연결에서 재생성됨).
+    # SQLite sidecar 명명 규칙은 '<db>-wal' / '<db>-shm' (하이픈).
+    for ext in ("-wal", "-shm"):
+        p = Path(str(db_path) + ext)
         if p.exists():
             p.unlink()
 

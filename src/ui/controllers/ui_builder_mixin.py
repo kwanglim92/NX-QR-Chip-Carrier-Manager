@@ -294,13 +294,13 @@ class UIBuilderMixin:
         data_form = QFormLayout(data_group)
 
         self.manual_freq_input = QDoubleSpinBox()
-        self.manual_freq_input.setRange(0, 9999)
+        self.manual_freq_input.setRange(0, 999999)
         self.manual_freq_input.setDecimals(0)
         self.manual_freq_input.setSpecialValueText(" ")
         data_form.addRow("Frequency (kHz):", self.manual_freq_input)
 
         self.manual_q_input = QDoubleSpinBox()
-        self.manual_q_input.setRange(0, 9999)
+        self.manual_q_input.setRange(0, 999999)
         self.manual_q_input.setDecimals(0)
         self.manual_q_input.setSpecialValueText(" ")
         data_form.addRow("Q:", self.manual_q_input)

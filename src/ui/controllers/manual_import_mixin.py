@@ -802,7 +802,15 @@ class ManualImportMixin:
 
     def _prepare_manual_reorder(self) -> None:
         if self._manual_ocr_active_slots:
-            self._ocr_pool.waitForDone(3000)
+            # 대기열에 남은(아직 시작 안 한) 작업을 먼저 취소한 뒤 대기 —
+            # clear() 없이 waitForDone 만 하면 대기열 작업이 끝까지 실행돼
+            # 3초 안에 못 끝낼 수 있다.
+            self._ocr_pool.clear()
+            if not self._ocr_pool.waitForDone(3000):
+                self.logger.warn(
+                    "진행 중인 OCR 을 3초 내 종료하지 못해 일부 결과가 "
+                    "반영되지 않을 수 있습니다."
+                )
         self._ocr_batches.clear()
         self._manual_ocr_active_slots.clear()
         self._manual_capture_rename_queue.clear()
@@ -1129,13 +1137,15 @@ class ManualImportMixin:
             self,
             "OCR 재실행",
             f"새 ROI 로 {total}개 카드의 OCR 을 재실행합니다.\n"
-            f"수기 입력값도 덮어씌워집니다. 계속하시겠습니까?",
+            f"OCR 이 값을 새로 읽어낸 카드만 갱신되며, 인식에 실패하면 기존 "
+            f"값(수기 입력 포함)은 그대로 유지됩니다. 계속하시겠습니까?",
             QMessageBox.Yes | QMessageBox.No,
         )
         if reply != QMessageBox.Yes:
             return
 
-        # 진행 중 OCR 안전 처리: 기존 워커 완료 대기 + 배치 무효화
+        # 진행 중 OCR 안전 처리: 대기열 취소 + 기존 워커 완료 대기 + 배치 무효화
+        self._ocr_pool.clear()
         self._ocr_pool.waitForDone(3000)
         self._ocr_batches.clear()
         self._manual_ocr_active_slots.clear()
@@ -1148,6 +1158,7 @@ class ManualImportMixin:
             Image = None  # type: ignore[assignment]
 
         roi_cache: dict[str, object] = {}
+        unresolved_sizes: set[str] = set()
 
         def _resolve_roi(image_path: str):
             if Image is None or not hasattr(self, "_db_conn"):
@@ -1160,11 +1171,14 @@ class ManualImportMixin:
             key = resolution_key(w, h)
             if key not in roi_cache:
                 roi_cache[key] = load_roi_for(self._db_conn, w, h)
+                if roi_cache[key] is None:
+                    unresolved_sizes.add(key)
             return roi_cache[key]
 
         self.logger.section(f"OCR 재실행: {total}개 카드")
 
         # 시리얼(탭)별로 batch 분리 — _on_ocr_done 의 요약 로그가 그룹별로 출력됨
+        first_batch = True
         for serial, items in items_by_serial.items():
             grid = self._manual_grids.get(serial)
             label = (
@@ -1177,8 +1191,10 @@ class ManualImportMixin:
                 "done": 0,
                 "success": 0,
                 "label": label,
-                "unresolved_sizes": set(),
+                # 미보정 해상도 안내는 1회만 — 공유 set 을 첫 배치에만 부착
+                "unresolved_sizes": unresolved_sizes if first_batch else set(),
             }
+            first_batch = False
             for slot_index, image_path in items:
                 active_roi = _resolve_roi(image_path)
                 runnable = OcrRunnable(

@@ -38,6 +38,7 @@ class UploadMixin:
     def _init_upload_state(self):
         self._uploader = ServerUploader()
         self._upload_thread: QThread | None = None
+        self._upload_worker: _UploadWorker | None = None
 
     # ─── 로그인 ───
 
@@ -131,6 +132,9 @@ class UploadMixin:
         self._start_upload(with_images=True, ms=merged)
 
     def _start_upload(self, with_images: bool, ms=None):
+        if self._upload_thread is not None and self._upload_thread.isRunning():
+            self.logger.warn("업로드가 진행 중입니다. 완료 후 다시 시도하세요.")
+            return
         if ms is None:
             ms = self._get_upload_measurement_set()
         if not ms or not ms.slots:
@@ -191,8 +195,13 @@ class UploadMixin:
             lambda result, db_id=ms.db_id: self._on_upload_finished(result, csv_path, db_id)
         )
         self._upload_worker.finished.connect(self._upload_thread.quit)
+        # 스레드/워커 수명 정리 — 재진입 시 참조 유실로 인한
+        # 'QThread: Destroyed while running' 및 객체 누수 방지
+        self._upload_worker.finished.connect(self._upload_worker.deleteLater)
+        self._upload_thread.finished.connect(self._upload_thread.deleteLater)
 
-        # UI: 업로드 진행 표시
+        # UI: 업로드 진행 표시 + 중복 업로드 방지
+        self.btn_upload.setEnabled(False)
         self.upload_progress.setVisible(True)
         self.upload_progress.setRange(0, 0)  # indeterminate
 
@@ -209,6 +218,9 @@ class UploadMixin:
             pass
 
         self.upload_progress.setVisible(False)
+        self.btn_upload.setEnabled(True)
+        self._upload_thread = None
+        self._upload_worker = None
 
         if result.success:
             msg = f"업로드 성공: CSV"

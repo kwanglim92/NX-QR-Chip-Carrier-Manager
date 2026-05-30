@@ -162,12 +162,44 @@ def final_capture_pair(
 
     Both share the same QR-based stem; the zoom-out variant appends
     ``ZOOMOUT_SUFFIX`` and lives in the sibling ``zoomout/`` directory when the
-    pending path is app-owned.
+    pending path is app-owned. A single shared counter is advanced until BOTH
+    targets are free so the paired stems never desynchronize.
     """
-    zi_final = final_capture_path(zoomin_pending, slot_index, qr_id)
-    zo_dir = zi_final.parent
-    if zo_dir.name.lower() == ZOOMIN_SUBDIR:
-        zo_dir = zo_dir.parent / ZOOMOUT_SUBDIR
-        zo_dir.mkdir(parents=True, exist_ok=True)
-    zo_candidate = zo_dir / f"{zi_final.stem}{ZOOMOUT_SUFFIX}{zi_final.suffix}"
-    return zi_final, unique_path(zo_candidate)
+    pending = Path(zoomin_pending)
+    safe_qr = sanitize_capture_filename_part(qr_id, fallback="qr")
+
+    zi_dir = pending.parent
+    if zi_dir.name.lower() == ZOOMIN_SUBDIR:
+        zo_dir = zi_dir.parent / ZOOMOUT_SUBDIR
+    else:
+        zo_dir = zi_dir
+    zo_dir.mkdir(parents=True, exist_ok=True)
+
+    base = f"slot_{slot_index + 1:02d}_{safe_qr}"
+    ext = ".png"
+
+    def _targets(stem: str) -> tuple[Path, Path]:
+        return (
+            zi_dir / f"{stem}{ext}",
+            zo_dir / f"{stem}{ZOOMOUT_SUFFIX}{ext}",
+        )
+
+    # pending 이 이미 최종 zoom-in 이름이면 (재명명 불필요) 그대로 사용.
+    # 이때 zoom-out 은 invariant 상 zo_first 에 있어야 하므로 별도 uniquify 없이
+    # 짝이 맞는 경로를 반환한다(stem desync 방지).
+    zi_first, zo_first = _targets(base)
+    try:
+        if pending.resolve() == zi_first.resolve():
+            return zi_first, zo_first
+    except OSError:
+        pass
+
+    # 공유 카운터로 두 대상이 모두 비어 있는 stem 을 찾는다
+    if not zi_first.exists() and not zo_first.exists():
+        return zi_first, zo_first
+    counter = 1
+    while True:
+        zi, zo = _targets(f"{base}_{counter}")
+        if not zi.exists() and not zo.exists():
+            return zi, zo
+        counter += 1

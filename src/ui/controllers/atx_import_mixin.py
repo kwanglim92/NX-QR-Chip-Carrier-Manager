@@ -20,37 +20,42 @@ class ATXImportMixin:
         self.logger.section("ATX 폴더 로드")
         self.logger.info(f"폴더: {folder}")
 
+        # 파싱 단계만 좁게 감싼다 — 파싱 실패 시 기존 상태를 건드리지 않는다.
         try:
             ms = load_atx_folder(folder)
-            self.measurement_set = ms
-            self.measurement_set.production_date = self.date_edit.date().toString("yyyyMMdd")
-
-            # UI 업데이트
-            self.lbl_po.setText(ms.po_number)
-            self.lbl_probe_type.setText(ms.probe_type)
-            self.lbl_quantity.setText(f"{ms.quantity}M ({len(ms.slots)}개 슬롯)")
-
-            # 그리드 로드
-            self.slot_grid.load_measurement_set(ms)
-
-            # 진행률
-            self._update_progress()
-
-            self.logger.ok(f"{len(ms.slots)}개 슬롯 로드 완료")
-            self.logger.info(f"PO: {ms.po_number} | Probe: {ms.probe_type}")
-
-            # DB 자동 저장
-            self._auto_save_to_db()
-            self._add_recent_folder(folder)
-
-            # 첫 번째 슬롯 선택
-            if ms.slots:
-                self._on_slot_selected(0)
-
-            self._statusbar.showMessage(f"ATX 폴더 로드 완료: {ms.po_number}")
-
         except Exception as e:
-            self.logger.error(f"폴더 로드 실패: {e}")
+            self.logger.error(f"폴더 파싱 실패: {e}")
+            return
+
+        self.measurement_set = ms
+        self.measurement_set.production_date = self.date_edit.date().toString("yyyyMMdd")
+
+        # UI 업데이트
+        self.lbl_po.setText(ms.po_number)
+        self.lbl_probe_type.setText(ms.probe_type)
+        self.lbl_quantity.setText(f"{ms.quantity}M ({len(ms.slots)}개 슬롯)")
+
+        # 그리드 로드
+        self.slot_grid.load_measurement_set(ms)
+
+        # 진행률
+        self._update_progress()
+
+        self.logger.ok(f"{len(ms.slots)}개 슬롯 로드 완료")
+        self.logger.info(f"PO: {ms.po_number} | Probe: {ms.probe_type}")
+
+        # DB 자동 저장 — 실패해도 로드된 데이터는 화면에 유지
+        try:
+            self._auto_save_to_db()
+        except Exception as e:
+            self.logger.error(f"DB 저장 실패 (화면 데이터는 유지됨): {e}")
+        self._add_recent_folder(folder)
+
+        # 첫 번째 슬롯 선택
+        if ms.slots:
+            self._on_slot_selected(0)
+
+        self._statusbar.showMessage(f"ATX 폴더 로드 완료: {ms.po_number}")
 
     def _on_slot_selected(self, slot_index: int):
         self.selected_slot_index = slot_index

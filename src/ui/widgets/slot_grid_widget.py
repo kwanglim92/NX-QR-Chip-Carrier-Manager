@@ -63,7 +63,9 @@ class SlotGridWidget(QWidget):
                 port_groups[0].append((slot.slot_index + 1, slot))
 
         ports_str = ", ".join(f"Port{p}" for p in sorted(port_groups) if p > 0)
-        self._title.setText(f"ATX{atx_num} {ports_str} — {ms.po_number}")
+        # 모든 slot_code 가 파싱 실패하면 atx_num 은 None → 'ATXNone' 방지
+        atx_prefix = f"ATX{atx_num} " if atx_num is not None else ""
+        self._title.setText(f"{atx_prefix}{ports_str} — {ms.po_number}")
 
         # Port별 섹션 생성
         for port_num in sorted(port_groups, reverse=True):

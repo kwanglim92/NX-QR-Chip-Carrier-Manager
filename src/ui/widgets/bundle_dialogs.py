@@ -58,11 +58,25 @@ class BundleExportDialog(QDialog):
 
         # 버튼
         btns = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
-        btns.accepted.connect(self.accept)
+        btns.accepted.connect(self._on_accept)
         btns.rejected.connect(self.reject)
         layout.addWidget(btns)
 
         self._on_all_toggled()
+
+    def _on_accept(self):
+        # From 이 To 보다 늦으면 결과가 0건이 되므로 사전 차단
+        if (
+            not self._chk_all_dates.isChecked()
+            and self._date_from.date() > self._date_to.date()
+        ):
+            from PySide6.QtWidgets import QMessageBox
+            QMessageBox.warning(
+                self, "날짜 범위 오류",
+                "From 날짜가 To 날짜보다 늦습니다. 범위를 확인하세요.",
+            )
+            return
+        self.accept()
 
     def _on_all_toggled(self):
         enabled = not self._chk_all_dates.isChecked()

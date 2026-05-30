@@ -166,6 +166,13 @@ class ExportMixin:
         if not path:
             return
 
+        # 확장자 보정 — 비네이티브 다이얼로그/사용자 입력으로 확장자가 빠진
+        # 경로에도 .csv 를 강제 (bundle.export_bundle 의 .zip 보정과 동일 정책)
+        out_path = Path(path)
+        if out_path.suffix.lower() != ".csv":
+            out_path = out_path.with_suffix(".csv")
+        path = str(out_path)
+
         try:
             export_csv(ms, path, policy)
             self.logger.ok(f"CSV 저장 완료: {path}")

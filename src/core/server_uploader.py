@@ -101,41 +101,47 @@ class ServerUploader:
                 raise ValueError("업로드 페이지 CSRF 토큰을 찾을 수 없습니다")
             csrf = csrf_input["value"]
 
-            # 파일 준비
-            files = [
-                ("test_file", (csv_file.name, open(csv_file, "rb"), "text/csv")),
-            ]
-
+            # 파일 준비 + 업로드 — 성공·실패(예외) 모두 핸들을 정리해야
+            # Windows 에서 임시 CSV 가 잠겨 삭제되지 않는 문제를 막는다.
+            opened_files: list = []
             image_count = 0
-            image_file_handles = []
-            if image_paths:
-                for img_path in image_paths:
-                    p = Path(img_path)
-                    if p.exists():
-                        fh = open(p, "rb")
-                        image_file_handles.append(fh)
-                        mime = "image/jpeg" if p.suffix.lower() in (".jpg", ".jpeg") else "image/png"
-                        files.append(("image_files[]", (p.name, fh, mime)))
-                        image_count += 1
+            try:
+                csv_fh = open(csv_file, "rb")
+                opened_files.append(csv_fh)
+                files = [
+                    ("test_file", (csv_file.name, csv_fh, "text/csv")),
+                ]
 
-            # POST 업로드
-            data = {
-                "csrfmiddlewaretoken": csrf,
-                mode: "",  # upload 또는 update 버튼
-            }
+                if image_paths:
+                    for img_path in image_paths:
+                        p = Path(img_path)
+                        if p.exists():
+                            fh = open(p, "rb")
+                            opened_files.append(fh)
+                            mime = "image/jpeg" if p.suffix.lower() in (".jpg", ".jpeg") else "image/png"
+                            files.append(("image_files[]", (p.name, fh, mime)))
+                            image_count += 1
 
-            r = self.session.post(
-                UPLOAD_URL,
-                data=data,
-                files=files,
-                headers={"Referer": UPLOAD_URL},
-                timeout=60,
-            )
-            r.raise_for_status()
+                # POST 업로드
+                data = {
+                    "csrfmiddlewaretoken": csrf,
+                    mode: "",  # upload 또는 update 버튼
+                }
 
-            # 파일 핸들 정리
-            for fh in image_file_handles:
-                fh.close()
+                r = self.session.post(
+                    UPLOAD_URL,
+                    data=data,
+                    files=files,
+                    headers={"Referer": UPLOAD_URL},
+                    timeout=60,
+                )
+                r.raise_for_status()
+            finally:
+                for fh in opened_files:
+                    try:
+                        fh.close()
+                    except Exception:
+                        pass
 
             # 응답 파싱
             message = self._parse_response_message(r.text)

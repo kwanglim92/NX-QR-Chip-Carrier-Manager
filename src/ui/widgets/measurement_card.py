@@ -36,6 +36,7 @@ class MeasurementCard(QFrame):
         self.slot_index = slot_index
         self.slot_code = slot_code
         self._has_freq = False
+        self._has_q = False
         self._has_qr = False
         self._qr_id: str | None = None
 
@@ -107,8 +108,10 @@ class MeasurementCard(QFrame):
             pass
         elif q_factor is None:
             self._q_label.setText("Q: -")
+            self._has_q = False
         else:
             self._q_label.setText(f"Q: {truncate_measurement_value(q_factor)}")
+            self._has_q = True
 
         if qr_id is _UNSET:
             pass
@@ -125,7 +128,7 @@ class MeasurementCard(QFrame):
         self._update_state()
 
     def _update_badge(self):
-        if self._has_freq and self._has_qr:
+        if self._has_freq and self._has_q and self._has_qr:
             self._badge.setText("PASS")
             self._badge.setFixedWidth(70)
             self._badge.setStyleSheet(
@@ -148,7 +151,7 @@ class MeasurementCard(QFrame):
             )
 
     def _update_state(self):
-        if self._has_freq and self._has_qr:
+        if self._has_freq and self._has_q and self._has_qr:
             self._set_state("matched")
         elif self._has_freq:
             self._set_state("loaded")
