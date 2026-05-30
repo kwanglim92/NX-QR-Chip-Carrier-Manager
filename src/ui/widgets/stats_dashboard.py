@@ -10,7 +10,7 @@ from PySide6.QtGui import QColor
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QComboBox, QLabel,
     QFrame, QTableWidget, QTableWidgetItem, QHeaderView,
-    QScrollArea, QGridLayout, QSizePolicy,
+    QScrollArea, QGridLayout, QSizePolicy, QPushButton,
 )
 
 import matplotlib
@@ -27,6 +27,8 @@ CHART_COLORS = [ACCENT, GREEN, ORANGE, PURPLE, RED, "#f5c2e7", "#94e2d5", "#f9e2
 class StatsDashboard(QWidget):
     period_changed = Signal()
     probe_filter_changed = Signal()
+    spec_edit_requested = Signal()
+    report_requested = Signal()
 
     PERIODS = ["Daily", "Weekly", "Monthly", "Quarterly", "Yearly"]
     PERIOD_MAP = {
@@ -73,6 +75,17 @@ class StatsDashboard(QWidget):
         filter_row.addWidget(self._probe_combo)
 
         filter_row.addStretch()
+
+        self._btn_spec = QPushButton("⚙ Spec Limits")
+        self._btn_spec.setToolTip("Probe Type별 Frequency/Q 규격(Spec) 상·하한 설정")
+        self._btn_spec.clicked.connect(lambda: self.spec_edit_requested.emit())
+        filter_row.addWidget(self._btn_spec)
+
+        self._btn_report = QPushButton("📄 Export Report")
+        self._btn_report.setToolTip("현재 통계 대시보드를 PDF 리포트로 저장")
+        self._btn_report.clicked.connect(lambda: self.report_requested.emit())
+        filter_row.addWidget(self._btn_report)
+
         layout.addLayout(filter_row)
 
         filter_divider = QFrame()
@@ -162,11 +175,17 @@ class StatsDashboard(QWidget):
         self._card_avg_freq = self._make_summary_card("Avg Frequency", "-")
         self._card_avg_q = self._make_summary_card("Avg Q Factor", "-")
         self._card_trend = self._make_summary_card("Trend", "-")
+        self._card_yield = self._make_summary_card("In-Spec Yield %", "-")
+        self._card_oos = self._make_summary_card("Out-of-Spec", "0")
 
         for card in [self._card_sets, self._card_slots, self._card_avg_freq,
-                     self._card_avg_q, self._card_trend]:
+                     self._card_avg_q, self._card_trend,
+                     self._card_yield, self._card_oos]:
             cards_row.addWidget(card)
         layout.addLayout(cards_row)
+
+        # 최근 load_stats 의 수율 결과 (PDF 리포트 요약 페이지에서 재사용)
+        self._yield_result = None
 
         # ── Section: Production ──
         layout.addWidget(self._make_section_label("Production"))
@@ -285,22 +304,39 @@ class StatsDashboard(QWidget):
         self._probe_combo.blockSignals(False)
 
     def load_stats(self, stats, summary, period_totals, quality_stats, slot_values,
-                   today=None):
+                   today=None, yield_result=None, spec_lines=None):
         """전체 대시보드 갱신.
 
         Parameters
         ----------
         today
             `get_today_stats()` 결과. None이면 Today 카드는 비움(기본값 표시).
+        yield_result
+            `quality.compute_yield()` 결과. None이면 수율 카드는 "-".
+        spec_lines
+            `{"freq": (lo, hi), "q": (lo, hi)}` 또는 None. 단일 probe 선택 +
+            규격 존재 시에만 전달되어 SPC/히스토그램에 USL/LSL 을 그린다.
         """
+        freq_bounds = spec_lines.get("freq") if spec_lines else None
+        q_bounds = spec_lines.get("q") if spec_lines else None
+
         self._update_today_cards(today)
         self._update_summary_cards(summary, period_totals, slot_values)
+        self._update_yield_cards(yield_result)
         self._draw_production_chart(period_totals)
         self._draw_stacked_chart(stats)
-        self._draw_freq_spc_chart(quality_stats)
-        self._draw_q_spc_chart(quality_stats)
-        self._draw_freq_histogram(slot_values)
-        self._draw_q_histogram(slot_values)
+        self._draw_freq_spc_chart(
+            quality_stats,
+            spec_upper=freq_bounds[1] if freq_bounds else None,
+            spec_lower=freq_bounds[0] if freq_bounds else None,
+        )
+        self._draw_q_spc_chart(
+            quality_stats,
+            spec_upper=q_bounds[1] if q_bounds else None,
+            spec_lower=q_bounds[0] if q_bounds else None,
+        )
+        self._draw_freq_histogram(slot_values, spec_bounds=freq_bounds)
+        self._draw_q_histogram(slot_values, spec_bounds=q_bounds)
         self._update_table(stats)
 
     # ─── Today Cards ───
@@ -361,6 +397,31 @@ class StatsDashboard(QWidget):
                 self._update_card_value(self._card_trend, "NEW", GREEN)
         else:
             self._update_card_value(self._card_trend, "-")
+
+    # ─── Yield Cards ───
+
+    def _update_yield_cards(self, yield_result):
+        """In-Spec 수율 / 규격 이탈 카드 갱신. PDF 리포트용으로 결과를 보관."""
+        self._yield_result = yield_result
+        if not yield_result:
+            self._update_card_value(self._card_yield, "-")
+            self._update_card_value(self._card_oos, "0")
+            return
+
+        overall = yield_result.get("overall", {})
+        oos = overall.get("out_of_spec", 0)
+        yp = overall.get("yield_pct")
+
+        if not yield_result.get("has_any_spec") or yp is None:
+            # 규격 미설정 → 수율 판정 불가
+            self._update_card_value(self._card_yield, "-")
+        else:
+            color = GREEN if yp >= 99 else (ORANGE if yp >= 95 else RED)
+            self._update_card_value(self._card_yield, f"{yp}%", color)
+
+        self._update_card_value(
+            self._card_oos, str(oos), RED if oos > 0 else GREEN
+        )
 
     # ─── Chart: Production Trend (Bar + Line) ───
 
@@ -476,10 +537,13 @@ class StatsDashboard(QWidget):
         # Data line
         ax.plot(x, means, color=GREEN, linewidth=2, marker="o", markersize=5, zorder=3)
 
-        # Highlight out-of-control points
+        # Highlight out-of-control (RED) and out-of-spec (ORANGE) period means
         for i, m in enumerate(means):
             if m > ucl or m < lcl:
                 ax.plot(i, m, "o", color=RED, markersize=8, zorder=4)
+            elif (spec_upper is not None and m > spec_upper) or \
+                 (spec_lower is not None and m < spec_lower):
+                ax.plot(i, m, "o", color=ORANGE, markersize=8, zorder=4)
 
         # Control lines
         ax.axhline(y=cl, color=ACCENT, linewidth=1.5, linestyle="-", label=f"CL={cl:.1f}")
@@ -535,6 +599,9 @@ class StatsDashboard(QWidget):
         for i, m in enumerate(means):
             if m > ucl or m < lcl:
                 ax.plot(i, m, "o", color=RED, markersize=8, zorder=4)
+            elif (spec_upper is not None and m > spec_upper) or \
+                 (spec_lower is not None and m < spec_lower):
+                ax.plot(i, m, "o", color=ORANGE, markersize=8, zorder=4)
 
         ax.axhline(y=cl, color=ACCENT, linewidth=1.5, linestyle="-", label=f"CL={cl:.1f}")
         ax.axhline(y=ucl, color=RED, linewidth=1, linestyle="--", alpha=0.8, label=f"UCL={ucl:.1f}")
@@ -558,7 +625,7 @@ class StatsDashboard(QWidget):
 
     # ─── Chart: Frequency Histogram ───
 
-    def _draw_freq_histogram(self, slot_values):
+    def _draw_freq_histogram(self, slot_values, spec_bounds=None):
         fig = self._fig_freq_hist
         fig.clear()
         ax = fig.add_subplot(111)
@@ -601,6 +668,8 @@ class StatsDashboard(QWidget):
                 bbox=dict(boxstyle="round,pad=0.3", facecolor=BG2,
                           edgecolor=BG3, alpha=0.9))
 
+        self._draw_spec_axvlines(ax, spec_bounds)
+
         ax.set_xlabel("Frequency (kHz)", color=FG2, fontsize=10)
         ax.set_ylabel("Count", color=FG2, fontsize=10)
         fig.tight_layout(rect=[0.02, 0.12, 0.98, 0.90])
@@ -608,7 +677,7 @@ class StatsDashboard(QWidget):
 
     # ─── Chart: Q Factor Histogram ───
 
-    def _draw_q_histogram(self, slot_values):
+    def _draw_q_histogram(self, slot_values, spec_bounds=None):
         fig = self._fig_q_hist
         fig.clear()
         ax = fig.add_subplot(111)
@@ -649,6 +718,8 @@ class StatsDashboard(QWidget):
                 bbox=dict(boxstyle="round,pad=0.3", facecolor=BG2,
                           edgecolor=BG3, alpha=0.9))
 
+        self._draw_spec_axvlines(ax, spec_bounds)
+
         ax.set_xlabel("Q Factor", color=FG2, fontsize=10)
         ax.set_ylabel("Count", color=FG2, fontsize=10)
         fig.tight_layout(rect=[0.02, 0.12, 0.98, 0.90])
@@ -674,7 +745,92 @@ class StatsDashboard(QWidget):
             rate_item.setForeground(QColor(GREEN if rate_val >= 80 else ORANGE))
             self._table.setItem(row, 5, rate_item)
 
+    # ─── PDF Report ───
+
+    def export_report_pdf(self, path: str, meta: dict) -> None:
+        """현재 대시보드(요약 페이지 + 6개 차트)를 PDF 리포트로 저장.
+
+        화면에 그려진 Figure 를 그대로 PdfPages 에 덤프하므로 다크 테마가 유지된다.
+        GUI 스레드에서 동기 실행(소형 figure 6개라 1초 미만; matplotlib Agg 는
+        캔버스와 스레드 비안전이므로 별도 스레드로 옮기지 않는다).
+        """
+        from matplotlib.backends.backend_pdf import PdfPages
+
+        summary = self._build_summary_figure(meta)
+        with PdfPages(path) as pdf:
+            pdf.savefig(summary, facecolor=summary.get_facecolor())
+            for fig in (
+                self._fig_production, self._fig_stacked,
+                self._fig_freq_spc, self._fig_q_spc,
+                self._fig_freq_hist, self._fig_q_hist,
+            ):
+                pdf.savefig(fig, facecolor=fig.get_facecolor())
+
+    def _build_summary_figure(self, meta: dict) -> Figure:
+        """리포트 첫 페이지(메타 + Overall + 수율 요약) Figure 생성 (A4 portrait)."""
+        fig = Figure(figsize=(8.27, 11.69), dpi=100)
+        fig.patch.set_facecolor(BG)
+        ax = fig.add_subplot(111)
+        ax.axis("off")
+
+        def _card_text(card) -> str:
+            lbl = card.findChild(QLabel, "value")
+            return lbl.text() if lbl else "-"
+
+        lines = [
+            "MC QR Manager — Quality Report",
+            "",
+            f"Period: {meta.get('period', '')}    Probe Type: {meta.get('probe', 'All')}",
+            f"Generated: {meta.get('generated', '')}",
+            "",
+            "[ Overall ]",
+            f"  Total Sets:    {_card_text(self._card_sets)}",
+            f"  Total Slots:   {_card_text(self._card_slots)}",
+            f"  Avg Frequency: {_card_text(self._card_avg_freq)}",
+            f"  Avg Q Factor:  {_card_text(self._card_avg_q)}",
+            "",
+            "[ Quality / Yield ]",
+        ]
+
+        yr = self._yield_result
+        if yr:
+            o = yr.get("overall", {})
+            yp = o.get("yield_pct")
+            lines += [
+                f"  Measured:      {o.get('measured', 0)}",
+                f"  In-Spec:       {o.get('in_spec', 0)}",
+                f"  Out-of-Spec:   {o.get('out_of_spec', 0)}",
+                f"  In-Spec Yield: {yp if yp is not None else '-'}%",
+            ]
+            per_probe = yr.get("per_probe", {})
+            if per_probe:
+                lines += ["", "  Per Probe Type:"]
+                for pt, b in sorted(per_probe.items()):
+                    yp2 = b.get("yield_pct")
+                    lines.append(
+                        f"    {pt or '(none)'}: {b.get('in_spec', 0)}/{b.get('measured', 0)}"
+                        f"  yield {yp2 if yp2 is not None else '-'}%"
+                    )
+            if not yr.get("has_any_spec"):
+                lines += ["", "  (No spec limits configured - yield is informational.)"]
+        else:
+            lines.append("  (No data)")
+
+        ax.text(0.04, 0.98, "\n".join(lines), transform=ax.transAxes,
+                ha="left", va="top", fontsize=11, color=FG, family="monospace")
+        return fig
+
     # ─── Helpers ───
+
+    def _draw_spec_axvlines(self, ax, spec_bounds):
+        """히스토그램에 규격 상·하한 수직선(ORANGE dash-dot)을 그린다."""
+        if not spec_bounds:
+            return
+        lo, hi = spec_bounds
+        for bound in (lo, hi):
+            if bound is not None:
+                ax.axvline(bound, color=ORANGE, linewidth=1.5,
+                           linestyle="-.", alpha=0.8, zorder=4)
 
     def _style_axes(self, ax):
         """Catppuccin Mocha style."""

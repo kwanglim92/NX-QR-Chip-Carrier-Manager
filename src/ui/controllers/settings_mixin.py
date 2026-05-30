@@ -22,6 +22,9 @@ _RESET_ON_START_KEYS = {"last_production_date"}
 # 관리형 Tip 카탈로그 — app_settings 에 독립 키로 즉시 영속화 (self._settings 와 분리)
 TIP_CATALOG_KEY = "manual_tip_catalog"
 
+# 품질 규격(Spec) 한계 — app_settings 독립 키 (probe_type → freq/q min·max)
+SPEC_LIMITS_KEY = "spec_limits"
+
 
 class SettingsMixin:
     def _init_settings(self):
@@ -120,3 +123,50 @@ class SettingsMixin:
                 seen.add(n)
                 cleaned.append(n)
         save_setting(self._db_conn, TIP_CATALOG_KEY, cleaned)
+
+    # ─── 품질 규격(Spec) 한계 ───
+
+    def _load_spec_limits(self) -> dict:
+        """저장된 probe별 규격 한계 반환.
+
+        ``{probe_type: {freq_min, freq_max, q_min, q_max}}`` (각 값 float|None).
+        잘못된/없는 데이터는 정규화 과정에서 제거되어 ``{}`` 가 된다.
+        """
+        raw = load_setting(self._db_conn, SPEC_LIMITS_KEY, {})
+        if not isinstance(raw, dict):
+            return {}
+        return self._normalize_spec_limits(raw)
+
+    def _save_spec_limits(self, limits: dict) -> None:
+        """규격 한계 저장 (정규화 후 — 경계가 하나도 없는 probe 는 제외)."""
+        save_setting(self._db_conn, SPEC_LIMITS_KEY, self._normalize_spec_limits(limits))
+
+    @staticmethod
+    def _normalize_spec_limits(raw: dict) -> dict:
+        """입력 dict 를 {probe_type: {4키 float|None}} 로 정규화.
+
+        - 숫자로 변환 불가하거나 빈 값은 None.
+        - probe 이름이 비었거나 spec 이 dict 가 아니면 제외.
+        - 경계가 하나도 없는 probe 는 저장하지 않는다.
+        """
+        keys = ("freq_min", "freq_max", "q_min", "q_max")
+        cleaned: dict = {}
+        for pt, spec in (raw or {}).items():
+            name = str(pt).strip()
+            if not name or not isinstance(spec, dict):
+                continue
+            entry: dict = {}
+            has_bound = False
+            for key in keys:
+                value = spec.get(key)
+                if value is None or value == "":
+                    entry[key] = None
+                    continue
+                try:
+                    entry[key] = float(value)
+                    has_bound = True
+                except (TypeError, ValueError):
+                    entry[key] = None
+            if has_bound:
+                cleaned[name] = entry
+        return cleaned

@@ -6,7 +6,7 @@ from datetime import datetime
 import os
 from pathlib import Path
 
-from PySide6.QtWidgets import QFileDialog, QMessageBox
+from PySide6.QtWidgets import QDialog, QFileDialog, QMessageBox
 
 from src.core.database import (
     list_measurement_sets, list_weeks, load_measurement_set,
@@ -17,7 +17,9 @@ from src.core.database import (
 from src.core.bundle import (
     export_bundle, preview_bundle, import_bundle, default_export_filename,
 )
+from src.core.quality import compute_yield, spec_bounds_for
 from src.ui.widgets.bundle_dialogs import BundleExportDialog, BundleImportDialog
+from src.ui.dialogs.spec_limits_dialog import SpecLimitsDialog
 
 
 class HistoryMixin:
@@ -27,6 +29,8 @@ class HistoryMixin:
         self._refresh_probe_list()
         self.stats_dashboard.period_changed.connect(self._refresh_stats)
         self.stats_dashboard.probe_filter_changed.connect(self._refresh_stats)
+        self.stats_dashboard.spec_edit_requested.connect(self._on_edit_spec_limits)
+        self.stats_dashboard.report_requested.connect(self._on_export_report)
         self._detail_ms = None  # 현재 상세 패널에 표시 중인 MeasurementSet
 
         # Probe Type 필터 초기화 (통계 대시보드용)
@@ -98,14 +102,61 @@ class HistoryMixin:
         )
         slot_values = get_slot_values(self._db_conn, probe_type=probe_filter)
 
+        # 품질 규격(Spec) 대비 In-Spec 수율 + (단일 probe 선택 시) SPC 규격선
+        spec_limits = self._load_spec_limits()
+        yield_result = compute_yield(slot_values, spec_limits)
+        spec_lines = None
+        if probe_filter:
+            bounds = spec_bounds_for(spec_limits, probe_filter)
+            if bounds:
+                flo, fhi, qlo, qhi = bounds
+                spec_lines = {"freq": (flo, fhi), "q": (qlo, qhi)}
+
         self.stats_dashboard.load_stats(
             stats, summary, period_totals, quality_stats, slot_values,
-            today=today,
+            today=today, yield_result=yield_result, spec_lines=spec_lines,
         )
 
         # Probe Type 목록 갱신
         probe_types = get_probe_type_list(self._db_conn)
         self.stats_dashboard.set_probe_types(probe_types)
+
+    # ─── 품질 규격(Spec) / 리포트 ───
+
+    def _on_edit_spec_limits(self):
+        """Probe Type별 품질 규격(Spec) 편집 다이얼로그."""
+        probe_types = get_probe_type_list(self._db_conn)
+        if not probe_types:
+            self.logger.warn("등록된 Probe Type 이 없습니다. 먼저 측정 데이터를 저장하세요.")
+            return
+        dlg = SpecLimitsDialog(probe_types, self._load_spec_limits(), self)
+        if dlg.exec() != QDialog.Accepted:
+            return
+        self._save_spec_limits(dlg.result_spec_limits())
+        self._refresh_stats()
+        self.logger.ok("품질 규격(Spec) 이 저장되었습니다")
+
+    def _on_export_report(self):
+        """현재 통계 대시보드를 PDF 리포트로 내보내기."""
+        default = f"quality_report_{datetime.now().strftime('%Y%m%d')}.pdf"
+        path, _ = QFileDialog.getSaveFileName(
+            self, "Export Report", default, "PDF Files (*.pdf)"
+        )
+        if not path:
+            return
+        if not path.lower().endswith(".pdf"):
+            path += ".pdf"
+        try:
+            meta = {
+                "period": self.stats_dashboard.get_selected_period(),
+                "probe": self.stats_dashboard.get_selected_probe_type() or "All",
+                "generated": datetime.now().strftime("%Y-%m-%d %H:%M"),
+            }
+            self.stats_dashboard.export_report_pdf(path, meta)
+            self.logger.ok(f"리포트 저장 완료: {path}")
+            self._statusbar.showMessage(f"리포트 저장: {path}")
+        except Exception as e:
+            self.logger.error(f"리포트 생성 실패: {e}")
 
     def _on_history_selection_changed(self, count: int):
         """체크 항목 수 표시."""
