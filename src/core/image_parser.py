@@ -206,18 +206,17 @@ def _ocr_single_roi(
         x, y, w, h = roi
         crop = img.crop((x, y, x + w, y + h))
 
-        # 한글/공백 포함 경로 환경 대응: ``--tessdata-dir`` 로 직접 전달한다.
-        # ``get_tessdata_dir()`` 는 Windows에서 8.3 short path(공백 없음)를
-        # 반환하므로 그대로 토큰화해도 안전하다.
-        # NOTE: 경로를 따옴표로 감싸면 오히려 깨진다 — pytesseract 가 Windows에서
-        # ``shlex.split(config, posix=False)`` 로 파싱해 따옴표를 제거하지 않으므로
-        # 리터럴 따옴표가 경로 값에 그대로 남는다. (8.3 비활성+공백 경로는
-        # 이 config 문자열 경로로는 해결 불가 — TESSDATA_PREFIX 환경변수 필요.)
+        # tessdata 위치 전달: 공백 없는 경로(보통 8.3 short path)일 때만
+        # ``--tessdata-dir`` 로 직접 전달한다. pytesseract 는 Windows에서
+        # ``shlex.split(config, posix=False)`` 로 파싱하는데, 공백은 토큰 경계로
+        # 처리되고 따옴표는 제거되지 않으므로 공백 경로는 config 문자열로 전달할
+        # 수 없다. 공백이 있으면(8.3 비활성 등) ``--tessdata-dir`` 을 생략하고
+        # configure_tesseract 가 설정한 ``TESSDATA_PREFIX`` 환경변수에 위임한다.
         config = _OCR_CONFIG
         try:
             from src.core.tesseract_setup import get_tessdata_dir
             td = get_tessdata_dir()
-            if td:
+            if td and " " not in td:
                 config = f"--tessdata-dir {td} {_OCR_CONFIG}"
         except ImportError:
             pass

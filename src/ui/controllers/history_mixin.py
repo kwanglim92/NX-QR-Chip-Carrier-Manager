@@ -452,6 +452,19 @@ class HistoryMixin:
         if reply != QMessageBox.Yes:
             return
 
+        # 진행 중 OCR 콜백이 교체 중인 DB 연결에 쓰는 것을 방지 (closeEvent 와 동일):
+        # 풀을 비우고 대기한 뒤 남은 배치를 무효화한다(batch None 가드 활용).
+        pool = getattr(self, "_ocr_pool", None)
+        if pool is not None:
+            pool.clear()
+            pool.waitForDone(3000)
+        if hasattr(self, "_ocr_batches"):
+            self._ocr_batches.clear()
+        if hasattr(self, "_manual_ocr_active_slots"):
+            self._manual_ocr_active_slots.clear()
+        if hasattr(self, "_manual_capture_rename_queue"):
+            self._manual_capture_rename_queue.clear()
+
         try:
             # 현재 연결 닫기
             self._db_conn.close()

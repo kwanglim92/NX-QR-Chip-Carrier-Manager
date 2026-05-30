@@ -33,10 +33,12 @@ _PORTABLE_SUBDIR = Path("third_party") / "tesseract"
 _EXE_NAME = "tesseract.exe" if os.name == "nt" else "tesseract"
 
 # 포터블 tessdata 경로 — configure_tesseract() 실행 후 설정됨.
-# 한글/공백이 포함된 경로 환경에서 ``TESSDATA_PREFIX`` 환경변수가 Tesseract에
-# 인식되지 않거나 pytesseract의 ``shlex.split`` 이 따옴표·공백을 오인식하는
-# 이슈를 함께 우회하기 위해, Windows에서는 **8.3 short path** 로 변환한 뒤
-# OCR 호출 시 ``--tessdata-dir`` 플래그로 직접 전달한다. ``get_tessdata_dir()`` 로 조회.
+# tessdata 위치 전달 전략(Windows 한글/공백 경로 대응):
+#   1순위: 공백 없는 8.3 short path 면 OCR 호출 시 ``--tessdata-dir`` 로 직접 전달.
+#   폴백: 8.3 비활성 등으로 경로에 공백이 남으면 ``--tessdata-dir`` 을 생략하고
+#         configure_tesseract 가 설정한 ``TESSDATA_PREFIX`` 환경변수에 위임한다
+#         (환경변수는 pytesseract 의 shlex.split 파싱을 거치지 않아 공백에 안전).
+# ``get_tessdata_dir()`` 로 short path 를 조회.
 _tessdata_dir: str | None = None
 
 
@@ -106,14 +108,13 @@ def configure_tesseract() -> bool:
 
     pytesseract.pytesseract.tesseract_cmd = str(portable_exe)
     if tessdata.exists():
-        # TESSDATA_PREFIX 환경변수: 대부분의 환경에선 이것만으로 충분하지만,
-        # Windows + 한글/비-ASCII 경로 조합에서는 Tesseract가 CP949↔UTF-8
-        # 변환에 실패해 무시된다. image_parser가 ``--tessdata-dir`` 로 직접
-        # 덮어써도 되도록 ``_tessdata_dir`` 모듈 상태를 노출한다.
-        os.environ["TESSDATA_PREFIX"] = str(tessdata.parent)
-        # Windows에서 pytesseract의 shlex.split 은 공백 포함 경로를 올바르게
-        # 처리하지 못하므로 8.3 short path 로 저장 — 한글 문자는 남지만
-        # 공백이 제거되어 shlex 토큰화가 깨지지 않는다.
+        # TESSDATA_PREFIX 는 tessdata 의 부모 디렉터리를 가리킨다(Tesseract 가
+        # 'tessdata/' 를 덧붙여 탐색). 8.3 short path 로 설정해 공백/비-ASCII
+        # 경로에서도 안정적으로 인식되게 한다 — 이는 공백 경로(8.3 비활성)라
+        # ``--tessdata-dir`` 을 config 문자열로 전달할 수 없을 때의 신뢰 가능한
+        # 폴백 경로다(환경변수는 shlex 파싱을 거치지 않아 공백에 안전).
+        os.environ["TESSDATA_PREFIX"] = _to_short_path(tessdata.parent)
+        # 공백 없는 short path 면 image_parser 가 ``--tessdata-dir`` 로 직접 전달.
         global _tessdata_dir
         _tessdata_dir = _to_short_path(tessdata)
     logger.info("포터블 Tesseract 설정: %s", portable_exe)
