@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MC QR Code Chip Carrier Manager — Product Requirements Document</title>
+<style>
+:root{--fg:#24292f;--muted:#57606a;--bg:#ffffff;--soft:#f6f8fa;--border:#d0d7de;
+--accent:#0969da;--accent2:#8250df;--code:#cf222e;}
+*{box-sizing:border-box;}
+body{margin:0;background:#eef1f5;color:var(--fg);
+font-family:-apple-system,"Segoe UI",Roboto,"Malgun Gothic","Apple SD Gothic Neo",sans-serif;
+line-height:1.65;font-size:16px;}
+.wrap{max-width:1000px;margin:32px auto;background:var(--bg);padding:48px 56px;
+border:1px solid var(--border);border-radius:10px;box-shadow:0 2px 16px rgba(0,0,0,.06);}
+h1{font-size:2em;border-bottom:2px solid var(--border);padding-bottom:.3em;margin-top:0;}
+h2{font-size:1.5em;border-bottom:1px solid var(--border);padding-bottom:.25em;margin-top:2em;}
+h3{font-size:1.2em;color:var(--accent2);margin-top:1.6em;}
+h4{font-size:1.05em;margin-top:1.3em;}
+a{color:var(--accent);text-decoration:none;}
+a:hover{text-decoration:underline;}
+p{margin:.7em 0;}
+code{background:var(--soft);padding:.15em .4em;border-radius:5px;
+font-family:Consolas,"D2Coding","Courier New",monospace;font-size:.88em;color:var(--code);}
+pre{background:var(--soft);border:1px solid var(--border);border-radius:8px;
+padding:14px 16px;overflow-x:auto;line-height:1.5;}
+pre code{background:none;padding:0;color:var(--fg);font-size:.85em;white-space:pre;}
+table{border-collapse:collapse;width:100%;margin:1em 0;font-size:.92em;display:block;overflow-x:auto;}
+th,td{border:1px solid var(--border);padding:8px 12px;text-align:left;vertical-align:top;}
+th{background:var(--soft);font-weight:700;}
+tbody tr:nth-child(even){background:#fbfcfd;}
+blockquote{margin:1em 0;padding:.6em 1.1em;border-left:4px solid var(--accent);
+background:#f3f8ff;border-radius:0 8px 8px 0;color:var(--muted);}
+blockquote p:first-child{margin-top:0;}
+blockquote p:last-child{margin-bottom:0;}
+hr{border:none;border-top:1px solid var(--border);margin:2em 0;}
+ul,ol{padding-left:1.6em;}
+li{margin:.25em 0;}
+.toc{background:var(--soft);border:1px solid var(--border);border-radius:8px;
+padding:14px 20px;margin:1.5em 0 2em;}
+.toc-title{font-weight:700;color:var(--muted);margin-bottom:.4em;font-size:.95em;}
+.toc ul{list-style:none;padding-left:0;margin:0;columns:2;column-gap:32px;}
+.toc li{margin:.18em 0;break-inside:avoid;}
+.toc-h3{padding-left:1.2em;font-size:.92em;}
+.toc-h3 a{color:var(--muted);}
+.footer{margin-top:2.5em;padding-top:1em;border-top:1px solid var(--border);
+color:var(--muted);font-size:.85em;}
+@media print{body{background:#fff;}.wrap{box-shadow:none;border:none;margin:0;max-width:none;padding:0;}.toc ul{columns:2;}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<h1 id="mc-qr-code-chip-carrier-manager-product-requirements-document">MC QR Code Chip Carrier Manager — Product Requirements Document</h1>
+<nav class="toc"><div class="toc-title">목차</div><ul><li class="toc-h2"><a href="#1-프로젝트-취지-및-배경">1. 프로젝트 취지 및 배경</a></li><li class="toc-h3"><a href="#11-문제-정의">1.1 문제 정의</a></li><li class="toc-h3"><a href="#12-해결-방향">1.2 해결 방향</a></li><li class="toc-h3"><a href="#13-대상-사용자">1.3 대상 사용자</a></li><li class="toc-h2"><a href="#2-시스템-아키텍처">2. 시스템 아키텍처</a></li><li class="toc-h3"><a href="#21-기술-스택">2.1 기술 스택</a></li><li class="toc-h3"><a href="#22-레이어-구조-mvc-mixin-skill-12-패턴">2.2 레이어 구조 (MVC + Mixin, SKILL 12 패턴)</a></li><li class="toc-h3"><a href="#23-mixin-조립-순서-초기화-시퀀스">2.3 Mixin 조립 순서 &amp; 초기화 시퀀스</a></li><li class="toc-h3"><a href="#24-데이터-경로-분리">2.4 데이터 경로 분리</a></li><li class="toc-h3"><a href="#25-데이터-모델">2.5 데이터 모델</a></li><li class="toc-h2"><a href="#3-기능-명세">3. 기능 명세</a></li><li class="toc-h3"><a href="#f-14-manual-ocr-로트카드-자동-입력">F-14 Manual OCR — 로트카드 자동 입력</a></li><li class="toc-h3"><a href="#f-14a-manual-capture-first-워크플로우">F-14A Manual Capture-First 워크플로우</a></li><li class="toc-h3"><a href="#f-14b-atx-슬롯-다이얼로그-편집">F-14B ATX 슬롯 다이얼로그 편집</a></li><li class="toc-h3"><a href="#f-15-측정-이력-sqlite-postgresql-이관-친화">F-15 측정 이력 SQLite (PostgreSQL 이관 친화)</a></li><li class="toc-h3"><a href="#f-16-history-조회">F-16 History 조회</a></li><li class="toc-h3"><a href="#f-17-history-statistics-생산량-분석">F-17 History Statistics 생산량 분석</a></li><li class="toc-h3"><a href="#f-17a-csv-export-upload">F-17A CSV Export / Upload</a></li><li class="toc-h3"><a href="#f-18-export-import-번들">F-18 Export / Import 번들</a></li><li class="toc-h3"><a href="#f-19-내장-사용자-가이드">F-19 내장 사용자 가이드</a></li><li class="toc-h3"><a href="#f-20-품질수율-분석-규격spec-한계-pdf-리포트-신규">★ F-20 품질·수율 분석 + 규격(Spec) 한계 + PDF 리포트 (신규)</a></li><li class="toc-h3"><a href="#부가-systemlogger-다중-싱크">부가 — SystemLogger 다중 싱크</a></li><li class="toc-h2"><a href="#4-비기능-요건">4. 비기능 요건</a></li><li class="toc-h2"><a href="#5-배포-빌드">5. 배포 / 빌드</a></li><li class="toc-h3"><a href="#51-빌드-명령">5.1 빌드 명령</a></li><li class="toc-h3"><a href="#52-appid-guid">5.2 AppId GUID</a></li><li class="toc-h3"><a href="#53-코드-서명">5.3 코드 서명</a></li><li class="toc-h3"><a href="#54-릴리스-절차다음-출시-시">5.4 릴리스 절차(다음 출시 시)</a></li><li class="toc-h2"><a href="#6-테스트">6. 테스트</a></li><li class="toc-h2"><a href="#7-알려진-제약">7. 알려진 제약</a></li><li class="toc-h2"><a href="#8-변경-이력-이번-개발-사이클-220-개발본">8. 변경 이력 (이번 개발 사이클 = 2.2.0 개발본)</a></li><li class="toc-h3"><a href="#81-코드-품질-감사-기반-버그-수정-82ae960">8.1 코드 품질 감사 기반 버그 수정 (82ae960)</a></li><li class="toc-h3"><a href="#82-ocr-tessdata-폴백-정식화-db-복원-drain-1db0dcf">8.2 OCR tessdata 폴백 정식화 + DB 복원 drain (1db0dcf)</a></li><li class="toc-h3"><a href="#83-품질수율-분석-규격-pdf-리포트-5aab2f3">8.3 품질·수율 분석 + 규격 + PDF 리포트 (5aab2f3)</a></li><li class="toc-h2"><a href="#9-개발-가이드-이어서-개발">9. 개발 가이드 (이어서 개발)</a></li><li class="toc-h3"><a href="#91-개발-환경-셋업">9.1 개발 환경 셋업</a></li><li class="toc-h3"><a href="#92-코딩-규칙-필수">9.2 코딩 규칙 (필수)</a></li><li class="toc-h3"><a href="#93-db-스키마-current-schemaversion3">9.3 DB 스키마 (current SCHEMAVERSION=3)</a></li><li class="toc-h3"><a href="#94-appsettings-키-목록">9.4 appsettings 키 목록</a></li><li class="toc-h3"><a href="#95-확장-패턴-자주-쓰는-작업">9.5 확장 패턴 (자주 쓰는 작업)</a></li><li class="toc-h3"><a href="#96-git-워크플로우-claudemd-기준">9.6 Git 워크플로우 (CLAUDE.md 기준)</a></li><li class="toc-h2"><a href="#10-로드맵-다음-작업">10. 로드맵 / 다음 작업</a></li><li class="toc-h3"><a href="#101-단기f-20-후속-스트레치">10.1 단기(F-20 후속 스트레치)</a></li><li class="toc-h3"><a href="#102-중기미완성제약-해소">10.2 중기(미완성/제약 해소)</a></li><li class="toc-h3"><a href="#103-장기아키텍처-비전">10.3 장기(아키텍처 비전)</a></li><li class="toc-h2"><a href="#부록-a-디렉터리-구조">부록 A. 디렉터리 구조</a></li><li class="toc-h2"><a href="#부록-b-참고-문서">부록 B. 참고 문서</a></li><li class="toc-h2"><a href="#부록-c-버전-이력">부록 C. 버전 이력</a></li></ul></nav>
+
+<table><thead><tr><th>항목</th><th>내용</th></tr></thead><tbody><tr><td><strong>문서 버전</strong></td><td>2.2</td></tr><tr><td><strong>작성일</strong></td><td>2026-05-31</td></tr><tr><td><strong>앱 버전(개발본)</strong></td><td>2.2.0 — <code>main</code> 기준 (코드 품질 감사 수정 + 품질·수율 분석 기능 반영). *미출시*</td></tr><tr><td><strong>마지막 출시 버전</strong></td><td>2.1.0 (2026-05-14) — <code>VERSION</code> 파일 기준</td></tr><tr><td><strong>이전 메이저</strong></td><td>1.0.0 (NX 브랜드) → 2.0.0 (MC 브랜드 전환)</td></tr><tr><td><strong>대상 독자</strong></td><td>개발 / 운영 / QA / 품질관리</td></tr><tr><td><strong>내부 코드명</strong></td><td><code>McQrManager</code> (이전: <code>NxQrManager</code>)</td></tr><tr><td><strong>저장소</strong></td><td><code>main</code> 브랜치가 단일 기준 (solo 개발)</td></tr></tbody></table>
+<blockquote><p><strong>이 문서의 목적</strong></p>
+<ol><li><strong>누가 봐도</strong> 제품의 배경·목적·기능을 이해할 수 있게 한다(운영/QA/신규 합류자).</li><li><strong>이어서 개발</strong>할 수 있게 아키텍처·확장 패턴·빌드/테스트·로드맵을 한 곳에 정리한다.</li><li>최근 변경 사항(코드 감사 수정 + 품질·수율 기능)을 추적 가능하게 기록한다.</li></ol>
+<p>HTML 버전: <a href="./PRD.html"><code>docs/PRD.html</code></a> (이 문서를 <code>docs/build_prd_html.py</code> 로 변환한 산출물).</p></blockquote>
+<hr>
+<h2 id="1-프로젝트-취지-및-배경">1. 프로젝트 취지 및 배경</h2>
+<h3 id="11-문제-정의">1.1 문제 정의</h3>
+<p>반도체 프로브(Probe) 측정 공장에서는 다음 세 가지 데이터 파편화 문제가 반복적으로 발생합니다.</p>
+<ol><li><strong>ATX 장비 CSV 파편화</strong> — ATX 측정 장비가 슬롯별로 <code>summary_*.csv</code> 파일을 쏟아내지만, PO 번호·QR 코드·생산 날짜가 각 파일에 독립적으로 저장돼 있어 한 로트의 전체 상태를 한눈에 볼 수 없습니다.</li></ol>
+<ol><li><strong>Manual 측정의 수기 입력 오류와 캡처 공정 낭비</strong> — 로트카드(Lot Card) 수기 측정은 운영자가 눈으로 값을 읽어 Excel 에 입력하는 방식이라 오탈자가 빈번합니다. 특히 Frequency / Q-factor 같은 값에서 실수가 잦습니다. 기존에는 Windows 캡처 도구로 이미지를 저장한 뒤 다시 앱에 불러오는 공정이 필요했습니다.</li></ol>
+<ol><li><strong>이력 분산 + 집계 불가</strong> — 측정 이력이 각 PC 의 로컬 Excel 파일에 흩어져 있어, 일일 생산량·주간 추이·품질 수율을 집계하려면 수작업으로 파일을 모아야 합니다.</li></ol>
+<h3 id="12-해결-방향">1.2 해결 방향</h3>
+<ul><li><strong>단일 데스크톱 앱</strong> 으로 ATX 자동 파싱 + Manual Capture/OCR + 이력 DB + 품질 분석을 통합</li><li><strong><code>%LOCALAPPDATA%</code> SQLite(WAL 모드)</strong> — 오프라인 공장 환경에서도 동작 보장</li><li><strong>PostgreSQL 이관 친화 스키마</strong> — 향후 중앙 서버 집약 시 수정 최소화 (ON CONFLICT UPSERT, TEXT 날짜, <code>GROUP_CONCAT</code> 금지, Python 측 집계)</li><li><strong>PyInstaller + Inno Setup 단일 설치본</strong> — 사용자 환경에 Python 설치 불필요, Tesseract 포터블 번들</li></ul>
+<h3 id="13-대상-사용자">1.3 대상 사용자</h3>
+<table><thead><tr><th>구분</th><th>역할</th><th>사용 시나리오</th></tr></thead><tbody><tr><td>1차</td><td>공장 측정 오퍼레이터 (비개발자)</td><td>ATX 결과 Import / Manual 로트카드 캡처·OCR / QR 매칭 / 저장</td></tr><tr><td>2차</td><td>품질 관리자</td><td>History Statistics 생산량·<strong>품질 수율</strong> 모니터링 / 규격(Spec) 설정 / <strong>PDF 리포트</strong> / CSV Export 검토</td></tr><tr><td>3차</td><td>IT 담당자</td><td>Inno Setup 인스톨러 배포 / PC 간 데이터 이전(Import 번들) / 백업·복원</td></tr></tbody></table>
+<hr>
+<h2 id="2-시스템-아키텍처">2. 시스템 아키텍처</h2>
+<h3 id="21-기술-스택">2.1 기술 스택</h3>
+<table><thead><tr><th>영역</th><th>선택</th><th>이유</th></tr></thead><tbody><tr><td>런타임</td><td>Python 3.11+</td><td>표준 라이브러리(<code>statistics</code>, <code>datetime</code>) 충실</td></tr><tr><td>UI</td><td>PySide6 (Qt6) <code>&gt;=6.6</code></td><td>공장 Windows 데스크톱 최적, GPL 회피</td></tr><tr><td>DB</td><td>SQLite 3.24+ (WAL)</td><td>설치형 로컬 앱, PG 이관 친화</td></tr><tr><td>OCR</td><td>Tesseract 5.x + pytesseract <code>&gt;=0.3.10</code></td><td>숫자 whitelist 로 Manual 카드 Freq/Q 자동 추출</td></tr><tr><td>이미지</td><td>Pillow <code>&gt;=10.0</code></td><td>ROI 크롭만 필요, OpenCV 미도입으로 용량 최소화</td></tr><tr><td>차트/리포트</td><td>Matplotlib <code>&gt;=3.8</code></td><td><code>FigureCanvasQTAgg</code> 통합, <code>PdfPages</code> 로 PDF 리포트(추가 의존성 0)</td></tr><tr><td>HTTP</td><td>requests <code>&gt;=2.31</code> + beautifulsoup4 <code>&gt;=4.12</code></td><td>서버 업로드(CSRF/세션 폼 자동화)</td></tr><tr><td>빌드</td><td>PyInstaller 6.x (onedir, <code>contents_directory='.'</code>)</td><td>Tesseract DLL 경로 단순화</td></tr><tr><td>인스톨러</td><td>Inno Setup 6.x</td><td>한/영 다국어, 사용자 권한 설치</td></tr></tbody></table>
+<blockquote><p>개발 의존성(<code>requirements-dev.txt</code>): <code>pytest&gt;=7.0</code>, <code>pytest-qt&gt;=4.4</code>, <code>pyinstaller&gt;=6.0</code>.</p></blockquote>
+<h3 id="22-레이어-구조-mvc-mixin-skill-12-패턴">2.2 레이어 구조 (MVC + Mixin, SKILL 12 패턴)</h3>
+<pre><code>main.py                              ← Entry Point (QApplication 부팅, 테마 적용)
+├─ src/core/                         ← 순수 로직 (Qt 의존성 최소, 단위 테스트 용이)
+│   ├─ database.py                   — SQLite CRUD + PG 호환 UPSERT + 기간 집계 쿼리
+│   ├─ models.py                     — MeasurementSet / SlotData dataclass + is_complete
+│   ├─ atx_parser.py                 — summary_*.csv 파싱 → MeasurementSet
+│   ├─ csv_exporter.py               — CSV / CSV+Images Export
+│   ├─ bundle.py                     — JSONL + ZIP 번들 Export/Import (F-18)
+│   ├─ capture_files.py              — Manual 캡처 파일명 / Zoom-In·Out 경로 규칙
+│   ├─ image_parser.py               — Tesseract 기반 ROI OCR (F-14)
+│   ├─ ocr_worker.py                 — QThreadPool 비동기 OCR (OcrRunnable)
+│   ├─ ocr_settings.py               — 해상도별 ROI 프로파일(v2 스키마)
+│   ├─ tesseract_setup.py            — 포터블 바이너리 탐색 + 8.3 short path / TESSDATA_PREFIX
+│   ├─ slot_mapper.py                — ATX 슬롯코드 ↔ 그리드 위치 매핑
+│   ├─ server_uploader.py            — HTTP 멀티파트 업로드
+│   └─ quality.py                    — ★신규: 규격(Spec) 평가 + In-Spec 수율 (F-20, 순수 함수)
+├─ src/ui/
+│   ├─ theme.py                      — Catppuccin Mocha 색상/QSS
+│   ├─ main_window.py                — ChipCarrierManagerApp = 8개 Mixin + QMainWindow 조립
+│   ├─ controllers/                  — 페이지별 Mixin (아래 2.3)
+│   ├─ widgets/                      — 재사용 위젯 (카드/그리드/테이블/뷰어/대시보드/로거)
+│   └─ dialogs/                      — 모달 다이얼로그 (ROI/슬롯편집/번들/규격/탭추가/카탈로그/가이드)
+└─ third_party/tesseract/           — 포터블 바이너리 + tessdata (번들, git 비포함)</code></pre>
+<h3 id="23-mixin-조립-순서-초기화-시퀀스">2.3 Mixin 조립 순서 &amp; 초기화 시퀀스</h3>
+<p><code>ChipCarrierManagerApp</code> (<code>src/ui/main_window.py:17-39</code>) 은 8개 Mixin + <code>QMainWindow</code> 를 다중 상속합니다. <strong>MRO 순서가 메서드 해석에 영향</strong>을 주므로 변경 시 주의.</p>
+<pre><code>class ChipCarrierManagerApp(
+    UIBuilderMixin,      # UI 위젯 빌드
+    ATXImportMixin,      # ATX 폴더 import + 슬롯 편집
+    ManualImportMixin,   # Manual 모드 + 비동기 OCR 파이프라인
+    QRMatchMixin,        # QR 스캔/매칭
+    ExportMixin,         # CSV / CSV+Images / Merge Export
+    UploadMixin,         # 서버 업로드(QThread)
+    HistoryMixin,        # 이력/통계/번들/백업복원 + 품질·리포트(F-20)
+    SettingsMixin,       # 설정 저장/복원
+    QMainWindow,
+):</code></pre>
+<p><code>__init__</code> 초기화 순서 (<code>main_window.py:28-39</code>): <code>_init_db</code> → <code>_init_ocr</code> → <code>_init_shared_state</code> → <code>_init_settings</code> → <code>_build_ui</code> → <code>_init_manual_state</code> → <code>_init_upload_state</code> → <code>_init_history_state</code> → <code>_restore_window_geometry</code> → <code>_apply_settings_to_ui</code>.</p>
+<p>종료 시 <code>closeEvent</code> 는 설정 저장 → <strong>OCR 풀 drain(<code>_ocr_pool.clear()/waitForDone</code>) + 배치 무효화</strong> → DB 연결 close 순으로 동작(닫힌 연결에 늦은 OCR 콜백이 쓰는 것을 방지).</p>
+<h3 id="24-데이터-경로-분리">2.4 데이터 경로 분리</h3>
+<table><thead><tr><th>경로</th><th>내용</th><th>생존</th></tr></thead><tbody><tr><td><code>C:\Program Files\McQrManager\</code></td><td>실행 파일, DLL, Tesseract</td><td>언인스톨 시 제거</td></tr><tr><td><code>%LOCALAPPDATA%\MCQRCodeChipCarrier\chip_carrier.db</code></td><td>측정 이력 DB (+ <code>-wal</code>/<code>-shm</code> sidecar)</td><td><strong>언인스톨 해도 보존</strong></td></tr><tr><td><code>%LOCALAPPDATA%\MCQRCodeChipCarrier\captures\</code></td><td>Manual 캡처 이미지(Zoom-In/Zoom-Out)</td><td>사용자 데이터로 보존</td></tr><tr><td>사용자 지정 폴더</td><td>ATX summary CSV 원본, Manual 로트카드 이미지</td><td>사용자 관리</td></tr></tbody></table>
+<h3 id="25-데이터-모델">2.5 데이터 모델</h3>
+<ul><li><strong><code>MeasurementSet</code></strong> — <code>po_number</code>, <code>quantity</code>, <code>probe_type</code>, <code>production_date(YYYYMMDD)</code>, <code>mode(atx|manual)</code>, <code>source_folder</code>, <code>slots[]</code>, <code>db_id</code>. 집계 프로퍼티 <code>matched_count</code> / <code>total_count</code> / <code>all_complete</code>.</li><li><strong><code>SlotData</code></strong> — <code>slot_index</code>, <code>slot_code</code>, <code>frequency</code>, <code>drive</code>, <code>q_factor</code>, <code>qr_id</code>, <code>image_path</code>, <code>source(summary_csv|manual_entry)</code>, <code>probe_type</code>, <code>serial_number</code>, <code>contact_mode</code>.</li><li><strong><code>is_complete</code></strong>: 일반 슬롯 = <code>qr_id AND frequency AND q_factor</code>; <strong>컨택(contact) 슬롯</strong> = <code>qr_id</code> 만.</li><li>측정값은 정수로 절삭(<code>truncate_measurement_value</code>, <code>int(float(x))</code>) — 입력 경로(OCR/ATX/수기/슬롯편집) 전반에서 일관 적용.</li></ul>
+<hr>
+<h2 id="3-기능-명세">3. 기능 명세</h2>
+<blockquote><p>각 기능의 <strong>진입점(버튼/메뉴/단축키)</strong> 을 함께 표기해 "어떻게 실행하는지"가 분명하도록 했습니다.</p></blockquote>
+<h3 id="f-14-manual-ocr-로트카드-자동-입력">F-14 Manual OCR — 로트카드 자동 입력</h3>
+<table><thead><tr><th>항목</th><th>내용</th></tr></thead><tbody><tr><td>진입</td><td>상단 <code>🎯 Calibrate OCR</code> (ROI 편집) / Manual 탭 이미지 드롭·캡처 시 자동 OCR</td></tr><tr><td>입력</td><td>로트카드 JPG/PNG, 앱 내 화면 캡처 이미지</td></tr><tr><td>출력</td><td>Frequency / Q-factor 자동 추출 → 입력 폼 pre-fill</td></tr><tr><td>실패 대응</td><td>조용히 수기 입력 모드로 전환 (경고 없음)</td></tr><tr><td>구성 파일</td><td><code>image_parser.py</code>, <code>ocr_worker.py</code>, <code>ocr_settings.py</code>, <code>tesseract_setup.py</code>, <code>roi_calibrator.py</code>, <code>roi_canvas.py</code></td></tr></tbody></table>
+<p><strong>핵심 특성</strong></p>
+<ul><li><strong>숫자 whitelist OCR</strong> — <code>--psm 7 -c tessedit_char_whitelist=0123456789.</code> 로 오탐 원천 차단</li><li><strong>해상도별 ROI 프로파일</strong> — <code>ocr_settings</code> 가 <code>{resolution_key: {frequency:[x,y,w,h], q_factor:[x,y,w,h]}}</code> 를 <code>app_settings.ocr_roi</code>(v2 스키마)에 저장</li><li><strong>ROI Calibrator</strong> — <code>QGraphicsView</code> 기반 시각 편집기. 신규 해상도는 드래그로 설정 + Test OCR 로 즉시 검증</li><li><strong>비동기 파이프라인</strong> — <code>QThreadPool</code> (최대 4 스레드)로 배치 처리 시 UI freeze 없음. 결과는 <code>finished</code> 시그널로 메인 스레드에서 반영</li><li><strong>필드 독립 판정</strong> — Frequency / Q 각각 독립적으로 성공/실패. 한쪽 ROI 가 범위를 벗어나도 다른 쪽은 읽음</li><li><strong>범위 검증</strong> — <code>_FREQ_RANGE=(50,5000) kHz</code>, <code>_Q_RANGE=(10,10000)</code> 벗어나면 추출 실패 처리</li><li><strong>한글/공백 경로 대응</strong> — Windows 8.3 short path(<code>get_tessdata_dir</code>)를 <code>--tessdata-dir</code> 로 직접 전달. 경로에 공백이 남으면(8.3 비활성) <code>--tessdata-dir</code> 을 생략하고 <code>TESSDATA_PREFIX</code> 환경변수에 위임(pytesseract 의 <code>shlex.split</code> 한계 우회)</li></ul>
+<h3 id="f-14a-manual-capture-first-워크플로우">F-14A Manual Capture-First 워크플로우</h3>
+<table><thead><tr><th>항목</th><th>내용</th></tr></thead><tbody><tr><td>진입</td><td>Manual Mode <code>📸 Capture</code> 메뉴 또는 단축키</td></tr><tr><td>Zoom-In 캡처</td><td><strong>F6</strong> Region / <strong>F7</strong> Window</td></tr><tr><td>Zoom-Out 캡처</td><td><strong>F8</strong> Region / <strong>F9</strong> Window</td></tr><tr><td>저장 위치</td><td><code>captures\{YYYYMMDD}\{serial}\{zoomin,zoomout}\</code></td></tr><tr><td>파일명</td><td>QR 전 <code>pending_XXXX.png</code>, QR 후 <code>slot_XX_{QRID}.png</code> (zoom-out 은 stem + `<code> </code> `` 접미사)</td></tr></tbody></table>
+<p><strong>핵심 특성</strong></p>
+<ul><li><strong>Capture-First 공정</strong> — 캡처 후 새 Manual 카드 자동 생성/선택, QR 입력창 자동 포커스</li><li><strong>Region / Window Capture</strong> — 드래그 영역 또는 Windows 창 클릭 캡처(Sweep 팝업 반복 캡처에 최적)</li><li><strong>Zoom-In / Zoom-Out 분리</strong> — Zoom-In 은 슬롯 생성 기준, Zoom-Out 은 선택 카드의 sibling 이미지로 첨부</li><li><strong>순번 안정화</strong> — 카드 삭제 시 남은 카드가 화면 순서 기준 <code>#1, #2…</code> 재정렬</li><li><strong>파일명 짝 동기화</strong> — QR 매칭/재정렬 시 zoom-in·zoom-out 파일명을 <strong>공유 카운터</strong>로 함께 확정해 stem 불일치 방지(<code>final_capture_pair</code>)</li><li><strong>고정 뷰포트 미리보기</strong> — 큰/비정형 캡처도 원본 보존, 화면에서는 Fit 표시로 레이아웃 흔들림 방지</li></ul>
+<h3 id="f-14b-atx-슬롯-다이얼로그-편집">F-14B ATX 슬롯 다이얼로그 편집</h3>
+<table><thead><tr><th>항목</th><th>내용</th></tr></thead><tbody><tr><td>진입</td><td>ATX 카드 우클릭 → <code>수정…</code></td></tr><tr><td>편집 필드</td><td>Probe Type, Frequency, Q-factor, QR ID, Source</td></tr><tr><td>저장</td><td>OK 시 중복 QR 검사 후 DB 자동 저장</td></tr><tr><td>취소</td><td>Cancel 시 원본 <code>SlotData</code> 변경 없음</td></tr></tbody></table>
+<h3 id="f-15-측정-이력-sqlite-postgresql-이관-친화">F-15 측정 이력 SQLite (PostgreSQL 이관 친화)</h3>
+<p>스키마 상세는 <strong>§9.3 DB 스키마</strong> 참조. 핵심:</p>
+<ul><li><strong>테이블</strong>: <code>meta</code>(스키마 버전), <code>measurement_sets</code>, <code>slots</code>(FK CASCADE), <code>app_settings</code>(JSON KV)</li><li><strong>PG 호환 설계</strong>: <code>INSERT … ON CONFLICT DO UPDATE</code> 표준 UPSERT, TEXT <code>YYYYMMDD</code> 날짜, <code>GROUP_CONCAT</code> 금지(Python <code>statistics</code> 대체), <code>datetime('now')</code> DEFAULT 제거(호출자가 ISO 주입)</li><li><strong>증분 마이그레이션</strong>: <code>_migrate()</code> 가 <code>SCHEMA_VERSION</code> 비교 후 <code>ALTER TABLE</code> (멱등 보장). 현재 v3.</li></ul>
+<h3 id="f-16-history-조회">F-16 History 조회</h3>
+<table><thead><tr><th>필터</th><th>구현</th></tr></thead><tbody><tr><td>주차(ISO Week)</td><td>드롭다운 (<code>iso_week</code> 정확 일치)</td></tr><tr><td>Probe Type</td><td>드롭다운</td></tr><tr><td>Upload Status</td><td>드롭다운 (pending/uploaded/failed)</td></tr><tr><td>검색</td><td><code>po_number</code>·<code>probe_type</code>·<code>slots.qr_id</code> LIKE</td></tr></tbody></table>
+<ul><li>레코드 클릭 → 상세 패널(슬롯 테이블 + 이미지 미리보기). 더블클릭 상세도 지원</li><li><code>Load Record</code> 로 ATX/Manual 모드에 복원, <code>Check All</code>/<code>Delete</code> 일괄 처리(체크 선택)</li><li>업로드 실패 건 재전송(Upload Mixin)</li></ul>
+<h3 id="f-17-history-statistics-생산량-분석">F-17 History Statistics 생산량 분석</h3>
+<table><thead><tr><th>기간</th><th>집계 단위</th></tr></thead><tbody><tr><td>Today</td><td><code>production_date = today()</code></td></tr><tr><td>Daily / Weekly / Monthly / Quarterly / Yearly</td><td><code>YYYYMMDD</code> / ISO 주차 / <code>YYYYMM</code> / <code>YYYY-Q#</code> / <code>YYYY</code></td></tr></tbody></table>
+<p><strong>화면 구성</strong> (History → <code>Statistics</code> 탭)</p>
+<ul><li>필터행: Period / Probe Type 콤보 + <strong>⚙ Spec Limits / 📄 Export Report 버튼</strong>(F-20)</li><li>Today KPI 3종 + 기간별 요약 테이블</li><li>Overall KPI 카드: Total Sets / Slots / Avg Freq / Avg Q / Trend + <strong>In-Spec Yield % / Out-of-Spec</strong>(F-20)</li><li>차트: Production Trend(바+이동평균), Probe Type 누적 바, <strong>Frequency/Q SPC(X-bar, CL/UCL/LCL)</strong>, Frequency/Q 분포 히스토그램(정규곡선)</li></ul>
+<h3 id="f-17a-csv-export-upload">F-17A CSV Export / Upload</h3>
+<table><thead><tr><th>항목</th><th>내용</th></tr></thead><tbody><tr><td>진입</td><td><code>Save CSV</code> 드롭다운(CSV Only / CSV+Images / 머지) · <code>Upload</code> 드롭다운</td></tr><tr><td>탭 구조</td><td><code>ATX</code> / <code>Manual</code> 2탭 (활성 탭 기준 처리)</td></tr><tr><td>CSV 컬럼</td><td><code>QR ID</code>, <code>생산일자[YYYYMMDD]</code>, <code>Frequency (KHz)</code>, <code>Drive (%)</code>, <code>Q</code>, <code>Probe Type</code></td></tr><tr><td>미완성 데이터 정책</td><td><code>QR 있는 값만</code> 또는 <code>전체 슬롯</code> 선택</td></tr><tr><td>CSV+Images 구조</td><td><code>{folder}/{folder}_QR.csv</code> + <code>ZOOMIN/</code> + <code>ZOOMOUT/</code></td></tr><tr><td>저장 경로 보정</td><td>확장자 누락 시 <code>.csv</code> 자동 보정</td></tr></tbody></table>
+<ul><li><code>Drive (%)</code> 는 GUI 입력 항목이 아니라 CSV/Upload 자료구조 유지용 컬럼</li><li>머지 출고: 여러 시리얼(파트)을 박스 시리얼 이름의 단일 CSV+이미지 폴더로 묶음</li></ul>
+<h3 id="f-18-export-import-번들">F-18 Export / Import 번들</h3>
+<table><thead><tr><th>항목</th><th>내용</th></tr></thead><tbody><tr><td>진입</td><td>History 하단 <code>Export Bundle</code> / <code>Import Bundle</code></td></tr><tr><td>포맷</td><td>ZIP (<code>manifest.json</code> + <code>data.jsonl</code> + <code>images/</code>)</td></tr><tr><td>중복 정책</td><td><code>skip</code>(기본) / <code>overwrite</code> / <code>merge</code></td></tr><tr><td>스키마 버전</td><td>v1 (<code>SUPPORTED_SCHEMA_VERSIONS</code> 호환성 체크)</td></tr><tr><td>용도</td><td>PC 간 이전 / 백업 / 중앙 서버 집약 전 단계</td></tr></tbody></table>
+<ul><li>중복 식별은 <code>qr_id</code> 오버랩 기준 + (ATX) <code>source_folder</code> 보조 매칭. 결정성을 위해 <code>ORDER BY measurement_set_id LIMIT 1</code></li><li>zoom-out 경로는 zoom-in 경로에서 결정적으로 파생(<code>derive_zoomout_path</code>)</li><li>별도 백업: <code>Quick Backup</code>(.db 단순 복사) / <code>Quick Restore</code>(검증 후 교체, WAL sidecar 정리). 상세 스키마: <a href="./export_schema.md"><code>docs/export_schema.md</code></a></li></ul>
+<h3 id="f-19-내장-사용자-가이드">F-19 내장 사용자 가이드</h3>
+<table><thead><tr><th>항목</th><th>내용</th></tr></thead><tbody><tr><td>진입</td><td>상단 <code>📘 설명서</code> 버튼</td></tr><tr><td>표시</td><td><code>QWebEngineView</code> 다이얼로그, 실패 시 기본 브라우저 fallback</td></tr><tr><td>원본</td><td><code>docs/user-guide.html</code> (+ <code>docs/assets/user-guide/</code> 스크린샷)</td></tr></tbody></table>
+<h3 id="f-20-품질수율-분석-규격spec-한계-pdf-리포트-신규">★ F-20 품질·수율 분석 + 규격(Spec) 한계 + PDF 리포트 (신규)</h3>
+<blockquote><p>품질 관리자 페르소나를 위한 신규 기능. 통계 대시보드가 "생산량/완료율" 위주에서 <strong>품질 적합성(규격 대비 양·불)</strong> 까지 다루도록 확장.</p></blockquote>
+<table><thead><tr><th>항목</th><th>내용</th></tr></thead><tbody><tr><td>진입</td><td>History → <code>Statistics</code> 탭 → <code>⚙ Spec Limits</code> / <code>📄 Export Report</code> 버튼</td></tr><tr><td>저장</td><td><code>app_settings.spec_limits</code> (probe_type 별 JSON, 스키마 마이그레이션 불필요)</td></tr><tr><td>구성 파일</td><td><code>quality.py</code>(신규), <code>spec_limits_dialog.py</code>(신규), <code>stats_dashboard.py</code>, <code>history_mixin.py</code>, <code>settings_mixin.py</code></td></tr></tbody></table>
+<p><strong>핵심 개념</strong></p>
+<ul><li><strong>완료율(기존)</strong> = <code>complete_slots / total_slots</code> — 입력 진척도</li><li><strong>In-Spec 수율(신규)</strong> = <code>in_spec / measured</code> — 측정된 슬롯(freq·q 보유) 중 규격 내 비율. <strong>완료율과 분모가 다른</strong> 별개 품질 지표</li><li>규격 미설정 probe 의 측정 슬롯은 <code>measured</code> 에 포함하되 in-spec 으로 집계 + <code>unspecced</code> 플래그(미정의 규격으로 불합 판정 불가)</li></ul>
+<p><strong>기능</strong></p>
+<ol><li><strong>규격(Spec) 편집</strong> — <code>⚙ Spec Limits</code> → Probe Type 별 Frequency/Q 의 min·max 입력(빈칸=무제한, min≤max 검증). <code>app_settings</code> 에 영속.</li><li><strong>수율 카드</strong> — Overall 영역에 <code>In-Spec Yield %</code>(99/95% 임계 색상) + <code>Out-of-Spec</code> 카드. 규격 미설정 시 "—".</li><li><strong>SPC 규격 오버레이</strong> — 단일 probe 선택 시 Frequency/Q SPC 차트에 USL/LSL 선 표시 + 규격 이탈 기간평균을 <strong>ORANGE</strong>(관리한계 이탈 RED 와 구분). 히스토그램에도 규격 수직선.</li><li><strong>PDF 리포트</strong> — <code>📄 Export Report</code> → 요약 페이지(메타 + Overall + 수율 overall/per-probe) + 6개 차트를 <code>PdfPages</code> 로 PDF 생성(다크 테마 유지, <strong>추가 의존성 0</strong> — 기존 matplotlib).</li></ol>
+<p><strong>설계 노트</strong>: <code>stats_dashboard</code> 의 SPC 차트는 원래 <code>spec_upper/spec_lower</code> 파라미터를 가졌으나 <code>load_stats</code> 가 인자 없이 호출해 <strong>죽은 코드</strong>였음 → F-20 에서 정식 배선. <code>load_stats</code> 의 신규 인자(<code>yield_result</code>, <code>spec_lines</code>)는 키워드 기본값이라 <strong>하위호환</strong>.</p>
+<h3 id="부가-systemlogger-다중-싱크">부가 — SystemLogger 다중 싱크</h3>
+<ul><li>ATX / Manual / Export 중심 로그 브로드캐스트, History 는 조회 공간 확보를 위해 전용 로그 박스 미노출</li><li>QTextEdit dead sink 자동 정리(RuntimeError 방어), 레벨 필터(All / Warnings+ / Errors), <code>MAX_LINES=1000</code> 자동 트리밍</li></ul>
+<hr>
+<h2 id="4-비기능-요건">4. 비기능 요건</h2>
+<table><thead><tr><th>항목</th><th>요건</th><th>구현</th></tr></thead><tbody><tr><td>한글/공백 경로</td><td>사용자 계정명 한글 대응</td><td>8.3 short path + <code>TESSDATA_PREFIX</code> 폴백</td></tr><tr><td>오프라인 작동</td><td>네트워크 없이 핵심 기능</td><td>업로드 외 전부 오프라인</td></tr><tr><td>설치 권한</td><td>관리자 불필요</td><td><code>PrivilegesRequired=lowest</code> (<code>%LOCALAPPDATA%</code>)</td></tr><tr><td>다국어</td><td>한/영</td><td>Inno Setup Korean.isl + Default.isl</td></tr><tr><td>재설치 보존</td><td>업그레이드 시 이력 유지</td><td>DB 경로가 설치 경로 외부</td></tr><tr><td>비동기 UI</td><td>다량 OCR 시 freeze 없음</td><td>QThreadPool(4) + 종료 시 drain</td></tr><tr><td>동시성 안전</td><td>DB 쓰기 단일 스레드화</td><td>OCR/업로드 워커는 결과만 시그널로 전달, DB 접근은 메인 스레드</td></tr><tr><td>품질 리포트</td><td>차트 포함 PDF 산출</td><td>matplotlib <code>PdfPages</code>(의존성 0)</td></tr></tbody></table>
+<hr>
+<h2 id="5-배포-빌드">5. 배포 / 빌드</h2>
+<h3 id="51-빌드-명령">5.1 빌드 명령</h3>
+<pre><code># 1. PyInstaller 빌드 (build.bat 가 산출물 사전검사 포함)
+.\build.bat
+#   내부: python -m PyInstaller --noconfirm --clean --log-level=INFO McQrManager.spec
+
+# 2. Inno Setup 인스톨러 생성
+iscc installer.iss
+
+# 산출물:
+#   dist\McQrManager\McQrManager.exe            (onedir 바이너리)
+#   Output\McQrManager-Setup-&lt;버전&gt;.exe          (설치 파일)</code></pre>
+<p><code>installer.iss</code> 는 컴파일 전 필수 산출물(<code>McQrManager.exe</code>, <code>python311.dll</code>, <code>third_party\tesseract\tesseract.exe</code>)을 검사해 중간 산출물 오배포를 방지합니다.</p>
+<h3 id="52-appid-guid">5.2 AppId GUID</h3>
+<pre><code>MC 2.x:    {{2991A86F-058F-4349-9F44-1116B5C4F102}   ← 현재
+NX 1.0.0:  {{A8F2D4E5-B612-4B19-8C3E-7F5D9A0E4B21}   ← 구버전(별도 제품, 공존 가능)</code></pre>
+<h3 id="53-코드-서명">5.3 코드 서명</h3>
+<p>현재 미적용. Windows SmartScreen "알 수 없는 게시자" 경고가 발생할 수 있으며, "추가 정보 → 실행" 으로 우회 가능. EV 인증서 도입은 향후 로드맵.</p>
+<h3 id="54-릴리스-절차다음-출시-시">5.4 릴리스 절차(다음 출시 시)</h3>
+<ol><li><code>VERSION</code> 파일을 <code>2.2.0</code> 으로 갱신(현재 <code>2.1.0</code>).</li><li><code>installer.iss</code> 의 <code>MyAppVersion</code> 동기화.</li><li><code>CHANGELOG.md</code> 에 변경 이력 추가(<strong>§8 변경 이력</strong> 참조).</li><li><code>build.bat</code> → <code>iscc installer.iss</code> → 산출물 수동 검증(설치/Manual 캡처 단축키/CSV+Images 구조/OCR/History).</li></ol>
+<hr>
+<h2 id="6-테스트">6. 테스트</h2>
+<ul><li><strong>pytest 111건 수집 / 105 passed / 6 skipped</strong> (<code>main</code> 기준). 6 skip 은 Tesseract/PIL 의존 OCR 테스트(<code>ocr</code> 마커, 바이너리 없으면 graceful skip).</li><li>실행: <code>pytest</code> (기본) · <code>pytest -m "not slow"</code> (빠른) · <code>pytest -m ocr</code>(Tesseract 필요).</li><li>픽스처(<code>tests/conftest.py</code>): <code>qapp</code>(offscreen QApplication), <code>db_conn</code>(in-memory SQLite + init_db), <code>sample_afm_image</code>, <code>tesseract_ready</code>.</li></ul>
+<table><thead><tr><th>테스트 파일</th><th>범위</th></tr></thead><tbody><tr><td><code>test_database.py</code></td><td>DB CRUD / UPSERT / 기간 집계</td></tr><tr><td><code>test_image_parser.py</code>, <code>test_ocr_settings.py</code>, <code>test_ocr_worker.py</code></td><td>OCR 파서 / ROI 설정 / 비동기 워커</td></tr><tr><td><code>test_bundle.py</code></td><td>번들 직렬화 / Import 중복 정책</td></tr><tr><td><code>test_csv_exporter.py</code></td><td>CSV 컬럼 / 미완성 데이터 정책</td></tr><tr><td><code>test_capture_files.py</code></td><td>캡처 파일명 / Zoom 짝 경로 규칙</td></tr><tr><td><code>test_manual_slot_order.py</code></td><td>카드 삭제 후 순번 안정화</td></tr><tr><td><code>test_measurement_values.py</code></td><td>측정값 절삭 로직</td></tr><tr><td><code>test_system_logger.py</code></td><td>로거 다중 싱크 / dead sink 정리</td></tr><tr><td><code>test_quality.py</code></td><td>★신규: 규격 평가·수율 계산·설정 라운드트립 + 대시보드 스모크(PDF 생성)</td></tr><tr><td><code>test_build_artifacts.py</code></td><td>빌드 산출물 구조(<code>dist/</code> 존재 시)</td></tr></tbody></table>
+<hr>
+<h2 id="7-알려진-제약">7. 알려진 제약</h2>
+<table><thead><tr><th>제약</th><th>대응 / 비고</th></tr></thead><tbody><tr><td>한국어 OCR 미지원</td><td><code>eng.traineddata</code> 만 번들. 필요 시 <code>kor.traineddata</code> 추가</td></tr><tr><td>단일 PC DB</td><td>번들 Export/Import 로 PC 간 이전</td></tr><tr><td>SmartScreen 경고</td><td>EV 코드 서명 도입 전까지 유지</td></tr><tr><td>서버 업로더 엔드포인트</td><td>HTTP 멀티파트 프로토콜만 구현, 서버측 수신 엔드포인트는 별도 구축 필요</td></tr><tr><td>Window Capture 배율 의존성</td><td>125%/150% 배율·멀티모니터 실장비 검증 필요</td></tr><tr><td>캡처 파일 정리</td><td>카드 삭제 시 DB/카드만 제거, 실제 캡처 파일은 보존</td></tr><tr><td>Drive 입력</td><td><code>Drive (%)</code> 는 CSV/Upload 컬럼으로만 유지, GUI 입력 미구현</td></tr><tr><td>OCR tessdata 경로 + 공백</td><td>8.3 short path 비활성 + 한글 경로 동시 조합은 <code>TESSDATA_PREFIX</code> 환경변수로 대응(완전 해결은 영문 경로 권장)</td></tr><tr><td>번들 미포함 설정</td><td><code>spec_limits</code>·<code>ocr_roi</code> 등 <code>app_settings</code> 는 번들에 포함되지 않음(머신 로컬)</td></tr></tbody></table>
+<hr>
+<h2 id="8-변경-이력-이번-개발-사이클-220-개발본">8. 변경 이력 (이번 개발 사이클 = 2.2.0 개발본)</h2>
+<blockquote><p><code>main</code> 기준 최근 3개 커밋. 모든 변경은 단위테스트 + 독립 적대적 검증을 거침.</p></blockquote>
+<h3 id="81-코드-품질-감사-기반-버그-수정-82ae960">8.1 코드 품질 감사 기반 버그 수정 (<code>82ae960</code>)</h3>
+<p>멀티에이전트 코드 감사에서 확정된 18건 + WAL 교정. 주요 항목:</p>
+<ul><li><strong>[High] 업로드 스레드 재진입/누수</strong> (<code>upload_mixin.py</code>) — <code>isRunning()</code> 가드 + <code>deleteLater</code> 결선 + 업로드 중 버튼 비활성화로 <code>QThread: Destroyed while running</code> 크래시·객체 누수 방지.</li><li><strong>[Med] <code>uploaded_at</code> 보존</strong> (<code>database.py</code>) — 실패 재시도가 과거 성공 업로드 시각을 NULL 로 덮어쓰지 않도록 <code>COALESCE</code>.</li><li><strong>[Med] CSV 핸들 누수</strong> (<code>server_uploader.py</code>) — CSV·이미지 핸들을 <code>finally</code> 에서 일괄 close(Windows 임시파일 잠김 해소).</li><li><strong>[Med] OCR drain</strong> (<code>manual_import_mixin.py</code> <code>_prepare_manual_reorder</code>) — 대기 전 <code>pool.clear()</code> + 타임아웃 경고.</li><li><strong>[Med] 종료 시 OCR drain</strong> (<code>main_window.py</code> <code>closeEvent</code>) — 닫힌 DB 연결 쓰기 방지.</li><li><strong>[Med] PASS 판정 정합성</strong> (<code>measurement_card.py</code>) — <code>_has_q</code> 추적해 <code>SlotData.is_complete</code> 와 일치.</li><li><strong>[Low] OCR ROI 독립 판정 / KeyError 방지</strong> (<code>image_parser.py</code>), <strong>캡처 짝 파일명 동기화</strong>(<code>capture_files.py</code>), <strong>번들 imported 집계 + 결정적 dedup</strong>(<code>bundle.py</code>), <strong>CSV 확장자 보정</strong>(<code>export_mixin.py</code>), <strong>입력 범위 9999→999999</strong>(<code>ui_builder_mixin.py</code>), <strong>ATX 광범위 except 축소</strong>(<code>atx_import_mixin.py</code>), <strong><code>ATXNone</code> 제목 방지</strong>(<code>slot_grid_widget.py</code>), <strong>번들 날짜 역순 검증</strong>(<code>bundle_dialogs.py</code>), <strong>WAL sidecar 파일명 <code>-wal/-shm</code> 교정</strong>(<code>database.py</code>).</li></ul>
+<h3 id="82-ocr-tessdata-폴백-정식화-db-복원-drain-1db0dcf">8.2 OCR tessdata 폴백 정식화 + DB 복원 drain (<code>1db0dcf</code>)</h3>
+<ul><li><code>TESSDATA_PREFIX</code> 를 8.3 short path 로 설정, <code>--tessdata-dir</code> 은 공백 없는 경로에만 사용(공백이면 환경변수 위임). pytesseract 의 <code>shlex.split(posix=False)</code> 가 따옴표를 보존해 공백 경로를 깨뜨리는 문제를 우회. *정상(8.3 활성) 경로 동작 불변.*</li><li><code>history_mixin._on_restore_db</code> 가 DB 교체 전 OCR 풀 drain + 배치/활성슬롯/리네임큐 무효화(<code>closeEvent</code> 패턴).</li></ul>
+<h3 id="83-품질수율-분석-규격-pdf-리포트-5aab2f3">8.3 품질·수율 분석 + 규격 + PDF 리포트 (<code>5aab2f3</code>)</h3>
+<p><strong>§3 F-20</strong> 참조. 신규: <code>core/quality.py</code>, <code>dialogs/spec_limits_dialog.py</code>, <code>tests/test_quality.py</code>. 수정: <code>stats_dashboard.py</code>, <code>history_mixin.py</code>, <code>settings_mixin.py</code>.</p>
+<hr>
+<h2 id="9-개발-가이드-이어서-개발">9. 개발 가이드 (이어서 개발)</h2>
+<h3 id="91-개발-환경-셋업">9.1 개발 환경 셋업</h3>
+<pre><code># 1) 가상환경 + 의존성
+python -m venv .venv ; .\.venv\Scripts\Activate.ps1
+pip install -r requirements.txt -r requirements-dev.txt
+
+# 2) (선택) 포터블 Tesseract 배치 — OCR 사용 시
+#    third_party\tesseract\{tesseract.exe, *.dll, tessdata\eng.traineddata}
+#    없으면 OCR 만 조용히 비활성화되고 나머지 기능은 정상
+
+# 3) 실행 / 테스트
+python main.py
+pytest</code></pre>
+<h3 id="92-코딩-규칙-필수">9.2 코딩 규칙 (필수)</h3>
+<ul><li>코드 작성·수정 전 <strong><code>.agent/rules.md</code></strong> 를 읽고 따른다(계획 우선 / 요청 외 기능·추상화 추가 금지 / 수술적 수정 / Skill-First).</li><li><strong>Skill-First</strong>: <code>.agent/skills/registry.json</code> 에서 관련 skill 을 찾아 해당 <code>SKILL.md</code> 패턴을 따른다(현 프로젝트와 가장 관련: SKILL 12 Mixin 아키텍처, SKILL 13 백그라운드 스레딩, SKILL 16 검증-QA).</li><li>사용자 피드백은 <code>self.logger.section/info/ok/warn/error</code> 로 통일.</li></ul>
+<h3 id="93-db-스키마-current-schemaversion3">9.3 DB 스키마 (current <code>SCHEMA_VERSION=3</code>)</h3>
+<table><thead><tr><th>테이블</th><th>컬럼(요약)</th></tr></thead><tbody><tr><td><code>meta</code></td><td><code>key</code> PK, <code>value</code></td></tr><tr><td><code>measurement_sets</code></td><td><code>id</code> PK, <code>po_number</code>, <code>quantity</code>, <code>probe_type</code>, <code>production_date</code>, <code>iso_week</code>, <code>source_folder</code>, <code>mode</code>, <code>created_at</code>, <code>updated_at</code>, <code>uploaded_at</code>, <code>upload_status</code>, <code>notes</code> · 인덱스: <code>iso_week</code>, <code>po_number</code></td></tr><tr><td><code>slots</code></td><td><code>id</code> PK, <code>measurement_set_id</code> FK(CASCADE), <code>slot_index</code>, <code>slot_code</code>, <code>frequency</code>, <code>drive</code>, <code>q_factor</code>, <code>qr_id</code>, <code>image_path</code>, <code>source</code>, <code>probe_type</code>, <code>serial_number</code>(v2), <code>contact_mode</code>(v3) · 인덱스: <code>measurement_set_id</code></td></tr><tr><td><code>app_settings</code></td><td><code>key</code> PK, <code>value</code>(JSON)</td></tr></tbody></table>
+<p>마이그레이션(<code>database.py:_migrate</code>): v1→v2 <code>slots.serial_number</code>, v2→v3 <code>slots.contact_mode</code>. (멱등 — <code>PRAGMA table_info</code> 확인 후 <code>ALTER TABLE</code>.)</p>
+<h3 id="94-appsettings-키-목록">9.4 app_settings 키 목록</h3>
+<table><thead><tr><th>키</th><th>의미</th></tr></thead><tbody><tr><td><code>window_geometry</code></td><td>창 위치/크기 <code>"x,y,w,h"</code></td></tr><tr><td><code>last_mode</code></td><td>마지막 모드(atx/manual/export/history)</td></tr><tr><td><code>server_id</code></td><td>서버 로그인 사용자명</td></tr><tr><td><code>manual_columns</code></td><td>Manual 그리드 열 수(1–8)</td></tr><tr><td><code>last_production_date</code></td><td>마지막 생산일자(시작 시 리셋)</td></tr><tr><td><code>recent_folders</code></td><td>최근 ATX 폴더 5개</td></tr><tr><td><code>manual_tip_catalog</code></td><td>관리형 Tip 이름 목록</td></tr><tr><td><code>spec_limits</code></td><td>★ probe별 규격 한계 <code>{pt:{freq_min,freq_max,q_min,q_max}}</code></td></tr><tr><td><code>ocr_roi</code></td><td>해상도별 ROI 프로파일(v2)</td></tr></tbody></table>
+<h3 id="95-확장-패턴-자주-쓰는-작업">9.5 확장 패턴 (자주 쓰는 작업)</h3>
+<ul><li><strong>새 컨트롤러 Mixin 추가</strong>: <code>class XxxMixin:</code> 정의(부모 없음) → <code>_init_xxx_state()</code> + 액션 메서드 → <code>main_window.py</code> 의 클래스 베이스에 추가 + <code>__init__</code> 에서 <code>_init_xxx_state()</code> 호출.</li><li><strong>DB 컬럼 추가</strong>: <code>SCHEMA_VERSION</code> +1 → <code>_migrate</code> 에 <code>if current_version &lt; N: … ALTER TABLE</code>(멱등) 블록 추가 → 초기 <code>CREATE TABLE</code> 에도 컬럼 추가.</li><li><strong>설정 키 추가</strong>: 모듈 상수 <code>XXX_KEY</code> 정의 → (전역 머지형이면 <code>DEFAULT_SETTINGS</code> 에 추가) → <code>_load_xxx</code>/<code>_save_xxx</code> 헬퍼(<code>load_setting</code>/<code>save_setting</code>, <code>TIP_CATALOG</code>·<code>SPEC_LIMITS</code> 패턴).</li><li><strong>다이얼로그 추가</strong>: <code>QDialog</code> 서브클래스 → <code>QDialogButtonBox</code> accept/reject → <code>result_*()</code> getter. 호출부 <code>if dlg.exec() == QDialog.Accepted: dlg.result_*()</code>.</li><li><strong>대시보드 차트/카드 추가</strong>: <code>StatsDashboard</code> 에 <code>Figure</code>+<code>FigureCanvasQTAgg</code> 또는 카드 생성 → <code>load_stats</code> 에서 갱신(신규 인자는 키워드 기본값으로 하위호환 유지) → 필요 시 시그널 추가 후 <code>history_mixin._init_history_state</code> 에서 연결.</li><li><strong>백그라운드 작업 추가</strong>: 단발 다중 → <code>QRunnable</code>+<code>QThreadPool</code>(OCR 패턴, <code>ocr_worker.py</code>); 단일 장기 → <code>QObject</code> 워커 + <code>moveToThread</code>(업로드 패턴, <code>upload_mixin.py</code>). <strong>결과는 시그널로만 메인 스레드 전달</strong>, DB 접근은 메인 스레드에서.</li></ul>
+<h3 id="96-git-워크플로우-claudemd-기준">9.6 Git 워크플로우 (<code>CLAUDE.md</code> 기준)</h3>
+<ul><li>1커밋 → main 직접 / 2–4커밋 → 로컬 브랜치 + <code>--ff-only</code> 머지 / 5+ 또는 실험적 → PR.</li><li>버그 수정·문서·오타: 규모 무관 main 직접(빠른 반영). 단, 기본 브랜치에서 작업 시 브랜치 먼저 생성 권장.</li></ul>
+<hr>
+<h2 id="10-로드맵-다음-작업">10. 로드맵 / 다음 작업</h2>
+<h3 id="101-단기f-20-후속-스트레치">10.1 단기(F-20 후속 스트레치)</h3>
+<ul><li><strong>Cp/Cpk 공정능력지수</strong> 계산·표시(규격 + σ 활용).</li><li><strong>per-probe 수율 미니테이블</strong>을 대시보드에 추가(현재는 Overall 카드 + PDF only).</li><li>규격 변경 시 <strong>고아 키 prune</strong>, inf/nan 가드.</li></ul>
+<h3 id="102-중기미완성제약-해소">10.2 중기(미완성/제약 해소)</h3>
+<ul><li><strong>Drive (%) 입력 UI</strong> — 현재 컬럼만 존재.</li><li><strong><code>Open Folder</code> 버튼</strong> — 선택 레코드 원본 폴더 열기(부분 구현, 레코드 선택 전 비활성).</li><li><strong>업로드 신뢰성</strong> — 재시도(backoff)·배치 큐·업로드 이력/감사·실제 진행률.</li><li><strong>이력 관리 강화</strong> — 컬럼 정렬·다중선택 일괄 export/upload·현재 필터 결과만 내보내기.</li><li><strong>OCR tessdata 정식 대응</strong> — 한글+공백+8.3 비활성 동시 조합까지 견고화.</li></ul>
+<h3 id="103-장기아키텍처-비전">10.3 장기(아키텍처 비전)</h3>
+<ul><li><strong>PostgreSQL 중앙 서버 집약</strong> — 스키마는 이미 PG 친화. <code>database.py</code> 의 연결/쿼리 계층 교체 + 번들/업로드를 서버 동기화로 전환.</li><li><strong>서버 수신 엔드포인트</strong> 구축(현재 클라이언트 업로드 프로토콜만 존재).</li><li><strong>EV 코드 서명</strong> 도입(SmartScreen 경고 제거).</li><li><strong>한국어 OCR</strong>(<code>kor.traineddata</code>) — 로트카드에 한글 항목 인식이 필요해질 경우.</li></ul>
+<hr>
+<h2 id="부록-a-디렉터리-구조">부록 A. 디렉터리 구조</h2>
+<pre><code>새 폴더/ (프로젝트 루트)
+├─ main.py                        ← Entry Point
+├─ McQrManager.spec               ← PyInstaller 사양
+├─ build.bat / installer.iss      ← 빌드·인스톨러
+├─ VERSION / pytest.ini
+├─ requirements.txt / requirements-dev.txt
+├─ CLAUDE.md / AGENTS.md          ← 개발 규칙
+├─ .agent/                        ← rules.md + skills/(registry.json, SKILL.md 19종)
+├─ assets/icons/                  ← 앱 아이콘
+├─ docs/
+│   ├─ PRD.md                     ← 이 문서
+│   ├─ PRD.html                   ← 변환 산출물 (build_prd_html.py)
+│   ├─ build_prd_html.py          ← PRD.md → PRD.html 변환기(의존성 0)
+│   ├─ user-guide.html            ← 앱 내장 가이드 원본
+│   ├─ export_schema.md           ← 번들 스키마
+│   ├─ DOCUMENTATION_WORKFLOW.md / phase7-deployment-analysis.md / WORKLOG.md
+│   └─ assets/user-guide/ · training/
+├─ src/
+│   ├─ core/  (database, models, atx_parser, csv_exporter, bundle, capture_files,
+│   │          image_parser, ocr_worker, ocr_settings, tesseract_setup, slot_mapper,
+│   │          server_uploader, quality★)
+│   └─ ui/
+│       ├─ main_window.py / theme.py
+│       ├─ controllers/  (ui_builder, atx_import, manual_import, qr_match,
+│       │                 export, upload, history, settings)
+│       ├─ widgets/  (manual_card, manual_grid, measurement_card, slot_grid,
+│       │             slot_detail_table, history_table, csv_preview_table,
+│       │             image_viewer, roi_canvas, screen_capture_overlay,
+│       │             qr_input, stats_dashboard, system_logger, login_dialog,
+│       │             bundle_dialogs)
+│       └─ dialogs/  (roi_calibrator, slot_edit, merge_export, add_tab,
+│                     tip_catalog, user_guide, spec_limits★)
+├─ tests/                         ← pytest 111건 / 105 passed / 6 skipped
+└─ third_party/tesseract/         ← 포터블 바이너리(git 비포함)</code></pre>
+<h2 id="부록-b-참고-문서">부록 B. 참고 문서</h2>
+<ul><li><a href="./export_schema.md"><code>docs/export_schema.md</code></a> — Export/Import 번들 JSONL 스키마</li><li><a href="./user-guide.html"><code>docs/user-guide.html</code></a> — 운영자용 단계별 사용 가이드</li><li><a href="./phase7-deployment-analysis.md"><code>docs/phase7-deployment-analysis.md</code></a> — 배포 분석(당시 NX 명칭)</li><li><code>CLAUDE.md</code> / <code>.agent/rules.md</code> — 개발 규칙 / Git 워크플로우 / Skill-First</li></ul>
+<h2 id="부록-c-버전-이력">부록 C. 버전 이력</h2>
+<table><thead><tr><th>버전</th><th>날짜</th><th>주요 변경</th></tr></thead><tbody><tr><td>1.0.0 (NX)</td><td>2026-04-23</td><td>F-14~F-18 초기 구현 + 배포</td></tr><tr><td>2.0.0 (MC)</td><td>2026-04-24</td><td>NX→MC 브랜드 전환 / AppId 재발급 / DB 경로 변경</td></tr><tr><td>2.1.0</td><td>2026-05-14</td><td>ATX 슬롯 다이얼로그 / Export 탭 분리 / CSV 미완성 정책 / Capture-First / Zoom 분리 / History UX / 내장 가이드</td></tr><tr><td>2.2.0 (개발본)</td><td>2026-05-31</td><td>코드 감사 18건+WAL 수정 / OCR tessdata 폴백·복원 drain / <strong>F-20 품질·수율 분석 + 규격 + PDF 리포트</strong></td></tr></tbody></table>
+<div class="footer">이 문서는 <code>docs/PRD.md</code> 를 <code>docs/build_prd_html.py</code> 로 변환한 산출물입니다. 원본 수정 후 재실행하여 동기화하세요.</div>
+</div>
+</body>
+</html>
