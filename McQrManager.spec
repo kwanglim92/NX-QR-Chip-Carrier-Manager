@@ -78,6 +78,20 @@ a = Analysis(
     noarchive=False,
 )
 
+# WebEngine 용량 트림 — DevTools(F12 인스펙터) 및 .debug 변종 .pak 제거.
+# 앱은 정적 user-guide.html 을 QWebEngineView 로 표시만 하므로 DevTools/디버그
+# 리소스가 불필요(~86MB 절감). 필수 리소스(qtwebengine_resources.pak,
+# _100p/_200p.pak)와 로케일/프로세스 헬퍼는 그대로 유지된다.
+def _keep_data(entry):
+    base = entry[0].replace("\\", "/").rsplit("/", 1)[-1].lower()
+    if "devtools" in base:
+        return False
+    if base.endswith(".debug.pak"):
+        return False
+    return True
+
+a.datas = [e for e in a.datas if _keep_data(e)]
+
 pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
 
 exe = EXE(
