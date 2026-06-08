@@ -43,7 +43,7 @@
   .wrapper {
     display: grid;
     grid-template-columns: 280px 1fr;
-    max-width: 1500px;
+    max-width: 1680px;
     margin: 0 auto;
     min-height: 100vh;
   }
@@ -112,8 +112,8 @@
   }
 
   main {
-    padding: 40px 56px 80px 56px;
-    max-width: 980px;
+    padding: 40px 44px 80px 44px;
+    max-width: 1260px;
   }
 
   header.hero {
@@ -315,7 +315,7 @@
   }
 
   figure.screenshot {
-    margin: 18px 0;
+    margin: 22px 0 28px 0;
     padding: 0;
   }
   .screenshot-placeholder {
@@ -339,6 +339,14 @@
     text-align: center;
     padding: 20px;
   }
+  .screenshot-placeholder[hidden] {
+    display: none;
+  }
+  .screenshot-placeholder::before {
+    content: "이미지 파일 없음 - 아래 경로로 저장하세요";
+    color: #333;
+    font-weight: 700;
+  }
   .screenshot-target {
     display: inline-block;
     color: #555;
@@ -351,6 +359,64 @@
     border: 1px solid #d4d6dc;
     border-radius: 6px;
     background: #fff;
+    cursor: zoom-in;
+  }
+  .screenshot img[hidden] {
+    display: none;
+  }
+  .screenshot img:focus {
+    outline: 3px solid var(--blue);
+    outline-offset: 3px;
+  }
+  .image-lightbox[hidden] {
+    display: none;
+  }
+  .image-lightbox {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 42px;
+    background: rgba(17, 17, 27, 0.9);
+    cursor: zoom-out;
+  }
+  .image-lightbox img {
+    display: block;
+    width: auto;
+    height: auto;
+    max-width: calc(100vw - 84px);
+    max-height: calc(100vh - 118px);
+    object-fit: contain;
+    border: 1px solid var(--surface2);
+    border-radius: 6px;
+    background: #fff;
+    box-shadow: 0 18px 50px rgba(0, 0, 0, 0.45);
+    cursor: default;
+  }
+  .image-lightbox-close {
+    position: absolute;
+    top: 16px;
+    right: 18px;
+    min-width: 36px;
+    height: 36px;
+    border: 1px solid var(--surface2);
+    border-radius: 6px;
+    background: var(--surface0);
+    color: var(--text);
+    font-size: 22px;
+    line-height: 1;
+    cursor: pointer;
+  }
+  .image-lightbox-caption {
+    position: absolute;
+    left: 42px;
+    right: 42px;
+    bottom: 14px;
+    color: var(--text);
+    font-size: 13px;
+    text-align: center;
   }
   figcaption {
     font-size: 12px;
@@ -1477,5 +1543,109 @@ Bundle ZIP은 내부에 JSONL과 이미지 파일이 들어 있지만, 직접 �
 
 </main>
 </div>
+<script>
+  (() => {
+    const screenshots = document.querySelectorAll("figure.screenshot img");
+    if (!screenshots.length) {
+      return;
+    }
+
+    const lightbox = document.createElement("div");
+    lightbox.className = "image-lightbox";
+    lightbox.hidden = true;
+    lightbox.innerHTML = [
+      '<button type="button" class="image-lightbox-close" aria-label="확대 이미지 닫기">&times;</button>',
+      '<img alt="">',
+      '<div class="image-lightbox-caption"></div>'
+    ].join("");
+    document.body.appendChild(lightbox);
+
+    const lightboxImage = lightbox.querySelector("img");
+    const lightboxCaption = lightbox.querySelector(".image-lightbox-caption");
+    const closeButton = lightbox.querySelector(".image-lightbox-close");
+
+    const closeLightbox = () => {
+      lightbox.hidden = true;
+      lightboxImage.removeAttribute("src");
+      document.body.style.overflow = "";
+    };
+
+    const openLightbox = (img) => {
+      const caption = img.closest("figure")?.querySelector("figcaption");
+      lightboxImage.src = img.currentSrc || img.src;
+      lightboxImage.alt = img.alt || "";
+      lightboxCaption.textContent = caption?.textContent || "";
+      lightbox.hidden = false;
+      document.body.style.overflow = "hidden";
+      closeButton.focus();
+    };
+
+    const getPlaceholder = (img) => {
+      const placeholder = img.nextElementSibling;
+      if (placeholder?.classList.contains("screenshot-placeholder")) {
+        return placeholder;
+      }
+      return null;
+    };
+
+    const showScreenshot = (img) => {
+      const placeholder = getPlaceholder(img);
+      img.hidden = false;
+      img.style.display = "";
+      if (placeholder) {
+        placeholder.hidden = true;
+        placeholder.style.display = "none";
+      }
+    };
+
+    const showMissingTarget = (img) => {
+      const placeholder = getPlaceholder(img);
+      img.hidden = true;
+      img.style.display = "none";
+      if (placeholder) {
+        placeholder.hidden = false;
+        placeholder.style.display = "flex";
+      }
+    };
+
+    const syncScreenshotState = (img) => {
+      if (img.complete) {
+        if (img.naturalWidth > 0) {
+          showScreenshot(img);
+        } else {
+          showMissingTarget(img);
+        }
+      }
+    };
+
+    screenshots.forEach((img) => {
+      img.addEventListener("load", () => showScreenshot(img));
+      img.addEventListener("error", () => showMissingTarget(img));
+      syncScreenshotState(img);
+      img.tabIndex = 0;
+      img.setAttribute("role", "button");
+      img.setAttribute("aria-label", "이미지 확대");
+      img.addEventListener("click", () => openLightbox(img));
+      img.addEventListener("keydown", (event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          openLightbox(img);
+        }
+      });
+    });
+
+    closeButton.addEventListener("click", closeLightbox);
+    lightbox.addEventListener("click", (event) => {
+      if (event.target === lightbox) {
+        closeLightbox();
+      }
+    });
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "Escape" && !lightbox.hidden) {
+        closeLightbox();
+      }
+    });
+  })();
+</script>
 </body>
 </html>
