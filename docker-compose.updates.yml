@@ -1,0 +1,9 @@
+services:
+  updates:
+    image: nginx:alpine
+    container_name: mcqr_updates
+    ports:
+      - "8006:80"
+    volumes:
+      - ./updates_publish:/usr/share/nginx/html:ro
+    restart: unless-stopped

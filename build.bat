@@ -31,11 +31,11 @@ echo.
 
 REM 1) 이전 산출물 정리
 if exist build (
-    echo [1/4] Cleaning build/ ...
+    echo [1/5] Cleaning build/ ...
     rmdir /s /q build
 )
 if exist dist (
-    echo [1/4] Cleaning dist/ ...
+    echo [1/5] Cleaning dist/ ...
     rmdir /s /q dist
 )
 
@@ -59,8 +59,21 @@ python -m PyInstaller --version
 echo ----------------------------------------
 echo.
 
-REM 3) PyInstaller 호출 (콘솔 + build_log.txt 동시 저장)
-echo [2/4] Running PyInstaller ^(onedir mode^) ... ^(log: build_log.txt^)
+REM 3) VERSION -> src\core\_app_version.py / version.iss 동기화
+echo [2/5] Syncing version files ...
+python scripts\sync_version.py
+set "VERSION_RC=!errorlevel!"
+if not "!VERSION_RC!"=="0" (
+    echo.
+    echo   [ERROR] Version sync failed ^(exit code !VERSION_RC!^).
+    echo.
+    if not defined NO_PAUSE pause
+    popd
+    exit /b 1
+)
+
+REM 4) PyInstaller 호출 (콘솔 + build_log.txt 동시 저장)
+echo [3/5] Running PyInstaller ^(onedir mode^) ... ^(log: build_log.txt^)
 python -m PyInstaller --noconfirm --clean --log-level=INFO McQrManager.spec > build_log.txt 2>&1
 set "PI_RC=!errorlevel!"
 type build_log.txt
@@ -74,9 +87,9 @@ if not "!PI_RC!"=="0" (
     exit /b 1
 )
 
-REM 4) 산출물 검증
+REM 5) 산출물 검증
 echo.
-echo [3/4] Verifying artifacts ...
+echo [4/5] Verifying artifacts ...
 if not exist "dist\McQrManager\McQrManager.exe" (
     echo   [ERROR] dist\McQrManager\McQrManager.exe not produced.
     echo           Check build_log.txt for details.
@@ -122,7 +135,7 @@ if exist "build\McQrManager\McQrManager.exe" (
 )
 
 echo.
-echo [4/4] Build artifacts:
+echo [5/5] Build artifacts:
 dir /b "dist\McQrManager" 2>nul | findstr /v /c:".pyc"
 
 echo.

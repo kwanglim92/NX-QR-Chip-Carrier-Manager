@@ -9,7 +9,7 @@
 ;   - iscc 가 PATH 에 있거나 전체 경로로 실행
 
 #define MyAppName        "MC QR Code Chip Carrier Manager"
-#define MyAppVersion     "2.2.0"
+#include "version.iss"
 #define MyAppExeName     "McQrManager.exe"
 #define MyAppId          "{{2991A86F-058F-4349-9F44-1116B5C4F102}"
 ; AppId: MC 브랜드 2.0.0 신규 GUID. 재발급 금지 — 이후 업그레이드 감지 기준.
@@ -51,6 +51,8 @@ UninstallDisplayName={#MyAppName} {#MyAppVersion}
 ; 기존 설치본을 감지해 업그레이드
 CloseApplications=yes
 CloseApplicationsFilter=*.exe
+RestartApplications=yes
+AppMutex=McQrManager_AppMutex
 
 [Languages]
 Name: "english"; MessagesFile: "compiler:Default.isl"
