@@ -7,6 +7,7 @@
 """
 from __future__ import annotations
 
+import sqlite3
 import statistics as st
 
 from src.core import database as db
@@ -168,3 +169,72 @@ class TestTodayStats:
         assert stats["total_sets"] == 0
         assert stats["total_slots"] == 0
         assert stats["completion_rate"] == 0
+
+
+def _make_v2_conn() -> sqlite3.Connection:
+    """v2 스키마(serial_number 있음, contact_mode 없음) in-memory DB."""
+    conn = sqlite3.connect(":memory:")
+    conn.row_factory = sqlite3.Row
+    conn.executescript(
+        """
+        CREATE TABLE meta(key TEXT PRIMARY KEY, value TEXT NOT NULL);
+        CREATE TABLE measurement_sets(
+            id INTEGER PRIMARY KEY AUTOINCREMENT, po_number TEXT DEFAULT '',
+            quantity INTEGER DEFAULT 0, probe_type TEXT DEFAULT '',
+            production_date TEXT DEFAULT '', iso_week TEXT DEFAULT '',
+            source_folder TEXT DEFAULT '', mode TEXT DEFAULT 'atx',
+            created_at TEXT DEFAULT '', updated_at TEXT DEFAULT '', uploaded_at TEXT,
+            upload_status TEXT DEFAULT 'pending', notes TEXT DEFAULT '');
+        CREATE TABLE slots(
+            id INTEGER PRIMARY KEY AUTOINCREMENT, measurement_set_id INTEGER,
+            slot_index INTEGER, slot_code TEXT, frequency REAL, drive REAL, q_factor REAL,
+            qr_id TEXT, image_path TEXT, source TEXT DEFAULT 'summary_csv',
+            probe_type TEXT, serial_number TEXT);
+        CREATE TABLE app_settings(key TEXT PRIMARY KEY, value TEXT NOT NULL);
+        INSERT INTO meta VALUES('schema_version','2');
+        """
+    )
+    return conn
+
+
+class TestSchemaMigrationV3:
+    """v2→v3: slots.contact_mode 추가 + 멱등."""
+
+    def test_v2_to_v3_adds_contact_mode_and_bumps_version(self):
+        conn = _make_v2_conn()
+        db.init_db(conn)
+        cols = {r["name"] for r in conn.execute("PRAGMA table_info(slots)").fetchall()}
+        assert "contact_mode" in cols
+        ver = conn.execute(
+            "SELECT value FROM meta WHERE key='schema_version'"
+        ).fetchone()["value"]
+        assert ver == str(db.SCHEMA_VERSION)
+        conn.close()
+
+    def test_migration_is_idempotent(self):
+        conn = _make_v2_conn()
+        db.init_db(conn)
+        db.init_db(conn)  # 재호출해도 안전 — 컬럼 중복 추가 없음
+        cols = [r["name"] for r in conn.execute("PRAGMA table_info(slots)").fetchall()]
+        assert cols.count("contact_mode") == 1
+        conn.close()
+
+
+class TestSerialContactRoundtrip:
+    """serial_number + contact_mode 저장/복원 보존."""
+
+    def test_roundtrip_preserves_serial_and_contact_mode(self, db_conn):
+        ms = MeasurementSet(mode="manual", production_date="20260530")
+        ms.slots = [
+            SlotData(slot_index=0, slot_code="1", frequency=100, drive=1.0,
+                     q_factor=40, qr_id="Q1", probe_type="TipA",
+                     serial_number="S1", contact_mode=False),
+            SlotData(slot_index=1, slot_code="2", qr_id="Q2", probe_type="TipB",
+                     serial_number="S2", contact_mode=True),
+        ]
+        db.save_measurement_set(db_conn, ms)
+        loaded = db.load_measurement_set(db_conn, ms.db_id)
+        assert [s.serial_number for s in loaded.slots] == ["S1", "S2"]
+        assert [s.contact_mode for s in loaded.slots] == [False, True]
+        # 컨택 슬롯은 QR만으로 완료
+        assert loaded.slots[1].is_complete is True

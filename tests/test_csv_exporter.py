@@ -62,6 +62,22 @@ def test_generate_csv_rows_qr_only_keeps_existing_export_scope():
     ]
 
 
+def test_generate_csv_rows_includes_contact_slot_with_blank_freq_q():
+    """컨택 슬롯(QR-only)도 QR 반출에 포함되며 Freq/Q는 빈칸으로 출력."""
+    ms = MeasurementSet(
+        po_number="P1", production_date="20260530",
+        slots=[
+            SlotData(
+                slot_index=0, slot_code="1", qr_id="C-1",
+                probe_type="ContactTip", serial_number="S1", contact_mode=True,
+            ),
+        ],
+    )
+    rows = generate_csv_rows(ms, CSV_EXPORT_QR_ONLY)
+    assert rows[0] == CSV_HEADER
+    assert rows[1] == ["C-1", "20260530", "", "", "", "ContactTip"]
+
+
 def test_generate_csv_rows_all_slots_uses_blank_cells_for_missing_values():
     rows = generate_csv_rows(_make_measurement_set(), CSV_EXPORT_ALL_SLOTS)
 

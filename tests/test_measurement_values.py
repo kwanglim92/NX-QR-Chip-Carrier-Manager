@@ -19,6 +19,26 @@ def test_slot_formatters_truncate_existing_float_values():
     assert slot.format_q() == "420"
 
 
+def test_is_complete_normal_requires_qr_freq_q():
+    """일반(비컨택) 슬롯: QR + Frequency + Q 모두 있어야 완료."""
+    full = SlotData(slot_index=0, slot_code="1", qr_id="Q", frequency=100, q_factor=40)
+    assert full.is_complete is True
+    assert SlotData(slot_index=0, slot_code="1", qr_id="Q", frequency=100).is_complete is False
+    assert SlotData(slot_index=0, slot_code="1", qr_id="Q", q_factor=40).is_complete is False
+    assert SlotData(slot_index=0, slot_code="1", frequency=100, q_factor=40).is_complete is False
+
+
+def test_is_complete_contact_requires_only_qr():
+    """컨택 모드: QR만 있으면 완료(Frequency/Q 불필요)."""
+    assert SlotData(slot_index=0, slot_code="1", qr_id="Q", contact_mode=True).is_complete is True
+    assert SlotData(slot_index=0, slot_code="1", contact_mode=True).is_complete is False
+    # 컨택은 freq/q 없이도 완료
+    assert SlotData(
+        slot_index=0, slot_code="1", qr_id="Q",
+        frequency=None, q_factor=None, contact_mode=True,
+    ).is_complete is True
+
+
 def test_parse_summary_csv_truncates_frequency_and_q(tmp_path):
     csv_path = tmp_path / "Summary.csv"
     csv_path.write_text(

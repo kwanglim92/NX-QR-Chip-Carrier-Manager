@@ -519,9 +519,9 @@ QR 코드, 이력 DB, CSV 반출을 하나의 데스크톱 앱으로 묶는 도�
     <h4>Manual 작업</h4>
     <ol>
       <li><strong>Manual Mode</strong> 선택</li>
-      <li>Probe Type 탭 선택</li>
-      <li><strong>📸 Capture</strong> 또는 단축키로 이미지 캡처</li>
-      <li>OCR 결과 확인 후 필요 시 Apply</li>
+      <li><strong>+ Add Tab</strong>으로 시리얼 번호 + Tip 이름 입력(일반/컨택 모드 선택)</li>
+      <li><strong>📸 Capture</strong>·단축키·이미지 클릭(클립보드 붙여넣기)로 이미지 입력</li>
+      <li>OCR 결과 확인 후 필요 시 수정 → <kbd>Enter</kbd> 또는 Apply</li>
       <li>QR 스캔 후 Export</li>
     </ol>
   </div>
@@ -552,7 +552,9 @@ QR 코드, 이력 DB, CSV 반출을 하나의 데스크톱 앱으로 묶는 도�
   <tr><th>용어</th><th>뜻</th><th>현장에서 확인할 위치</th></tr>
   <tr><td>PO Number</td><td>작업 또는 생산 로트를 식별하는 번호</td><td>ATX 폴더명, History Records, CSV</td></tr>
   <tr><td>Production Date</td><td>생산일자. CSV에는 `YYYYMMDD` 형식으로 반출</td><td>상단 생산일자 선택 콤보</td></tr>
-  <tr><td>Probe Type</td><td>측정에 사용한 Probe 종류</td><td>ATX Import 결과, Manual 탭 이름, Export 테이블</td></tr>
+  <tr><td>Probe Type / Tip Name</td><td>측정에 사용한 Probe(=Tip) 종류. Manual·Export에서는 `Tip Name`으로 표기</td><td>ATX Import 결과, Manual 탭 이름, Export 테이블의 `Tip Name` 컬럼</td></tr>
+  <tr><td>시리얼 번호(Serial)</td><td>Manual 탭(작업 파트)을 구분하는 고유 번호. 같은 Tip 이름이라도 시리얼이 다르면 별도 탭으로 만들 수 있음</td><td>+ Add Tab 입력, 탭 제목 `Tip (시리얼)`, Export `Serial` 컬럼</td></tr>
+  <tr><td>컨택 모드(Contact)</td><td>테스트(이미지·주파수·Q) 없이 QR만 기록하는 탭. 완료 기준은 QR 매칭만</td><td>+ Add Tab의 측정 모드 선택, 컨택 탭의 카드</td></tr>
   <tr><td>Slot</td><td>측정 대상 위치. ATX는 장비 슬롯, Manual은 캡처 순서 기준</td><td>카드 번호 `#1`, `#2` 또는 Export `#` 컬럼</td></tr>
   <tr><td>QR ID</td><td>QR 스캐너로 읽은 개별 식별값</td><td>하단 QR 입력창, 카드 상태, Export 테이블</td></tr>
   <tr><td>Zoom-In</td><td>Frequency/Q를 읽는 확대 캡처 이미지</td><td>Manual 이미지 뷰어의 Zoom-In 탭</td></tr>
@@ -851,14 +853,15 @@ ATX Mode는 장비가 이미 생성한 `summary_*.csv` 파일을 로트 단위�
 <h2>7. Manual Mode Capture/OCR 사용 가이드</h2>
 
 <div class="standard">
-Manual Mode의 표준 공정은 <strong>Probe Type 선택 → Zoom-In 캡처 → OCR 확인 → QR 스캔</strong>입니다.
+Manual Mode의 표준 공정은 <strong>+ Add Tab(시리얼+Tip) → Zoom-In 캡처/붙여넣기 → OCR 확인 → QR 스캔</strong>입니다.
 파일명을 외우지 않아도, 방금 캡처한 카드에 바로 QR을 찍는 흐름으로 설계되어 있습니다.
+탭은 <strong>시리얼 번호로 구분</strong>되며(같은 Tip 이름이라도 시리얼이 다르면 별도 탭), Overview 탭은 맨 앞에 고정됩니다.
 </div>
 
 <h3>7.1 Manual 작업 준비</h3>
 <ul class="checklist">
   <li>Manual Mode 탭으로 이동했습니다.</li>
-  <li>작업할 Probe Type 탭을 선택했습니다. Overview 탭에서는 캡처를 시작하지 않습니다.</li>
+  <li>작업할 탭(시리얼 번호)을 선택했습니다. 탭이 없으면 `+ Add Tab`으로 시리얼 번호 + Tip 이름을 입력해 만듭니다. 맨 앞 Overview 탭에서는 캡처를 시작하지 않습니다.</li>
   <li>Sweep 이미지 또는 측정 팝업 창이 화면에 열려 있습니다.</li>
   <li>QR 스캐너가 준비되어 있습니다.</li>
 </ul>
@@ -888,8 +891,8 @@ Zoom-Out 캡처는 새 카드를 만들지 않습니다. 이미 선택된 카드
 <h3>7.3 Zoom-In 캡처 후 OCR/QR 작업</h3>
 <ol class="steps">
   <li>
-    <strong>Probe Type 탭 선택</strong>
-    <p>현재 작업할 Probe Type 탭을 클릭합니다. 탭이 없으면 `+ Add Tab`으로 추가합니다.</p>
+    <strong>탭 선택 또는 추가</strong>
+    <p>작업할 탭(시리얼)을 클릭합니다. 없으면 `+ Add Tab`을 눌러 <strong>시리얼 번호</strong>와 <strong>Tip 이름</strong>(검색·선택, `관리…`로 카탈로그 편집), <strong>측정 모드</strong>(일반/컨택)를 입력합니다. 같은 Tip 이름이라도 시리얼이 다르면 새 탭이 만들어집니다.</p>
   </li>
   <li>
     <strong>캡처 시작</strong>
@@ -914,7 +917,7 @@ Zoom-Out 캡처는 새 카드를 만들지 않습니다. 이미 선택된 카드
   </li>
   <li>
     <strong>OCR 결과 확인</strong>
-    <p>Frequency (KHz), Q 입력칸에 숫자가 자동 입력되었는지 확인합니다. 틀리면 직접 수정하고 <strong>Apply</strong>를 누릅니다.</p>
+    <p>Frequency (kHz), Q 입력칸에 숫자가 자동 입력되었는지 확인합니다. 틀리면 직접 수정하고 <kbd>Enter</kbd> 또는 <strong>Apply</strong>를 누릅니다. 적용 후 다음 미입력 카드로 자동 이동합니다.</p>
   </li>
   <li>
     <strong>QR 스캔</strong>
@@ -938,17 +941,41 @@ Zoom-Out 이미지는 같은 슬롯의 전체 문맥을 보존하는 용도입�
   </li>
   <li>
     <strong>이미지 뷰어 전환 확인</strong>
-    <p>좌측 이미지 뷰어 상단의 <strong>Zoom-In</strong> / <strong>Zoom-Out</strong> 버튼으로 두 이미지를 전환해 확인합니다.</p>
+    <p>좌측 이미지 뷰어 상단의 <strong>Zoom-In</strong> / <strong>Zoom-Out</strong> 버튼으로 두 이미지를 자유롭게 전환합니다(데이터가 없어도 토글 가능, 없으면 빈 화면 표시). 각 카드에는 Zoom-In·Zoom-Out <strong>썸네일이 함께 표시</strong>되어, 카드를 열지 않아도 Zoom-Out 등록 여부를 한눈에 확인할 수 있습니다.</p>
   </li>
 </ol>
 
-<h3>7.5 기존 이미지 Load / Drag & Drop</h3>
+<h3>7.5 기존 이미지 Load / Drag & Drop / 클립보드 붙여넣기</h3>
 <p>
 캡처 기능을 쓰지 않고 기존 이미지 파일을 불러올 수도 있습니다. `Load` 버튼을 누르거나 이미지 파일을 Manual 화면으로 드래그 앤 드롭합니다.
+또는 좌측 <strong>Sweep Image 영역을 클릭</strong>하면 클립보드에 복사된 이미지를 바로 붙여넣을 수 있습니다(클립보드에 이미지가 없으면 파일/폴더 불러오기 창이 열립니다).
 이 방식으로 불러온 외부 원본 이미지는 QR 매칭 후에도 자동 rename하지 않습니다.
 </p>
+<div class="note">
+빈 카드(이미지 없음)가 선택된 상태에서 Capture·붙여넣기·드래그드롭을 하면 <strong>새 카드를 만들지 않고 선택된 빈 카드를 채웁니다.</strong>
+현재 Zoom 토글이 Zoom-Out이면 붙여넣기·캡처는 선택 카드의 Zoom-Out에 저장됩니다.
+</div>
+<p>폴더 Load 시 파일명 끝에 백틱(`` ` ``)이 붙은 파일은 Zoom-Out으로 인식되어 자동 분류됩니다(예: `1.png` ↔ `` 1`.png ``).</p>
 
-<h3>7.6 잘못 캡처한 카드 삭제</h3>
+<h3>7.6 빈 카드 미리 만들기 · 이 탭 비우기</h3>
+<p>각 탭 패널 상단의 도구를 사용합니다. <strong>현재 선택한 탭에만</strong> 적용됩니다.</p>
+<ul>
+  <li><strong>빈 카드 [N] 생성</strong>: 만들 개수를 지정해 빈 카드를 미리 만들어 둡니다. 생성 후 첫 카드가 자동 선택되어 바로 채우기/QR 스캔을 시작할 수 있습니다.</li>
+  <li><strong>이 탭 비우기</strong>: 선택한 탭의 카드만 모두 삭제합니다(다른 탭과 데이터는 영향 없음). 상단의 <strong>Reset</strong>은 모든 탭·데이터를 초기화합니다.</li>
+</ul>
+
+<h3>7.7 컨택 모드(QR-only) 탭</h3>
+<p>
+테스트 없이 QR만 기록해 납품하는 팁은 <strong>+ Add Tab의 측정 모드에서 `컨택(QR-only)`</strong>을 선택해 만듭니다.
+</p>
+<ul>
+  <li>컨택 탭에서는 좌측 Sweep Image·Measurement Input이 숨겨지고, 카드는 시리얼·Tip·QR 중심으로 표시됩니다.</li>
+  <li>완료 기준은 <strong>QR 매칭만</strong>입니다(이미지·Frequency·Q 불필요).</li>
+  <li>권장 흐름: <strong>빈 카드 N개 생성 → 첫 카드 자동 선택 → QR 연속 스캔</strong>(스캔마다 다음 미매칭 카드로 자동 이동).</li>
+  <li>CSV에는 QR·Tip Name·생산일자가 기록되고 Frequency/Q는 빈칸으로 반출됩니다.</li>
+</ul>
+
+<h3>7.8 잘못 캡처한 카드 삭제</h3>
 <p>
 잘못 캡처한 카드를 삭제하면 남은 Manual 카드는 현재 화면 순서 기준으로 `#1`, `#2`, `#3` 순서로 다시 정렬됩니다.
 QR ID, Frequency, Q, Probe Type, 이미지 경로는 해당 카드와 함께 유지됩니다.
@@ -958,9 +985,9 @@ QR ID, Frequency, Q, Probe Type, 이미지 경로는 해당 카드와 함께 유
 앱 내부 캡처 파일은 순번 재정렬에 맞춰 파일명이 동기화될 수 있습니다. 외부에서 Load한 원본 이미지는 파일명을 바꾸지 않습니다.
 </div>
 
-<h3>7.7 Manual 작업 완료 확인</h3>
+<h3>7.9 Manual 작업 완료 확인</h3>
 <ul class="checklist">
-  <li>Probe Type 탭이 올바릅니다.</li>
+  <li>탭(시리얼)과 Tip 이름이 올바릅니다.</li>
   <li>카드 번호가 현재 작업 순서와 일치합니다.</li>
   <li>Frequency와 Q 값이 실제 화면과 일치합니다.</li>
   <li>필요한 카드에 QR ID가 매칭되었습니다.</li>
@@ -1067,7 +1094,7 @@ CSV Export 화면의 모든 작업은 현재 활성 탭 기준입니다. ATX 데
   </li>
   <li>
     <strong>슬롯 테이블 확인</strong>
-    <p>Probe Type, Freq, Q, QR ID, Status 컬럼을 확인합니다. QR이 없는 슬롯은 상태가 미완성으로 표시될 수 있습니다.</p>
+    <p>Manual 탭은 `#, Serial, Tip Name, Freq, Q, QR ID, Status` 컬럼을 <strong>시리얼 기준으로 정렬</strong>해 보여줍니다(ATX 탭은 `Probe Type` 컬럼). QR이 없는 슬롯은 상태가 미완성으로 표시될 수 있습니다.</p>
   </li>
 </ol>
 
@@ -1095,7 +1122,21 @@ CSV와 이미지 폴더를 함께 제출해야 하는 경우 Save CSV 메뉴에�
 QR ID가 없는 슬롯 이미지는 `slot_01.png` 같은 슬롯명 기반으로 저장됩니다. 같은 이름이 이미 있으면 `_1`, `_2` 접미사가 붙습니다.
 </div>
 
-<h3>9.4 미완성 데이터 옵션</h3>
+<h3>9.4 여러 파트 머지 출고 (Save / Upload)</h3>
+<p>
+서로 다른 시리얼(파트)로 작업한 팁들을 <strong>하나의 박스로 합쳐</strong> 제출할 때 사용합니다.
+Save CSV 메뉴의 <strong>`머지 후 저장 (CSV+이미지)…`</strong> 또는 Upload 메뉴의 <strong>`머지 후 업로드…`</strong>를 선택합니다.
+</p>
+<ol class="steps">
+  <li><strong>파트 선택</strong><p>합칠 시리얼들을 체크합니다(Tip 이름·카드 수가 함께 표시됩니다).</p></li>
+  <li><strong>박스 시리얼 번호 입력</strong><p>최종 산출물의 폴더/파일 이름이 됩니다(예: `BOX-20260530-01`).</p></li>
+  <li><strong>실행</strong><p>선택한 파트의 슬롯이 하나의 CSV + ZOOMIN/ZOOMOUT 폴더로 병합됩니다.</p></li>
+</ol>
+<div class="note">
+박스 시리얼은 <strong>출력 폴더/파일 이름으로만</strong> 사용되며, 각 행의 QR·Tip·개별 시리얼과 CSV 헤더는 그대로 유지됩니다(컨택 모드 파트도 함께 머지 가능).
+</div>
+
+<h3>9.5 미완성 데이터 옵션</h3>
 <p>
 QR ID가 없는 슬롯이 있으면 경고창이 뜨고 반출 정책을 선택할 수 있습니다.
 </p>
@@ -1106,24 +1147,25 @@ QR ID가 없는 슬롯이 있으면 경고창이 뜨고 반출 정책을 선택�
   <tr><td>취소</td><td>저장 또는 업로드를 중단</td><td>누락 QR을 먼저 보완할 때</td></tr>
 </table>
 
-<h3>9.5 CSV 컬럼</h3>
+<h3>9.6 CSV 컬럼</h3>
 <table>
   <tr><th>순서</th><th>컬럼명</th><th>값 규칙</th></tr>
   <tr><td>1</td><td>QR ID</td><td>QR이 없으면 빈 칸</td></tr>
   <tr><td>2</td><td>생산일자[YYYYMMDD]</td><td>상단 생산일자 기준</td></tr>
-  <tr><td>3</td><td>Frequency (KHz)</td><td>값이 없으면 빈 칸</td></tr>
+  <tr><td>3</td><td>Frequency (KHz)</td><td>값이 없으면 빈 칸(컨택 모드는 항상 빈 칸)</td></tr>
   <tr><td>4</td><td>Drive (%)</td><td>현재 GUI 입력 항목은 아니며 값이 없으면 빈 칸</td></tr>
-  <tr><td>5</td><td>Q</td><td>값이 없으면 빈 칸</td></tr>
-  <tr><td>6</td><td>Probe Type</td><td>슬롯 값 우선, 없으면 세트 기본값</td></tr>
+  <tr><td>5</td><td>Q</td><td>값이 없으면 빈 칸(컨택 모드는 항상 빈 칸)</td></tr>
+  <tr><td>6</td><td>Probe Type</td><td>Manual은 Tip 이름이 들어감(화면에는 `Tip Name`으로 표기). 슬롯 값 우선, 없으면 세트 기본값</td></tr>
 </table>
+<div class="note">CSV 파일의 헤더명(`Frequency (KHz)`, `Probe Type` 등)은 서버 호환을 위해 고정입니다. 화면 표기만 `kHz` / `Tip Name`으로 보입니다.</div>
 
-<h3>9.6 Upload</h3>
+<h3>9.7 Upload</h3>
 <p>
 Upload는 서버 제출용 기능입니다. 서버 연결이 필요하며, 업로드가 끝나면 History의 Upload 상태가 갱신됩니다.
 업로드 중 탭을 바꿔도 시작 시점의 데이터 기준으로 상태가 기록됩니다.
 </p>
 
-<h3>9.7 Export 완료 확인</h3>
+<h3>9.8 Export 완료 확인</h3>
 <ul class="checklist">
   <li>활성 탭이 반출하려는 모드(ATX 또는 Manual)와 일치합니다.</li>
   <li>CSV 헤더가 `QR ID`, `생산일자[YYYYMMDD]`, `Frequency (KHz)`, `Drive (%)`, `Q`, `Probe Type` 순서입니다.</li>
@@ -1371,8 +1413,8 @@ Bundle ZIP은 내부에 JSONL과 이미지 파일이 들어 있지만, 직접 �
 <h3>16.1 단축키 요약</h3>
 <table>
   <tr><th>단축키</th><th>기능</th><th>조건</th></tr>
-  <tr><td><kbd>F6</kbd></td><td>Zoom-In Region Capture</td><td>Manual Mode, Probe Type 탭 선택</td></tr>
-  <tr><td><kbd>F7</kbd></td><td>Zoom-In Window Capture</td><td>Manual Mode, Probe Type 탭 선택</td></tr>
+  <tr><td><kbd>F6</kbd></td><td>Zoom-In Region Capture</td><td>Manual Mode, 탭(시리얼) 선택</td></tr>
+  <tr><td><kbd>F7</kbd></td><td>Zoom-In Window Capture</td><td>Manual Mode, 탭(시리얼) 선택</td></tr>
   <tr><td><kbd>F8</kbd></td><td>Zoom-Out Region Capture</td><td>Manual Mode, 기존 카드 선택</td></tr>
   <tr><td><kbd>F9</kbd></td><td>Zoom-Out Window Capture</td><td>Manual Mode, 기존 카드 선택</td></tr>
   <tr><td><kbd>Esc</kbd></td><td>캡처 취소</td><td>캡처 오버레이 표시 중</td></tr>
