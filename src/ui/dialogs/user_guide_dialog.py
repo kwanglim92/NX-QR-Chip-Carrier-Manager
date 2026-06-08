@@ -40,7 +40,7 @@ class UserGuideDialog(QDialog):
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.setWindowTitle("사용자 가이드")
-        self.resize(1100, 760)
+        self.resize(1400, 900)
         self._guide_path = user_guide_path()
 
         root = QVBoxLayout(self)

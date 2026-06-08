@@ -9,6 +9,7 @@ from PySide6.QtWidgets import (
     QGroupBox, QFormLayout, QTextEdit, QProgressBar,
     QStackedWidget, QToolBar, QStatusBar, QTabWidget,
     QComboBox, QSpinBox, QToolButton, QMenu, QSizePolicy,
+    QMessageBox,
 )
 
 from src.ui.theme import ACCENT, FG, FG2, BG, BG2, BG3, GREEN, PURPLE
@@ -109,6 +110,7 @@ class UIBuilderMixin:
         self._statusbar = QStatusBar()
         self.setStatusBar(self._statusbar)
         self._statusbar.showMessage("Select a folder to start")
+        self._build_statusbar_actions()
 
     def _build_toolbar(self, parent_layout):
         toolbar_layout = QHBoxLayout()
@@ -165,6 +167,49 @@ class UIBuilderMixin:
 
         dlg = UserGuideDialog(self)
         dlg.exec()
+
+    def _build_statusbar_actions(self) -> None:
+        from src.ui import theme as active_theme
+
+        cur_label = "Light" if active_theme.MODE == "light" else "Dark"
+        next_label = "Dark" if active_theme.MODE == "light" else "Light"
+        self.btn_theme_toggle = QPushButton(f"Theme: {cur_label}")
+        self.btn_theme_toggle.setToolTip(
+            f"클릭 시 {next_label} 모드로 전환합니다. 변경은 재시작 후 적용됩니다."
+        )
+        self.btn_theme_toggle.setStyleSheet(
+            f"""
+            QPushButton {{
+                background: transparent;
+                border: 1px solid {BG2};
+                border-radius: 3px;
+                padding: 2px 8px;
+                font-size: 11px;
+                color: {FG2};
+            }}
+            QPushButton:hover {{ border-color: {ACCENT}; color: {ACCENT}; }}
+            """
+        )
+        self.btn_theme_toggle.clicked.connect(self._toggle_theme)
+        self._statusbar.addPermanentWidget(self.btn_theme_toggle)
+
+    def _toggle_theme(self) -> None:
+        from PySide6.QtCore import QSettings
+        from src.ui import theme as active_theme
+
+        current = active_theme.MODE
+        new_mode = "light" if current == "dark" else "dark"
+        settings = QSettings(active_theme.THEME_ORG, active_theme.THEME_APP)
+        settings.setValue(active_theme.THEME_KEY, new_mode)
+        settings.sync()
+        cur_label = "Light" if current == "light" else "Dark"
+        next_label = "Light" if new_mode == "light" else "Dark"
+        QMessageBox.information(
+            self,
+            "테마 변경",
+            f"{cur_label} -> {next_label} 테마로 전환합니다.\n"
+            "변경 사항은 앱을 재시작하면 적용됩니다.",
+        )
 
     # ─── ATX 모드 페이지 ───
     def _build_atx_page(self):

@@ -18,10 +18,25 @@ matplotlib.use("QtAgg")
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg
 from matplotlib.figure import Figure
 
-from src.ui.theme import BG, BG2, BG3, FG, FG2, ACCENT, GREEN, ORANGE, PURPLE, RED
+from src.ui.theme import (
+    ACCENT,
+    BG,
+    BG2,
+    BG3,
+    CHART_CYCLE,
+    FG,
+    FG2,
+    GREEN,
+    HEADER_BG,
+    HEADER_FG,
+    ORANGE,
+    PURPLE,
+    RED,
+    SELECT_BG,
+    SELECT_FG,
+)
 
-# Catppuccin chart palette
-CHART_COLORS = [ACCENT, GREEN, ORANGE, PURPLE, RED, "#f5c2e7", "#94e2d5", "#f9e2af"]
+CHART_COLORS = CHART_CYCLE
 
 
 class StatsDashboard(QWidget):
@@ -146,11 +161,13 @@ class StatsDashboard(QWidget):
             QTableWidget {{
                 background: {BG}; color: {FG}; border: 1px solid {BG3};
                 gridline-color: {BG3}; font-size: 13px;
+                selection-background-color: {SELECT_BG};
+                selection-color: {SELECT_FG};
             }}
             QTableWidget::item {{ padding: 4px 8px; }}
             QTableWidget::item:alternate {{ background: {BG2}; }}
             QHeaderView::section {{
-                background: {BG2}; color: {ACCENT}; border: 1px solid {BG3};
+                background: {HEADER_BG}; color: {HEADER_FG}; border: 1px solid {BG3};
                 padding: 6px; font-weight: bold; font-size: 13px;
             }}
         """)

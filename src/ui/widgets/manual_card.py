@@ -9,7 +9,7 @@ from PySide6.QtWidgets import (
 
 from src.core.capture_files import derive_zoomout_path
 from src.core.models import truncate_measurement_value
-from src.ui.theme import BG2, FG, FG2, ACCENT, GREEN, ORANGE
+from src.ui.theme import BADGE_FG, BG3, FG, FG2, ACCENT, GREEN, ORANGE, SELECT_FG
 
 _FONT_BASE = 12
 _FONT_HEADER = 14
@@ -18,7 +18,7 @@ _FONT_QR = 11
 
 MANUAL_CARD_HEIGHT = 140
 THUMB_W, THUMB_H = 56, 42
-_THUMB_QSS = "border: 1px solid #444; border-radius: 3px;"
+_THUMB_QSS = f"border: 1px solid {BG3}; border-radius: 3px;"
 _UNSET = object()
 
 
@@ -59,7 +59,7 @@ class ManualCard(QFrame):
         self._badge.setAlignment(Qt.AlignCenter)
         self._badge.setFixedSize(70, 20)
         self._badge.setStyleSheet(
-            f"background: {FG2}; color: {BG2}; border-radius: 10px; "
+            f"background: {FG2}; color: {BADGE_FG}; border-radius: 10px; "
             f"font-size: {_FONT_BADGE}px; font-weight: bold;"
         )
         header.addWidget(self._badge)
@@ -188,7 +188,7 @@ class ManualCard(QFrame):
             self._badge.setText(text)
             self._badge.setFixedWidth(70)
             self._badge.setStyleSheet(
-                f"background: {bg}; color: {BG2}; border-radius: 10px; "
+                f"background: {bg}; color: {BADGE_FG}; border-radius: 10px; "
                 f"font-size: {_FONT_BADGE}px; font-weight: bold;"
             )
             return
@@ -197,21 +197,21 @@ class ManualCard(QFrame):
             self._badge.setText("PASS")
             self._badge.setFixedWidth(70)
             self._badge.setStyleSheet(
-                f"background: {GREEN}; color: {BG2}; border-radius: 10px; "
+                f"background: {GREEN}; color: {BADGE_FG}; border-radius: 10px; "
                 f"font-size: {_FONT_BADGE}px; font-weight: bold;"
             )
         elif self._has_freq:
             self._badge.setText("QR")
             self._badge.setFixedWidth(70)
             self._badge.setStyleSheet(
-                f"background: {ORANGE}; color: {BG2}; border-radius: 10px; "
+                f"background: {ORANGE}; color: {BADGE_FG}; border-radius: 10px; "
                 f"font-size: {_FONT_BADGE}px; font-weight: bold;"
             )
         else:
             self._badge.setText("EMPTY")
             self._badge.setFixedWidth(70)
             self._badge.setStyleSheet(
-                f"background: {FG2}; color: {BG2}; border-radius: 10px; "
+                f"background: {FG2}; color: {BADGE_FG}; border-radius: 10px; "
                 f"font-size: {_FONT_BADGE}px; font-weight: bold;"
             )
 
@@ -230,7 +230,7 @@ class ManualCard(QFrame):
         if selected:
             self._set_state("selected")
             self._num_label.setStyleSheet(
-                f"color: #ffffff; font-weight: bold; font-size: {_FONT_HEADER}px;"
+                f"color: {SELECT_FG}; font-weight: bold; font-size: {_FONT_HEADER}px;"
             )
         else:
             self._update_state()

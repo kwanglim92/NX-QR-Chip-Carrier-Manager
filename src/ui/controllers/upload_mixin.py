@@ -12,6 +12,7 @@ from src.core.csv_exporter import (
     generate_csv_rows,
 )
 from src.core.server_uploader import ServerUploader, UploadResult
+from src.ui.theme import FG2, GREEN
 from src.ui.widgets.login_dialog import LoginDialog
 
 
@@ -79,11 +80,11 @@ class UploadMixin:
     def _update_login_status(self, logged_in: bool):
         if logged_in:
             self.lbl_server_status.setText(f"● Connected ({self._uploader.username})")
-            self.lbl_server_status.setStyleSheet("color: #a6e3a1;")
+            self.lbl_server_status.setStyleSheet(f"color: {GREEN};")
             self.btn_server_toggle.setText("Logout")
         else:
             self.lbl_server_status.setText("○ Disconnected")
-            self.lbl_server_status.setStyleSheet("color: #a6adc8;")
+            self.lbl_server_status.setStyleSheet(f"color: {FG2};")
             self.btn_server_toggle.setText("Login")
 
     def _ensure_logged_in(self) -> bool:

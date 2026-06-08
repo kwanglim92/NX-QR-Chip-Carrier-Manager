@@ -13,7 +13,7 @@ from PySide6.QtWidgets import QFrame, QVBoxLayout, QLabel, QHBoxLayout, QSizePol
 
 from src.core.models import truncate_measurement_value
 from src.core.slot_mapper import parse_slot_code, format_full_label
-from src.ui.theme import BG2, FG, FG2, ACCENT, GREEN, RED, ORANGE
+from src.ui.theme import BADGE_FG, FG, FG2, ACCENT, GREEN, RED, ORANGE, SELECT_FG
 
 # 카드 전용 폰트 (기존 대비 -20%)
 _FONT_BASE = 12
@@ -70,7 +70,7 @@ class MeasurementCard(QFrame):
         self._badge.setAlignment(Qt.AlignCenter)
         self._badge.setFixedSize(70, 20)
         self._badge.setStyleSheet(
-            f"background: {FG2}; color: {BG2}; border-radius: 10px; "
+            f"background: {FG2}; color: {BADGE_FG}; border-radius: 10px; "
             f"font-size: {_FONT_BADGE}px; font-weight: bold;"
         )
         header_layout.addWidget(self._badge)
@@ -132,21 +132,21 @@ class MeasurementCard(QFrame):
             self._badge.setText("PASS")
             self._badge.setFixedWidth(70)
             self._badge.setStyleSheet(
-                f"background: {GREEN}; color: {BG2}; border-radius: 10px; "
+                f"background: {GREEN}; color: {BADGE_FG}; border-radius: 10px; "
                 f"font-size: {_FONT_BADGE}px; font-weight: bold;"
             )
         elif self._has_freq:
             self._badge.setText("QR")
             self._badge.setFixedWidth(70)
             self._badge.setStyleSheet(
-                f"background: {ORANGE}; color: {BG2}; border-radius: 10px; "
+                f"background: {ORANGE}; color: {BADGE_FG}; border-radius: 10px; "
                 f"font-size: {_FONT_BADGE}px; font-weight: bold;"
             )
         else:
             self._badge.setText("EMPTY")
             self._badge.setFixedWidth(70)
             self._badge.setStyleSheet(
-                f"background: {FG2}; color: {BG2}; border-radius: 10px; "
+                f"background: {FG2}; color: {BADGE_FG}; border-radius: 10px; "
                 f"font-size: {_FONT_BADGE}px; font-weight: bold;"
             )
 
@@ -163,7 +163,7 @@ class MeasurementCard(QFrame):
             self._set_state("selected")
             # 선택 시 헤더 강조
             self._slot_label.setStyleSheet(
-                f"color: #ffffff; font-weight: bold; font-size: {_FONT_HEADER}px;"
+                f"color: {SELECT_FG}; font-weight: bold; font-size: {_FONT_HEADER}px;"
             )
         else:
             self._update_state()

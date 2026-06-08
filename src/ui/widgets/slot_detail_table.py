@@ -5,7 +5,7 @@ from PySide6.QtCore import Signal, Qt
 from PySide6.QtGui import QColor
 from PySide6.QtWidgets import QTableWidget, QTableWidgetItem, QHeaderView, QAbstractItemView
 
-from src.ui.theme import GREEN, ORANGE
+from src.ui.theme import BG2, GREEN, ORANGE
 
 
 class SlotDetailTable(QTableWidget):
@@ -33,7 +33,7 @@ class SlotDetailTable(QTableWidget):
         self.setEditTriggers(QAbstractItemView.NoEditTriggers)
         self.verticalHeader().setVisible(False)
         self.setAlternatingRowColors(True)
-        self.setStyleSheet("QTableWidget { alternate-background-color: #24243a; }")
+        self.setStyleSheet(f"QTableWidget {{ alternate-background-color: {BG2}; }}")
 
         header = self.horizontalHeader()
         for i in range(len(cols)):

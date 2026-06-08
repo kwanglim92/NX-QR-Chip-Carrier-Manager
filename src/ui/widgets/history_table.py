@@ -4,7 +4,7 @@ from __future__ import annotations
 from PySide6.QtCore import Signal, Qt
 from PySide6.QtWidgets import QTableWidget, QTableWidgetItem, QHeaderView, QAbstractItemView
 
-from src.ui.theme import GREEN, ORANGE, RED, FG2
+from src.ui.theme import BG2, GREEN, ORANGE, RED, FG2
 
 COLUMNS = ["", "Week", "Date", "PO Number", "Probe Type", "Mode", "Slots", "Upload"]
 COL_CHECK = 0
@@ -25,7 +25,7 @@ class HistoryTable(QTableWidget):
         self.setEditTriggers(QAbstractItemView.NoEditTriggers)
         self.verticalHeader().setVisible(False)
         self.setAlternatingRowColors(True)
-        self.setStyleSheet("QTableWidget { alternate-background-color: #24243a; }")
+        self.setStyleSheet(f"QTableWidget {{ alternate-background-color: {BG2}; }}")
 
         header = self.horizontalHeader()
         header.setSectionResizeMode(0, QHeaderView.Fixed)             # Checkbox
