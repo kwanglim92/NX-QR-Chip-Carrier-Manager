@@ -4,8 +4,8 @@
 |------|------|
 | **문서 버전** | 2.2 |
 | **작성일** | 2026-05-31 |
-| **앱 버전(개발본)** | 2.2.0 — `main` 기준 (코드 품질 감사 수정 + 품질·수율 분석 기능 반영). *미출시* |
-| **마지막 출시 버전** | 2.1.0 (2026-05-14) — `VERSION` 파일 기준 |
+| **앱 버전** | 2.2.0 — `main` 기준 (코드 품질 감사 수정 + 품질·수율 분석 기능 반영) |
+| **마지막 출시 버전** | 2.2.0 (2026-06-01) — `VERSION`/`CHANGELOG` 기준 |
 | **이전 메이저** | 1.0.0 (NX 브랜드) → 2.0.0 (MC 브랜드 전환) |
 | **대상 독자** | 개발 / 운영 / QA / 품질관리 |
 | **내부 코드명** | `McQrManager` (이전: `NxQrManager`) |
@@ -331,7 +331,7 @@ NX 1.0.0:  {{A8F2D4E5-B612-4B19-8C3E-7F5D9A0E4B21}   ← 구버전(별도 제품
 
 ### 5.4 릴리스 절차(다음 출시 시)
 
-1. `VERSION` 파일을 `2.2.0` 으로 갱신(현재 `2.1.0`).
+1. `VERSION` 파일을 다음 버전으로 갱신(현재 `2.2.0`).
 2. `installer.iss` 의 `MyAppVersion` 동기화.
 3. `CHANGELOG.md` 에 변경 이력 추가(**§8 변경 이력** 참조).
 4. `build.bat` → `iscc installer.iss` → 산출물 수동 검증(설치/Manual 캡처 단축키/CSV+Images 구조/OCR/History).
@@ -340,7 +340,7 @@ NX 1.0.0:  {{A8F2D4E5-B612-4B19-8C3E-7F5D9A0E4B21}   ← 구버전(별도 제품
 
 ## 6. 테스트
 
-- **pytest 111건 수집 / 105 passed / 6 skipped** (`main` 기준). 6 skip 은 Tesseract/PIL 의존 OCR 테스트(`ocr` 마커, 바이너리 없으면 graceful skip).
+- **pytest 117건 수집 / 111 passed / 6 skipped** (`main` 기준). 6 skip 은 Tesseract/PIL 의존 OCR 테스트(`ocr` 마커, 바이너리 없으면 graceful skip).
 - 실행: `pytest` (기본) · `pytest -m "not slow"` (빠른) · `pytest -m ocr`(Tesseract 필요).
 - 픽스처(`tests/conftest.py`): `qapp`(offscreen QApplication), `db_conn`(in-memory SQLite + init_db), `sample_afm_image`, `tesseract_ready`.
 
@@ -524,7 +524,7 @@ pytest
 │       │             bundle_dialogs)
 │       └─ dialogs/  (roi_calibrator, slot_edit, merge_export, add_tab,
 │                     tip_catalog, user_guide, spec_limits★)
-├─ tests/                         ← pytest 111건 / 105 passed / 6 skipped
+├─ tests/                         ← pytest 117건 / 111 passed / 6 skipped
 └─ third_party/tesseract/         ← 포터블 바이너리(git 비포함)
 ```
 
