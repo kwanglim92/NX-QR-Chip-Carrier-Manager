@@ -1,7 +1,7 @@
-# [Project Name]
+# MC QR Code Chip Carrier Manager
 
 ## Project Context
-- **Framework**: PySide6 + Matplotlib (Catppuccin Mocha dark theme)
+- **Framework**: PySide6 (Qt6) + SQLite(WAL) + Tesseract OCR + Matplotlib (Fusion / Catppuccin Mocha dark theme)
 - **Language**: Python 3.11+
 - **Entry point**: `main.py` -> `src/` package
 

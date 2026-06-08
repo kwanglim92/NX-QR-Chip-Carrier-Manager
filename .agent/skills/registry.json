@@ -1,9 +1,9 @@
 {
   "version": "2.0",
-  "updated": "2026-03-30",
-  "project": "Master Skills Template",
+  "updated": "2026-06-08",
+  "project": "MC QR Code Chip Carrier Manager",
   "total_skills": 19,
-  "total_source_files": 46,
+  "total_source_files": 36,
   "skills": [
     {
       "id": "00",
@@ -43,11 +43,10 @@
         "12-mvc-mixin-architecture"
       ],
       "source_files": [
-        "ui/theme.py",
-        "ui/color_helpers.py",
+        "src/ui/theme.py",
         "main.py",
-        "ui/main_window.py",
-        "ui/dialogs/guide_dialog.py"
+        "src/ui/main_window.py",
+        "src/ui/dialogs/user_guide_dialog.py"
       ]
     },
     {
@@ -70,10 +69,7 @@
         "05-wafer-map-die-system"
       ],
       "source_files": [
-        "charts/basic.py",
-        "charts/comparison.py",
-        "charts/wafer.py",
-        "ui/widgets/chart_widget.py"
+        "src/ui/widgets/stats_dashboard.py"
       ]
     },
     {
@@ -95,10 +91,7 @@
         "02-matplotlib-static-charts",
         "11-custom-qt-widgets"
       ],
-      "source_files": [
-        "charts/interactive.py",
-        "charts/interactive_widgets.py"
-      ]
+      "source_files": []
     },
     {
       "id": "04",
@@ -118,9 +111,7 @@
         "05-wafer-map-die-system",
         "08-die-deviation-analysis"
       ],
-      "source_files": [
-        "charts/surface3d.py"
-      ]
+      "source_files": []
     },
     {
       "id": "05",
@@ -141,11 +132,7 @@
         "08-die-deviation-analysis",
         "02-matplotlib-static-charts"
       ],
-      "source_files": [
-        "charts/wafer.py",
-        "core/die_analysis.py",
-        "ui/dialogs/repeat_contour_dialog.py"
-      ]
+      "source_files": []
     },
     {
       "id": "06",
@@ -167,7 +154,7 @@
         "15-multi-recipe-comparison"
       ],
       "source_files": [
-        "core/csv_loader.py"
+        "src/core/atx_parser.py"
       ]
     },
     {
@@ -189,7 +176,7 @@
         "08-die-deviation-analysis"
       ],
       "source_files": [
-        "core/statistics.py"
+        "src/core/quality.py"
       ]
     },
     {
@@ -211,9 +198,7 @@
         "07-statistical-analysis-engine",
         "05-wafer-map-die-system"
       ],
-      "source_files": [
-        "core/die_analysis.py"
-      ]
+      "source_files": []
     },
     {
       "id": "09",
@@ -235,9 +220,9 @@
         "12-mvc-mixin-architecture"
       ],
       "source_files": [
-        "core/exporter.py",
-        "core/pdf_generator.py",
-        "ui/controllers/export_controller.py"
+        "src/core/csv_exporter.py",
+        "src/core/bundle.py",
+        "src/ui/controllers/export_mixin.py"
       ]
     },
     {
@@ -259,11 +244,7 @@
         "03-pyqtgraph-interactive-charts",
         "12-mvc-mixin-architecture"
       ],
-      "source_files": [
-        "core/tiff_loader.py",
-        "charts/interactive_widgets.py",
-        "ui/controllers/tiff_controller.py"
-      ]
+      "source_files": []
     },
     {
       "id": "11",
@@ -285,12 +266,12 @@
         "12-mvc-mixin-architecture"
       ],
       "source_files": [
-        "ui/widgets/stat_card.py",
-        "ui/widgets/copyable_table.py",
-        "ui/widgets/flow_layout.py",
-        "ui/widgets/chart_widget.py",
-        "ui/widgets/system_logger.py",
-        "ui/color_helpers.py"
+        "src/ui/widgets/measurement_card.py",
+        "src/ui/widgets/manual_card.py",
+        "src/ui/widgets/history_table.py",
+        "src/ui/widgets/system_logger.py",
+        "src/ui/widgets/csv_preview_table.py",
+        "src/ui/widgets/slot_detail_table.py"
       ]
     },
     {
@@ -315,27 +296,15 @@
       ],
       "source_files": [
         "main.py",
-        "ui/controllers/ui_builder_mixin.py",
-        "ui/controllers/scan_controller.py",
-        "ui/controllers/step_controller.py",
-        "ui/controllers/card_controller.py",
-        "ui/controllers/table_controller.py",
-        "ui/controllers/chart_controller.py",
-        "ui/controllers/xy_legend_controller.py",
-        "ui/controllers/die_filter_controller.py",
-        "ui/controllers/lot_filter_controller.py",
-        "ui/controllers/tiff_controller.py",
-        "ui/controllers/export_controller.py",
-        "ui/controllers/__init__.py",
-        "ui/dialogs/spec_config_dialog.py",
-        "ui/dialogs/repeat_contour_dialog.py",
-        "ui/dialogs/guide_dialog.py",
-        "ui/dialogs/__init__.py",
-        "ui/widgets/__init__.py",
-        "ui/workers/__init__.py",
-        "ui/__init__.py",
-        "charts/__init__.py",
-        "core/__init__.py"
+        "src/ui/main_window.py",
+        "src/ui/controllers/ui_builder_mixin.py",
+        "src/ui/controllers/atx_import_mixin.py",
+        "src/ui/controllers/manual_import_mixin.py",
+        "src/ui/controllers/qr_match_mixin.py",
+        "src/ui/controllers/export_mixin.py",
+        "src/ui/controllers/upload_mixin.py",
+        "src/ui/controllers/history_mixin.py",
+        "src/ui/controllers/settings_mixin.py"
       ]
     },
     {
@@ -358,9 +327,9 @@
         "06-csv-raw-data-parser"
       ],
       "source_files": [
-        "ui/workers/data_loader_thread.py",
-        "ui/controllers/scan_controller.py",
-        "ui/controllers/export_controller.py"
+        "src/core/ocr_worker.py",
+        "src/ui/controllers/upload_mixin.py",
+        "src/ui/controllers/manual_import_mixin.py"
       ]
     },
     {
@@ -381,8 +350,9 @@
         "12-mvc-mixin-architecture"
       ],
       "source_files": [
-        "core/settings.py",
-        "ui/dialogs/spec_config_dialog.py"
+        "src/core/ocr_settings.py",
+        "src/ui/controllers/settings_mixin.py",
+        "src/core/database.py"
       ]
     },
     {
@@ -404,11 +374,7 @@
         "07-statistical-analysis-engine",
         "02-matplotlib-static-charts"
       ],
-      "source_files": [
-        "core/recipe_scanner.py",
-        "charts/comparison.py",
-        "ui/workers/data_loader_thread.py"
-      ]
+      "source_files": []
     },
     {
       "id": "16",
@@ -449,7 +415,7 @@
         "11-custom-qt-widgets"
       ],
       "source_files": [
-        "ui/controllers/ui_builder_mixin.py"
+        "src/ui/controllers/ui_builder_mixin.py"
       ]
     },
     {
@@ -471,7 +437,8 @@
       ],
       "source_files": [
         "build.bat",
-        "build_all.bat"
+        "McQrManager.spec",
+        "installer.iss"
       ]
     }
   ]
