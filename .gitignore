@@ -88,3 +88,6 @@ build_log.txt
 _phase*_smoke_test.py
 _tmp_*.py
 debug_*.py
+
+# ---- 발표 자료(PowerPoint) — 별도 산출물, 버전 관리 제외 (Office 잠금파일 ~$*.pptx 포함) ----
+*.pptx
