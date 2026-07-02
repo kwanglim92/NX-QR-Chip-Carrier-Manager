@@ -11,13 +11,17 @@ from src.ui.theme import BG2, GREEN, ORANGE
 class SlotDetailTable(QTableWidget):
     slot_selected = Signal(int)  # slot_index
 
-    def __init__(self, parent=None, show_serial: bool = False, name_header: str = "Probe Type"):
+    def __init__(self, parent=None, show_serial: bool = False, name_header: str = "Probe Type",
+                 show_origin: bool = False):
         super().__init__(parent)
         self._slot_indices: list[int] = []
         self._show_serial = show_serial
+        self._show_origin = show_origin
 
-        # 컬럼 구성: 옵션 시 Serial 추가, 이름 헤더는 모드별("Probe Type"/"Tip Name")
+        # 컬럼 구성: 옵션 시 PO(출처)·Serial 추가, 이름 헤더는 모드별("Probe Type"/"Tip Name")
         cols = ["#"]
+        if show_origin:
+            cols.append("PO")
         if show_serial:
             cols.append("Serial")
         cols += [name_header, "Freq", "Q", "QR ID", "Status"]
@@ -44,17 +48,22 @@ class SlotDetailTable(QTableWidget):
 
         self.currentCellChanged.connect(self._on_current_changed)
 
-    def load_slots(self, slots, default_probe: str = ""):
-        """모든 슬롯 데이터 로드 (QR 미매칭 포함). show_serial 이면 시리얼 기준 정렬·그룹."""
+    def load_slots(self, slots, default_probe: str = "", origins: list[str] | None = None):
+        """모든 슬롯 데이터 로드 (QR 미매칭 포함). show_serial 이면 시리얼 기준 정렬·그룹.
+        show_origin 이면 origins(행별 PO 라벨)를 PO 열에 표시한다."""
         self._slot_indices.clear()
 
-        rows = list(slots)
+        slot_list = list(slots)
+        origin_list = list(origins) if origins is not None else [""] * len(slot_list)
+        if len(origin_list) != len(slot_list):
+            origin_list = (origin_list + [""] * len(slot_list))[:len(slot_list)]
+        paired = list(zip(slot_list, origin_list))
         if self._show_serial:
-            rows.sort(key=lambda s: ((s.serial_number or ""), s.slot_index))
+            paired.sort(key=lambda p: ((p[0].serial_number or ""), p[0].slot_index))
 
-        self.setRowCount(len(rows))
+        self.setRowCount(len(paired))
 
-        for row_idx, slot in enumerate(rows):
+        for row_idx, (slot, origin) in enumerate(paired):
             self._slot_indices.append(slot.slot_index)
             probe = slot.probe_type or default_probe or "-"
 
@@ -73,6 +82,8 @@ class SlotDetailTable(QTableWidget):
             color = GREEN if is_complete else ORANGE
 
             cells = [str(slot.slot_index + 1)]
+            if self._show_origin:
+                cells.append(origin or "-")
             if self._show_serial:
                 cells.append(slot.serial_number or "-")
             cells += [

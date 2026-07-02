@@ -14,6 +14,13 @@ from __future__ import annotations
 GRID_ROWS = 3
 
 
+def circled_number(n: int) -> str:
+    """1~20 은 유니코드 원형 숫자(①…⑳), 그 밖은 '(n)'. 폴더 순번 표기에 사용."""
+    if 1 <= n <= 20:
+        return chr(0x2460 + n - 1)
+    return f"({n})"
+
+
 def parse_slot_code(suffix: str) -> dict:
     """슬롯 코드 접미사(예: '1102')를 파싱.
 

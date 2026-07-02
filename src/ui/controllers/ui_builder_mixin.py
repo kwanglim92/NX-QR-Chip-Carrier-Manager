@@ -7,13 +7,15 @@ from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QSplitter, QLabel,
     QPushButton, QLineEdit, QDoubleSpinBox, QDateEdit,
     QGroupBox, QFormLayout, QTextEdit, QProgressBar,
-    QStackedWidget, QToolBar, QStatusBar, QTabWidget,
+    QStackedWidget, QToolBar, QStatusBar, QTabWidget, QTabBar,
     QComboBox, QSpinBox, QToolButton, QMenu, QSizePolicy,
-    QMessageBox,
+    QMessageBox, QListWidget,
 )
 
 from src.ui.theme import ACCENT, FG, FG2, BG, BG2, BG3, GREEN, PURPLE
 from src.ui.widgets.slot_grid_widget import SlotGridWidget
+from src.ui.widgets.pass_pool_widget import PassPoolWidget
+from src.ui.widgets.pool_folder_strip import PoolFolderStrip
 from src.ui.widgets.image_viewer import ImageViewer
 from src.ui.widgets.qr_input_widget import QRInputWidget
 from src.ui.widgets.system_logger import SystemLogger
@@ -111,6 +113,10 @@ class UIBuilderMixin:
         self.setStatusBar(self._statusbar)
         self._statusbar.showMessage("Select a folder to start")
         self._build_statusbar_actions()
+
+        # ATX 우측 탭 전환 결선은 위젯 구성이 모두 끝난 뒤 연결
+        # (구성 중 currentChanged 조기 발화로 아직 없는 progress_bar 참조 방지)
+        self.atx_view_tabs.currentChanged.connect(self._on_atx_view_changed)
 
     def _build_toolbar(self, parent_layout):
         toolbar_layout = QHBoxLayout()
@@ -265,18 +271,64 @@ class UIBuilderMixin:
 
         splitter.addWidget(left)
 
-        # 우측 패널: 슬롯 그리드
-        right = QWidget()
-        right_layout = QVBoxLayout(right)
-        right_layout.setContentsMargins(4, 4, 4, 4)
+        # 우측 패널: [상단 스트립 Pass Pool 토글] + [폴더 탭 ↔ Pass Pool] 콘텐츠 스택
+        right_panel = QWidget()
+        rp = QVBoxLayout(right_panel)
+        rp.setContentsMargins(0, 0, 0, 0)
+        rp.setSpacing(4)
 
-        self.slot_grid = SlotGridWidget()
-        self.slot_grid.slot_clicked.connect(self._on_slot_selected)
-        self.slot_grid.slot_reset_qr.connect(self._on_slot_reset_qr)
-        self.slot_grid.slot_edit_requested.connect(self._open_atx_slot_edit_dialog)
-        right_layout.addWidget(self.slot_grid, 1)
+        # 상단 스트립 — 우측 고정 Pass Pool 진입 토글(실시간 N/M 카운트)
+        strip = QHBoxLayout()
+        strip.setContentsMargins(0, 0, 0, 0)
+        strip.addStretch()
+        self.btn_pass_pool = QPushButton("🎯 Pass Pool 0/0")
+        self.btn_pass_pool.setCheckable(True)
+        self.btn_pass_pool.setToolTip(
+            "전 폴더의 규격 통과(pass) 슬롯을 모아 보고 QR을 태깅합니다."
+        )
+        # 활성(checked) 상태를 시각적으로 명확히 — 전역 QSS 는 :checked 를 다루지 않음
+        self.btn_pass_pool.setStyleSheet(
+            f"QPushButton:checked {{ background: {ACCENT}; color: {BG}; "
+            f"font-weight: bold; border: 1px solid {ACCENT}; }}"
+        )
+        self.btn_pass_pool.toggled.connect(self._on_pass_pool_toggled)
+        strip.addWidget(self.btn_pass_pool)
+        rp.addLayout(strip)
 
-        splitter.addWidget(right)
+        # 콘텐츠 스택: index0 = 폴더 탭, index1 = Pass Pool
+        self.atx_content_stack = QStackedWidget()
+
+        # 폴더 전용 탭 — 드래그 재정렬 + 닫기 (Pass Pool 은 더 이상 탭이 아님)
+        self.atx_view_tabs = QTabWidget()
+        self.atx_view_tabs.setMovable(True)
+        self.atx_view_tabs.setTabsClosable(True)
+        self.atx_view_tabs.tabCloseRequested.connect(self._on_atx_tab_close)
+        self.atx_view_tabs.tabBar().tabMoved.connect(self._on_atx_tab_moved)
+        self.atx_content_stack.addWidget(self.atx_view_tabs)   # index 0
+
+        # 폴더 탭이 없을 때 슬롯 그리드 핸들러가 참조할 더미 그리드(화면 밖)
+        self._atx_dummy_grid = SlotGridWidget()
+        self.slot_grid = self._atx_dummy_grid
+
+        # Pass Pool 페이지 (스택 페이지) — 폴더는 Browse+탭으로 관리
+        self._pool_page = QWidget()
+        pool_layout = QVBoxLayout(self._pool_page)
+        pool_layout.setContentsMargins(4, 4, 4, 4)
+        # 폴더 칩 스트립 — 색 범례 + 드래그로 폴더 순서 변경(Pool 을 벗어나지 않고 재정렬)
+        self.pool_folder_strip = PoolFolderStrip()
+        self.pool_folder_strip.order_changed.connect(self._on_pool_folders_reordered)
+        pool_layout.addWidget(self.pool_folder_strip)
+        self.pool_widget = PassPoolWidget()
+        self.pool_widget.card_clicked.connect(self._pool_on_card_clicked)
+        self.pool_widget.card_checked.connect(self._pool_on_card_checked)
+        self.pool_widget.assemble_requested.connect(self._pool_assemble_carrier)
+        self.pool_widget.clear_selection_requested.connect(self._pool_clear_selection)
+        pool_layout.addWidget(self.pool_widget, 1)
+        self.atx_content_stack.addWidget(self._pool_page)      # index 1
+
+        rp.addWidget(self.atx_content_stack, 1)
+
+        splitter.addWidget(right_panel)
         splitter.setSizes([400, 600])
 
         page_layout = QVBoxLayout(page)
@@ -601,11 +653,34 @@ class UIBuilderMixin:
         right_layout.setContentsMargins(0, 0, 0, 0)
 
         self.export_tabs = QTabWidget()
-        self.export_atx_table = SlotDetailTable()
-        self.export_manual_table = SlotDetailTable(show_serial=True, name_header="Tip Name")
+
+        # ── ATX 탭: 범위 셀렉터(전체 합본 / 개별 폴더) + 슬롯 테이블(PO 열) ──
+        atx_tab = QWidget()
+        atx_tab_layout = QVBoxLayout(atx_tab)
+        atx_tab_layout.setContentsMargins(0, 0, 0, 0)
+        atx_tab_layout.setSpacing(4)
+
+        scope_row = QHBoxLayout()
+        scope_row.setContentsMargins(4, 4, 4, 0)
+        scope_lbl = QLabel("범위:")
+        scope_lbl.setStyleSheet(f"color: {FG2}; font-size: 12px;")
+        scope_row.addWidget(scope_lbl)
+        self.export_atx_scope = QComboBox()
+        self.export_atx_scope.setMinimumWidth(220)
+        self.export_atx_scope.setToolTip("전체(합본): 모든 폴더의 매칭 슬롯을 하나로 / 또는 개별 폴더 선택")
+        self.export_atx_scope.currentIndexChanged.connect(self._on_export_scope_changed)
+        scope_row.addWidget(self.export_atx_scope)
+        scope_row.addStretch()
+        atx_tab_layout.addLayout(scope_row)
+
+        self.export_atx_table = SlotDetailTable(show_origin=True)
         self.export_atx_table.slot_selected.connect(self._on_export_slot_detail_selected)
+        atx_tab_layout.addWidget(self.export_atx_table, 1)
+
+        self.export_manual_table = SlotDetailTable(show_serial=True, name_header="Tip Name")
         self.export_manual_table.slot_selected.connect(self._on_export_slot_detail_selected)
-        self.export_tabs.addTab(self.export_atx_table, "ATX")
+
+        self.export_tabs.addTab(atx_tab, "ATX")
         self.export_tabs.addTab(self.export_manual_table, "Manual")
         self.export_tabs.currentChanged.connect(self._on_export_tab_changed)
         right_layout.addWidget(self.export_tabs, 1)

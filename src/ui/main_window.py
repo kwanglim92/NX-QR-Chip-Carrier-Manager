@@ -12,6 +12,7 @@ from src.ui.controllers.export_mixin import ExportMixin
 from src.ui.controllers.upload_mixin import UploadMixin
 from src.ui.controllers.history_mixin import HistoryMixin
 from src.ui.controllers.settings_mixin import SettingsMixin
+from src.ui.controllers.pass_pool_mixin import PassPoolMixin
 
 
 class ChipCarrierManagerApp(
@@ -23,6 +24,7 @@ class ChipCarrierManagerApp(
     UploadMixin,
     HistoryMixin,
     SettingsMixin,
+    PassPoolMixin,
     QMainWindow,
 ):
     def __init__(self):
@@ -35,6 +37,7 @@ class ChipCarrierManagerApp(
         self._init_manual_state()
         self._init_upload_state()
         self._init_history_state()
+        self._init_pool_state()
         self._restore_window_geometry()
         self._apply_settings_to_ui()
 

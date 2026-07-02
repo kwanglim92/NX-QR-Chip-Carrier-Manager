@@ -14,6 +14,11 @@ from src.core.slot_mapper import format_full_label
 
 class QRMatchMixin:
     def _on_qr_scanned(self, qr_id: str):
+        # ATX 모드에서 Pass Pool 서브탭이 활성이면 pool 경로가 자체 처리
+        if self.current_mode == "atx" and self._atx_pool_active():
+            self._pool_on_qr_scanned(qr_id)
+            return
+
         if not self.measurement_set:
             self.qr_input.show_error("먼저 폴더를 로드하세요")
             return
@@ -36,6 +41,8 @@ class QRMatchMixin:
             self._match_qr_manual(qr_id)
 
         self._update_progress()
+        if self.current_mode == "atx":
+            self._atx_refresh_tab_labels()
         self._auto_save_to_db()
         self.qr_input.focus_input()
 
@@ -179,6 +186,7 @@ class QRMatchMixin:
         self.logger.info(f"QR reset: {label} (was {old_qr})")
 
         self._update_progress()
+        self._atx_refresh_tab_labels()
         self._auto_save_to_db()
 
     def _update_progress(self):

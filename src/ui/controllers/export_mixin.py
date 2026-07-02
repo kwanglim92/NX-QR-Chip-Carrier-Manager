@@ -1,6 +1,7 @@
 """CSV 내보내기 + Action-First Export 탭 로직."""
 from __future__ import annotations
 
+from dataclasses import replace
 from pathlib import Path
 
 from PySide6.QtWidgets import (
@@ -88,7 +89,101 @@ class ExportMixin:
 
     def _get_export_measurement_set(self):
         mode = self._get_active_export_mode()
+        if mode == "atx":
+            # 캐시하지 않고 항상 현재 스코프로 재계산(모드/폴더 변경 후 stale 방지)
+            return self._export_atx_scope_set()[0]
         return getattr(self, "measurement_sets", {}).get(mode)
+
+    def _stamp_export_date(self, ms) -> None:
+        """Export 직전 생산일자 스탬프. ATX 합본(throwaway)이면 각 폴더 set 에도 반영."""
+        date_str = self.date_edit.date().toString("yyyyMMdd")
+        ms.production_date = date_str
+        if self._get_active_export_mode() == "atx" and ms not in self._atx_export_sets():
+            for s in self._atx_export_sets():
+                s.production_date = date_str
+
+    # ─── ATX 내보내기 범위(전체 합본 / 개별 폴더) ───
+
+    def _atx_export_sets(self) -> list:
+        """로드된 폴더 set 목록 (없으면 빈 리스트)."""
+        if hasattr(self, "_atx_folder_sets"):
+            return self._atx_folder_sets()
+        return []
+
+    def _build_atx_merged_ms(self, sets) -> tuple[MeasurementSet, list[str]]:
+        """전 폴더 슬롯을 재인덱싱해 합친 '조립 캐리어' 세트 + 행별 출처 PO 리스트.
+
+        폴더마다 probe_type 이 다를 수 있으므로 각 슬롯에 '유효 probe'(slot.probe_type
+        or 해당 set.probe_type)를 스탬프해 이질적 폴더에서도 행별 probe 가 정확하다.
+        """
+        merged = MeasurementSet(
+            mode="atx",
+            production_date=self.date_edit.date().toString("yyyyMMdd"),
+            po_number="합본",
+            probe_type="",
+        )
+        origins: list[str] = []
+        i = 0
+        for ms in sets:
+            for s in ms.slots:
+                merged.slots.append(
+                    replace(s, slot_index=i, probe_type=(s.probe_type or ms.probe_type or None))
+                )
+                origins.append(ms.po_number)
+                i += 1
+        return merged, origins
+
+    def _export_atx_scope_set(self) -> tuple[MeasurementSet, list[str]]:
+        """현재 스코프 선택에 맞는 (MeasurementSet, origins) 반환.
+
+        스코프 키는 폴더 identity(source_folder). 재정렬/닫힘에도 안전하며,
+        선택 폴더가 사라졌으면 합본으로 폴백한다.
+        """
+        sets = self._atx_export_sets()
+        scope = (
+            self.export_atx_scope.currentData()
+            if hasattr(self, "export_atx_scope")
+            else "__all__"
+        )
+        if scope is None or scope == "__all__":
+            return self._build_atx_merged_ms(sets)
+        target = next((s for s in sets if s.source_folder == scope), None)
+        if target is not None:
+            return target, [target.po_number] * len(target.slots)
+        return self._build_atx_merged_ms(sets)
+
+    def _populate_export_scope_combo(self):
+        """범위 콤보를 '전체(합본) + 각 폴더'로 채운다(폴더 identity 로 선택 보존)."""
+        combo = getattr(self, "export_atx_scope", None)
+        if combo is None:
+            return
+        prev = combo.currentData()
+        combo.blockSignals(True)
+        combo.clear()
+        combo.addItem("전체(합본)", "__all__")
+        for ms in self._atx_export_sets():
+            combo.addItem(
+                f"{ms.po_number} {ms.matched_count}/{ms.total_count}", ms.source_folder
+            )
+        restore = 0
+        if prev is not None:
+            for i in range(combo.count()):
+                if combo.itemData(i) == prev:
+                    restore = i
+                    break
+        combo.setCurrentIndex(restore)
+        combo.blockSignals(False)
+
+    def _on_export_scope_changed(self, _idx: int = -1):
+        atx_ms, origins = self._export_atx_scope_set()
+        self.export_atx_table.load_slots(
+            atx_ms.slots if atx_ms else [],
+            atx_ms.probe_type if atx_ms else "",
+            origins=origins,
+        )
+        if hasattr(self, "export_image_viewer"):
+            self.export_image_viewer.clear()
+        self._refresh_export_status()
 
     def _choose_incomplete_export_policy(
         self,
@@ -127,12 +222,14 @@ class ExportMixin:
 
     def _refresh_export_view(self):
         """Export 탭 진입 시 슬롯 테이블 + 액션 바 갱신."""
-        atx_ms = getattr(self, "measurement_sets", {}).get("atx")
+        self._populate_export_scope_combo()
+        atx_ms, origins = self._export_atx_scope_set()
         manual_ms = getattr(self, "measurement_sets", {}).get("manual")
 
         self.export_atx_table.load_slots(
             atx_ms.slots if atx_ms else [],
             atx_ms.probe_type if atx_ms else "",
+            origins=origins,
         )
         self.export_manual_table.load_slots(
             manual_ms.slots if manual_ms else [],
@@ -146,7 +243,7 @@ class ExportMixin:
             self.logger.warn("내보낼 데이터가 없습니다")
             return
 
-        ms.production_date = self.date_edit.date().toString("yyyyMMdd")
+        self._stamp_export_date(ms)
 
         policy = self._choose_incomplete_export_policy(
             ms,
@@ -187,7 +284,7 @@ class ExportMixin:
             self.logger.warn("내보낼 데이터가 없습니다")
             return
 
-        ms.production_date = self.date_edit.date().toString("yyyyMMdd")
+        self._stamp_export_date(ms)
 
         policy = self._choose_incomplete_export_policy(
             ms,
@@ -306,15 +403,33 @@ class ExportMixin:
             self.logger.error(f"머지 내보내기 실패: {e}")
 
     def _on_date_changed(self):
-        if getattr(self, "current_mode", "") == "export":
-            ms = self._get_export_measurement_set()
-        else:
-            ms = self.measurement_set
+        date_str = self.date_edit.date().toString("yyyyMMdd")
+        in_export = getattr(self, "current_mode", "") == "export"
 
+        # Export·ATX·전체(합본) 스코프: throwaway '합본'을 저장하지 말고 각 폴더 set 을 저장
+        if in_export and self._get_active_export_mode() == "atx":
+            scope = (
+                self.export_atx_scope.currentData()
+                if hasattr(self, "export_atx_scope")
+                else None
+            )
+            if scope is None or scope == "__all__":
+                for s in self._atx_export_sets():
+                    s.production_date = date_str
+                    self._auto_save_to_db(s)
+            else:
+                ms = self._get_export_measurement_set()
+                if ms:
+                    ms.production_date = date_str
+                    self._auto_save_to_db(ms)
+            self._refresh_export_view()
+            return
+
+        ms = self._get_export_measurement_set() if in_export else self.measurement_set
         if ms:
-            ms.production_date = self.date_edit.date().toString("yyyyMMdd")
+            ms.production_date = date_str
             self._auto_save_to_db(ms)
-            if getattr(self, "current_mode", "") == "export":
+            if in_export:
                 self._refresh_export_status()
 
     def _on_export_tab_changed(self, _idx: int):

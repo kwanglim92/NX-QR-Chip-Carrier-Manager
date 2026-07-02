@@ -266,19 +266,10 @@ class HistoryMixin:
         self.logger.ok(f"이력 로드: {ms.po_number} ({ms.mode.upper()})")
 
     def _load_atx_from_history(self, ms):
-        """ATX 이력 레코드를 UI에 로드."""
+        """ATX 이력 레코드를 폴더 탭으로 로드 (멀티탭 정합)."""
         self._switch_mode("atx")
-
-        self.atx_folder_input.setText(ms.source_folder)
-        self.lbl_po.setText(ms.po_number)
-        self.lbl_probe_type.setText(ms.probe_type)
-        self.lbl_quantity.setText(f"{ms.quantity}M ({len(ms.slots)}개 슬롯)")
-
-        self.slot_grid.load_measurement_set(ms)
-        self._update_progress()
-
-        if ms.slots:
-            self._on_slot_selected(0)
+        folder = ms.source_folder or f"history:{ms.db_id}"
+        self._atx_open_set_in_tab(ms, folder, persist=False)
 
     def _load_manual_from_history(self, ms):
         """수동 이력 레코드를 UI에 로드."""
