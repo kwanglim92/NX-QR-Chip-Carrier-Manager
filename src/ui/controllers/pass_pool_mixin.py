@@ -156,7 +156,7 @@ class PassPoolMixin:
             if len(self._pool_checked_keys) >= CARRIER_SLOTS:
                 # 초과 체크 되돌림 + 경고
                 self.pool_widget.apply_checks(self._pool_checked_keys)
-                self.qr_input.show_error(f"캐리어는 최대 {CARRIER_SLOTS}개입니다")
+                self.qr_input.show_error(f"Cassette는 최대 {CARRIER_SLOTS}개입니다")
             else:
                 self._pool_checked_keys.add(key)
         elif not checked:
@@ -172,7 +172,7 @@ class PassPoolMixin:
         """체크된 pass 슬롯을 한 장의 캐리어 CSV로 내보낸다(선택 순서=Pool 순서)."""
         keys = [k for k in self.pool_widget.order if k in self._pool_checked_keys]
         if not keys:
-            self.qr_input.show_error("캐리어에 넣을 pass 슬롯을 선택하세요")
+            self.qr_input.show_error("Cassette에 넣을 pass 슬롯을 선택하세요")
             return
 
         carrier = MeasurementSet(
@@ -189,8 +189,8 @@ class PassPoolMixin:
 
         if len(keys) < CARRIER_SLOTS:
             resp = QMessageBox.question(
-                self, "부분 캐리어",
-                f"선택 {len(keys)}개 ({CARRIER_SLOTS} 미만)입니다. 부분 캐리어로 내보낼까요?",
+                self, "부분 Cassette",
+                f"선택 {len(keys)}개 ({CARRIER_SLOTS} 미만)입니다. 부분 Cassette로 내보낼까요?",
                 QMessageBox.Yes | QMessageBox.No, QMessageBox.Yes,
             )
             if resp != QMessageBox.Yes:
@@ -207,7 +207,7 @@ class PassPoolMixin:
             return
 
         path, _ = QFileDialog.getSaveFileName(
-            self, "캐리어 CSV 저장", "carrier_QR.csv", "CSV Files (*.csv)"
+            self, "Cassette CSV 저장", "cassette_QR.csv", "CSV Files (*.csv)"
         )
         if not path:
             return
@@ -216,10 +216,10 @@ class PassPoolMixin:
             out = out.with_suffix(".csv")
         try:
             export_csv(carrier, str(out), policy)
-            self.logger.ok(f"캐리어 CSV 저장: {out} (슬롯 {len(keys)}개)")
-            self._statusbar.showMessage(f"캐리어 CSV 저장: {out}")
+            self.logger.ok(f"Cassette CSV 저장: {out} (슬롯 {len(keys)}개)")
+            self._statusbar.showMessage(f"Cassette CSV 저장: {out}")
         except Exception as e:
-            self.logger.error(f"캐리어 CSV 저장 실패: {e}")
+            self.logger.error(f"Cassette CSV 저장 실패: {e}")
 
     # ─── Pass Pool 진입 토글 (상단 스트립) ───
 

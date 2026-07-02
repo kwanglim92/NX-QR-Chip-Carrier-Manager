@@ -47,10 +47,10 @@ class PassPoolWidget(QWidget):
         self.btn_clear_sel.clicked.connect(self.clear_selection_requested.emit)
         header_row.addWidget(self.btn_clear_sel)
 
-        self.btn_assemble = QPushButton("캐리어 확정 → CSV")
+        self.btn_assemble = QPushButton("Cassette 확정 → CSV")
         self.btn_assemble.setProperty("accent", "true")
         self.btn_assemble.setEnabled(False)
-        self.btn_assemble.setToolTip("체크한 pass 슬롯(최대 12)을 한 장의 캐리어 CSV로 내보냅니다.")
+        self.btn_assemble.setToolTip("체크한 pass 슬롯(최대 12)을 한 장의 Cassette CSV로 내보냅니다.")
         self.btn_assemble.clicked.connect(self.assemble_requested.emit)
         header_row.addWidget(self.btn_assemble)
 

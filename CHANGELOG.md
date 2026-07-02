@@ -1,5 +1,25 @@
 # Changelog
 
+## [2.3.0] - 2026-07-02
+
+### Added
+- **Pass Pool 단일 연속 스택**: 전 폴더의 규격 통과(pass) 슬롯을 하나의 스택으로 표시(맨 아래 Port1, 위로 갈수록 Port 증가), 폴더 순번 뱃지(①②③)·폴더색으로 출처를 명확히 구분
+- **상단 고정 Pass Pool 토글**: 폴더 그리드 ↔ 풀 전환(실시간 매칭 N/M 배지)
+- **드래그 폴더 칩 스트립**: Pass Pool 을 벗어나지 않고 폴더 순서 변경(색·번호 범례 겸용)
+- **Cassette(12) 명시적 선택 조립 → CSV**: 카드 체크박스로 최대 12개 선택 후 한 장의 Cassette CSV 반출(부분 Cassette 허용)
+- **CSV Export 다중 폴더**: 전체(합본) + 폴더 선택 스코프, 표에 PO(출처) 열
+- `slot_mapper.circled_number()` — 원형 순번(①②③) 헬퍼
+
+### Changed
+- 폴더 탭 드래그 재정렬 지원 + 탭/칩 재정렬을 단일 funnel 로 통일해 순번·연속 Port 를 실시간 재부여
+- 폴더 탭 라벨에 순번 프리픽스(`① P2601001 …`)
+- '캐리어 확정' UI 용어를 **Cassette** 로 통일(버튼·툴팁·안내 메시지·저장 파일명 `cassette_QR.csv`)
+- 합본 Export: 슬롯 재인덱싱·유효 probe 스탬프, 날짜 변경 시 합본 throwaway 레코드 미저장(각 폴더 set 만 저장)
+
+### Fixed
+- `PoolFolderStrip`: `QListWidget::item` 스타일시트가 item `setBackground`/`setForeground` 역할을 무시시켜 폴더 칩 색이 표시되지 않던 문제 수정
+- 폴더 재정렬/닫힘 시 위치 종속 Pass Pool 선택 키를 무효화(Cassette 선택 초기화)
+
 ## [2.2.0] - 2026-06-01
 
 ### Added

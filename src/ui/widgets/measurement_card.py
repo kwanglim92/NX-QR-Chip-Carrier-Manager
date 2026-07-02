@@ -64,7 +64,7 @@ class MeasurementCard(QFrame):
         header_layout = QHBoxLayout()
         if checkable:
             self._checkbox = QCheckBox()
-            self._checkbox.setToolTip("이 슬롯을 캐리어(12슬롯)에 포함")
+            self._checkbox.setToolTip("이 슬롯을 Cassette(12슬롯)에 포함")
             self._checkbox.setCursor(Qt.PointingHandCursor)
             self._checkbox.toggled.connect(
                 lambda ch: self.check_toggled.emit(self.slot_index, ch)
