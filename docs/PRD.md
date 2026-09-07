@@ -222,15 +222,19 @@ class ChipCarrierManagerApp(
 
 | 항목 | 내용 |
 |------|------|
-| 진입 | `Save CSV` 드롭다운(CSV Only / CSV+Images / 머지) · `Upload` 드롭다운 |
+| 진입 | `Save CSV` 드롭다운(CSV Only / CSV+Images / 머지) · `Upload` 드롭다운(Upload CSV / Upload CSV+Images / 머지 후 업로드 / **Update CSV / Update CSV+Images**) |
 | 탭 구조 | `ATX` / `Manual` 2탭 (활성 탭 기준 처리) |
 | CSV 컬럼 | `QR ID`, `생산일자[YYYYMMDD]`, `Frequency (KHz)`, `Drive (%)`, `Q`, `Probe Type` |
 | 미완성 데이터 정책 | `QR 있는 값만` 또는 `전체 슬롯` 선택 |
 | CSV+Images 구조 | `{folder}/{folder}_QR.csv` + `ZOOMIN/` + `ZOOMOUT/` |
 | 저장 경로 보정 | 확장자 누락 시 `.csv` 자동 보정 |
+| 서버 업로드 대상 | `https://probe-info.parksystems.com` — `POST /accounts/login/` 세션 로그인 후 `POST /chip/login/probe/update/file` (multipart: `test_file` CSV 1개 + `image_files[]` 다수, submit `upload`/`update`) |
+| 업로드 이미지 전송명 | CSV+Images 반출과 동일 규격 `{QR ID}{확장자}` (충돌 시 `_1`, `_2`), `csv_exporter.upload_image_files()` |
+| 세션·보안 | TLS 검증 활성, 비밀번호 미저장(ID 만 `server_id` 설정), 업로드 전 `is_session_alive()` 확인, 로그인/`?next=` 리다이렉트·`Message` 영역 부재는 실패 처리 |
 
 - `Drive (%)` 는 GUI 입력 항목이 아니라 CSV/Upload 자료구조 유지용 컬럼
 - 머지 출고: 여러 시리얼(파트)을 박스 시리얼 이름의 단일 CSV+이미지 폴더로 묶음
+- **Update(서버 수정)** 는 서버의 기존 QR 데이터를 덮어쓰므로 실행 전 확인 다이얼로그를 거침. 기본 메뉴는 신규 `upload`
 
 ### F-18 Export / Import 번들
 
@@ -366,7 +370,7 @@ NX 1.0.0:  {{A8F2D4E5-B612-4B19-8C3E-7F5D9A0E4B21}   ← 구버전(별도 제품
 | 한국어 OCR 미지원 | `eng.traineddata` 만 번들. 필요 시 `kor.traineddata` 추가 |
 | 단일 PC DB | 번들 Export/Import 로 PC 간 이전 |
 | SmartScreen 경고 | EV 코드 서명 도입 전까지 유지 |
-| 서버 업로더 엔드포인트 | HTTP 멀티파트 프로토콜만 구현, 서버측 수신 엔드포인트는 별도 구축 필요 |
+| 서버 업로드 규칙 미확인 | 업로드 폼 구조(필드명·버튼·Message 마크업)는 실서버와 대조 완료. 그러나 서버가 **이미지 파일명을 QR 에 연결하는 규칙**과 **CSV `Probe Type` 문자열을 서버 정식 명칭(`OMCL-AC160TS` 등)에 매칭하는 방식**은 미공개이며, 운영 DB 이므로 실업로드 검증을 수행하지 않음. 앱은 반출 규격(`{QR ID}.png`, 약칭 그대로)을 따름 |
 | Window Capture 배율 의존성 | 125%/150% 배율·멀티모니터 실장비 검증 필요 |
 | 캡처 파일 정리 | 카드 삭제 시 DB/카드만 제거, 실제 캡처 파일은 보존 |
 | Drive 입력 | `Drive (%)` 는 CSV/Upload 컬럼으로만 유지, GUI 입력 미구현 |

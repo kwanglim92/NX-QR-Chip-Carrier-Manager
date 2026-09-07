@@ -1,5 +1,25 @@
 # Changelog
 
+## [Unreleased]
+
+### Added
+- **Update(서버 수정) 업로드**: Upload 드롭다운에 `Update CSV (서버 수정)` / `Update CSV + Images (서버 수정)` 추가 — 서버 폼의 `update` 버튼으로 전송, 실행 전 덮어쓰기 확인 다이얼로그
+- `csv_exporter.upload_image_files()` — 업로드 이미지 전송명을 CSV+Images 반출과 동일 규격(`{QR ID}.png`, 충돌 시 `_1`)으로 생성
+- `ServerUploader.is_session_alive()` — 업로드 페이지를 리다이렉트 없이 GET 해 서버 세션 유효성 확인
+- `tests/test_server_uploader.py` (26건, Fake Session — 실제 네트워크 무접촉) + `upload_image_files` 테스트 3건
+
+### Changed
+- **TLS 인증서 검증 활성화**: `verify=False`·`urllib3` 경고 억제 제거 (서버 인증서 유효 확인)
+- 로그인 성공 판정 강화: `sessionid` 쿠키 **및** 응답이 로그인 폼이 아님
+- 업로드 전 세션 유효성 확인, GET/POST 응답이 로그인/`?next=` 리다이렉트면 실패 처리 → UI 상태 Disconnected 로 동기화
+- 서버 `Message :` 영역이 없으면 성공으로 간주하지 않음 (`응답 형식 불일치`)
+- 업로드 POST 타임아웃을 이미지 수에 비례(60 + 10/장, 최대 600초)
+- 로그인 다이얼로그 비밀번호는 로그인 호출 직후 참조 해제, 로그아웃 시 로컬 쿠키 폐기
+- `ServerUploader.upload()` 이미지 인자를 `(로컬 경로, 전송 파일명)` 목록으로 변경
+
+### Fixed
+- 서버 세션이 만료된 상태에서 업로드하면 `/chip/?next=` 페이지의 CSRF 토큰으로 POST 한 뒤 "응답 확인 불가"를 **성공으로 오판**하던 문제
+
 ## [2.3.0] - 2026-07-02
 
 ### Added

@@ -160,3 +160,57 @@ def test_export_with_images_uses_folder_name_csv_structure(tmp_path):
 
     assert result["csv_path"] == str(tmp_path / folder_name / f"{folder_name}_QR.csv")
     assert result["zoomin_dir"] == str(tmp_path / folder_name / "ZOOMIN")
+
+
+# ─── 서버 업로드용 이미지 전송명 (upload_image_files) ───
+
+
+def test_upload_image_files_renames_to_qr_id_like_export(tmp_path):
+    from src.core.csv_exporter import upload_image_files
+
+    a = tmp_path / "slot_01_1234567890.png"
+    b = tmp_path / "slot_02_2222222222.jpg"
+    a.write_bytes(b"a")
+    b.write_bytes(b"b")
+    ms = MeasurementSet(
+        slots=[
+            SlotData(slot_index=0, slot_code="1", qr_id="1234567890", image_path=str(a)),
+            SlotData(slot_index=1, slot_code="2", qr_id="2222222222", image_path=str(b)),
+            SlotData(slot_index=2, slot_code="3", qr_id="3333333333", image_path=str(tmp_path / "missing.png")),
+            SlotData(slot_index=3, slot_code="4", qr_id="4444444444", image_path=None),
+        ]
+    )
+    assert upload_image_files(ms) == [
+        (str(a), "1234567890.png"),
+        (str(b), "2222222222.jpg"),
+    ]
+
+
+def test_upload_image_files_dedupes_same_send_name(tmp_path):
+    from src.core.csv_exporter import upload_image_files
+
+    a = tmp_path / "x.png"
+    b = tmp_path / "y.png"
+    a.write_bytes(b"a")
+    b.write_bytes(b"b")
+    ms = MeasurementSet(
+        slots=[
+            SlotData(slot_index=0, slot_code="1", qr_id="1234567890", image_path=str(a)),
+            SlotData(slot_index=1, slot_code="2", qr_id="1234567890", image_path=str(b)),
+        ]
+    )
+    assert [n for _, n in upload_image_files(ms)] == ["1234567890.png", "1234567890_1.png"]
+
+
+def test_upload_image_files_policy_qr_only_skips_unmatched_and_all_slots_uses_slot_name(tmp_path):
+    from src.core.csv_exporter import (
+        CSV_EXPORT_ALL_SLOTS,
+        CSV_EXPORT_QR_ONLY,
+        upload_image_files,
+    )
+
+    a = tmp_path / "pending_0001.png"
+    a.write_bytes(b"a")
+    ms = MeasurementSet(slots=[SlotData(slot_index=4, slot_code="5", qr_id=None, image_path=str(a))])
+    assert upload_image_files(ms, CSV_EXPORT_QR_ONLY) == []
+    assert upload_image_files(ms, CSV_EXPORT_ALL_SLOTS) == [(str(a), "slot_05.png")]
