@@ -604,6 +604,11 @@ class UIBuilderMixin:
         upload_menu.addAction("Upload CSV + Images", self._upload_csv_with_images)
         upload_menu.addSeparator()
         upload_menu.addAction("머지 후 업로드…", self._merge_upload)
+        upload_menu.addSeparator()
+        upload_menu.addAction("Update CSV (서버 수정)", self._update_csv_only)
+        upload_menu.addAction(
+            "Update CSV + Images (서버 수정)", self._update_csv_with_images
+        )
         self.btn_upload.setMenu(upload_menu)
         action_bar.addWidget(self.btn_upload)
 

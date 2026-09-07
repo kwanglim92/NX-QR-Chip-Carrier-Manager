@@ -2,18 +2,20 @@
 from __future__ import annotations
 
 import csv
-from pathlib import Path
 
 from PySide6.QtCore import QThread, Signal, QObject
-from PySide6.QtWidgets import QDialog
+from PySide6.QtWidgets import QDialog, QMessageBox
 
 from src.core.csv_exporter import (
     CSV_EXPORT_QR_ONLY,
     generate_csv_rows,
+    upload_image_files,
 )
 from src.core.server_uploader import ServerUploader, UploadResult
 from src.ui.theme import FG2, GREEN
 from src.ui.widgets.login_dialog import LoginDialog
+
+_MODE_LABEL = {"upload": "신규 업로드", "update": "서버 수정(Update)"}
 
 
 class _UploadWorker(QObject):
@@ -22,16 +24,16 @@ class _UploadWorker(QObject):
     progress = Signal(str)
 
     def __init__(self, uploader: ServerUploader, csv_path: str,
-                 image_paths: list[str] | None, mode: str):
+                 image_files: list[tuple[str, str]] | None, mode: str):
         super().__init__()
         self._uploader = uploader
         self._csv_path = csv_path
-        self._image_paths = image_paths
+        self._image_files = image_files
         self._mode = mode
 
     def run(self):
-        self.progress.emit("업로드 중...")
-        result = self._uploader.upload(self._csv_path, self._image_paths, self._mode)
+        self.progress.emit(f"{_MODE_LABEL.get(self._mode, self._mode)} 중...")
+        result = self._uploader.upload(self._csv_path, self._image_files, self._mode)
         self.finished.emit(result)
 
 
@@ -59,6 +61,8 @@ class UploadMixin:
 
         try:
             success = self._uploader.login(username, password)
+            # 비밀번호는 로그인 호출 직후 참조 해제 — 이후 로그/설정에 섞이지 않게
+            del password, creds
             if success:
                 self._update_login_status(True)
                 # 서버 ID 설정에 저장
@@ -88,9 +92,12 @@ class UploadMixin:
             self.btn_server_toggle.setText("Login")
 
     def _ensure_logged_in(self) -> bool:
-        """로그인 상태 확인. 안 됐으면 로그인 다이얼로그 자동 팝업."""
+        """로그인 상태 확인. 안 됐거나 서버 세션이 만료됐으면 로그인 다이얼로그 자동 팝업."""
         if self._uploader.logged_in:
-            return True
+            if self._uploader.is_session_alive():
+                return True
+            self._update_login_status(False)
+            self.logger.warn("서버 세션 만료 — 다시 로그인하세요")
         self._do_login()
         return self._uploader.logged_in
 
@@ -103,6 +110,26 @@ class UploadMixin:
     def _upload_csv_with_images(self):
         if self._ensure_logged_in():
             self._start_upload(with_images=True)
+
+    def _update_csv_only(self):
+        if self._ensure_logged_in():
+            self._start_upload(with_images=False, mode="update")
+
+    def _update_csv_with_images(self):
+        if self._ensure_logged_in():
+            self._start_upload(with_images=True, mode="update")
+
+    def _confirm_update_mode(self, row_count: int) -> bool:
+        """Update(서버 수정)는 기존 서버 데이터를 덮어쓰므로 실행 전 확인."""
+        reply = QMessageBox.warning(
+            self,
+            "서버 데이터 수정",
+            f"서버에 이미 등록된 QR {row_count}건의 데이터를 현재 값으로 덮어씁니다.\n"
+            "이 작업은 되돌릴 수 없습니다. 계속할까요?",
+            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.No,
+        )
+        return reply == QMessageBox.Yes
 
     def _get_upload_measurement_set(self):
         if (
@@ -132,7 +159,7 @@ class UploadMixin:
             return
         self._start_upload(with_images=True, ms=merged)
 
-    def _start_upload(self, with_images: bool, ms=None):
+    def _start_upload(self, with_images: bool, ms=None, mode: str = "upload"):
         if self._upload_thread is not None and self._upload_thread.isRunning():
             self.logger.warn("업로드가 진행 중입니다. 완료 후 다시 시도하세요.")
             return
@@ -161,6 +188,10 @@ class UploadMixin:
             self.logger.warn("업로드할 데이터가 없습니다 (QR ID가 매칭된 슬롯 없음)")
             return
 
+        if mode == "update" and not self._confirm_update_mode(len(rows) - 1):
+            self.logger.info("서버 수정(Update) 취소")
+            return
+
         tmp_csv = tempfile.NamedTemporaryFile(
             mode="w", suffix=".csv", delete=False, encoding="utf-8-sig"
         )
@@ -169,24 +200,13 @@ class UploadMixin:
         tmp_csv.close()
         csv_path = tmp_csv.name
 
-        # 이미지 경로 수집
-        image_paths = None
-        if with_images:
-            image_paths = []
-            for slot in ms.slots:
-                if policy == CSV_EXPORT_QR_ONLY and not slot.qr_id:
-                    continue
-                if slot.image_path:
-                    p = Path(slot.image_path)
-                    if p.exists():
-                        image_paths.append(str(p))
-
-        mode = "upload"
+        # 이미지 수집 — 전송 파일명은 CSV+Images 반출과 동일 규격({QR ID}.png)
+        image_files = upload_image_files(ms, policy) if with_images else None
 
         # 백그라운드 스레드로 업로드
         self._upload_thread = QThread()
         self._upload_worker = _UploadWorker(
-            self._uploader, csv_path, image_paths, mode
+            self._uploader, csv_path, image_files, mode
         )
         self._upload_worker.moveToThread(self._upload_thread)
 
@@ -223,13 +243,14 @@ class UploadMixin:
         self._upload_thread = None
         self._upload_worker = None
 
+        mode_label = _MODE_LABEL.get(result.mode, result.mode)
         if result.success:
-            msg = f"업로드 성공: CSV"
+            msg = f"{mode_label} 성공: CSV"
             if result.image_count > 0:
                 msg += f" + 이미지 {result.image_count}개"
             msg += f"\n서버 응답: {result.message}"
             self.logger.ok(msg)
-            self._statusbar.showMessage("서버 업로드 완료")
+            self._statusbar.showMessage(f"서버 {mode_label} 완료")
 
             if ms_db_id:
                 from src.core.database import update_upload_status
@@ -241,8 +262,11 @@ class UploadMixin:
                     datetime.now().isoformat(),
                 )
         else:
-            self.logger.error(f"업로드 실패: {result.message}")
-            self._statusbar.showMessage("서버 업로드 실패")
+            self.logger.error(f"{mode_label} 실패: {result.message}")
+            self._statusbar.showMessage(f"서버 {mode_label} 실패")
+            if not self._uploader.logged_in:
+                # 세션 만료로 실패한 경우 UI 상태를 서버 상태와 맞춘다
+                self._update_login_status(False)
 
             if ms_db_id:
                 from src.core.database import update_upload_status
