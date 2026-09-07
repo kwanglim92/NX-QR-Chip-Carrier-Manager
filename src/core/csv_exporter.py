@@ -80,6 +80,35 @@ def _slot_image_basename(slot: SlotData) -> str:
     return f"slot_{slot.slot_index + 1:02d}"
 
 
+def upload_image_files(
+    ms: MeasurementSet,
+    policy: CSVExportPolicy = CSV_EXPORT_QR_ONLY,
+) -> list[tuple[str, str]]:
+    """서버 업로드용 ``(로컬 경로, 전송 파일명)`` 목록.
+
+    전송 파일명은 CSV+Images 반출과 동일한 규격(``{QR ID}{확장자}``, QR 없으면
+    ``slot_NN``)을 따르며, 같은 이름이 겹치면 ``_1``, ``_2`` 접미로 메모리 내에서
+    유일화한다. 존재하지 않는 파일은 제외한다.
+    """
+    result: list[tuple[str, str]] = []
+    used: set[str] = set()
+    for slot in _iter_export_slots(ms, policy):
+        if not slot.image_path:
+            continue
+        src = Path(slot.image_path)
+        if not src.exists():
+            continue
+        basename = _slot_image_basename(slot)
+        send_name = f"{basename}{src.suffix}"
+        n = 1
+        while send_name in used:
+            send_name = f"{basename}_{n}{src.suffix}"
+            n += 1
+        used.add(send_name)
+        result.append((str(src), send_name))
+    return result
+
+
 def _unique_child_path(parent: Path, basename: str, suffix: str) -> Path:
     candidate = parent / f"{basename}{suffix}"
     if not candidate.exists():
