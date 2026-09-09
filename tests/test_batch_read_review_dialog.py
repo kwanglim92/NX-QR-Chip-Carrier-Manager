@@ -8,6 +8,8 @@ import pytest
 from src.core.models import MeasurementSet, SlotData
 from src.core.qr_reader.payload_parser import CellRead, ParsedFrame, parse_frame
 from src.core.qr_reader.slot_assigner import AssignStatus, build_plan
+from PySide6.QtWidgets import QGroupBox
+
 from src.ui.dialogs.batch_read_review_dialog import BatchReadReviewDialog
 
 FULL_RAW = Path(__file__).parent / "fixtures" / "qr_reader" / "20260909_132804_full.raw"
@@ -45,7 +47,9 @@ def test_summary_chips_and_panels(fixture_dialog):
     assert len(dlg._cards) == 72
     assert dlg.btn_apply.isEnabled() and dlg.btn_apply.text() == "적용 (58)"
     assert len(dlg.selected_items()) == 58
-    assert "P1" in dlg.findChildren(type(dlg._cards[1].parent()))[0].title() or True
+    titles = [b.title() for b in dlg.findChildren(QGroupBox)]
+    assert any(t.startswith("Port 1 · ① P1") for t in titles)
+    assert any(t == "Port 6 · 폴더 미로드" for t in titles)
 
 
 def test_ng_and_excluded_cards_render(fixture_dialog):
@@ -100,14 +104,36 @@ def test_apply_disabled_when_nothing_to_apply(qapp):
     dlg.close()
 
 
-def test_issues_only_filter_hides_normal_cells(fixture_dialog):
+def test_issues_only_filter_dims_normal_cells_without_hiding(fixture_dialog):
     dlg, *_ = fixture_dialog
     dlg.show()
     dlg.chk_issues_only.setChecked(True)
-    assert dlg._cards[1].isHidden()          # APPLY → 숨김
-    assert not dlg._cards[13].isHidden()     # NG → 표시
+    assert dlg._cards[1].dimmed and not dlg._cards[1].isHidden()   # APPLY → 흐림(격자 위치 유지)
+    assert dlg._cards[61].dimmed                                   # EXCLUDED → 흐림
+    assert not dlg._cards[13].dimmed and dlg._cards[13]._badge.text() == "NG"   # NG → 강조 유지
     dlg.chk_issues_only.setChecked(False)
-    assert not dlg._cards[1].isHidden()
+    assert not dlg._cards[1].dimmed and dlg._cards[1]._badge.text() == "적용"
+
+
+def test_port_with_only_no_record_is_titled_loaded_not_missing(qapp):
+    sets = [_set(1, "P1", slots=range(1, 2))]      # Slot 1 만 레코드
+    plan = build_plan(_frame(["A"]), sets, override={1: (1, 5)})   # 셀 1 → Slot 5 (레코드 없음)
+    dlg = BatchReadReviewDialog(plan, sets)
+    titles = [b.title() for b in dlg.findChildren(QGroupBox)]
+    assert titles == ["Port 1 · 레코드 없음"]
+    assert dlg._cards[1].parent().isEnabled()
+    dlg.close()
+
+
+def test_read_count_excludes_unread_cells_in_unloaded_ports(qapp):
+    sets = [_set(1, "P1")]
+    codes = ["A"] * 12 + [None] * 3 + ["B"] * 9      # Port 2 미로드, 그중 3칸 미판독
+    plan = build_plan(_frame(codes), sets)
+    dlg = BatchReadReviewDialog(plan, sets)
+    assert dlg._chip_labels["read"].text() == "21 / 24"
+    assert dlg._cards[24]._badge.text() == "제외"
+    assert "A" in dlg._cards[1].toolTip()
+    dlg.close()
 
 
 def test_rescan_signal(fixture_dialog):

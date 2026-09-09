@@ -117,6 +117,7 @@ def _index_sets(
     """(port, slot) → (set_index, SlotData), qr_id → [(set_index, SlotData)...], 로드된 port 집합.
 
     같은 (port, slot) 이 두 세트에 있으면 ``set_for_port[port]`` 로 대상 세트를 고르고, 없으면 AssignError.
+    ``by_qr`` 는 atx/set_for_port 필터와 무관하게 **로드된 세트 전체**의 기존 QR 을 모은다(§5 "로드된 폴더 전체에서 QR 중복").
     """
     by_pos: dict[tuple[int, int], tuple[int, SlotData]] = {}
     by_qr: dict[str, list[tuple[int, SlotData]]] = {}
@@ -129,6 +130,8 @@ def _index_sets(
                 raise AssignError(
                     f"세트 {si}({ms.po_number}) 의 슬롯 코드를 해석할 수 없습니다: {sd.slot_code!r}"
                 ) from None
+            if sd.qr_id:
+                by_qr.setdefault(sd.qr_id, []).append((si, sd))
             if atx is not None and info["atx"] != atx:
                 continue
             port = info["port"]
@@ -143,8 +146,6 @@ def _index_sets(
                 )
             by_pos[key] = (si, sd)
             ports.add(port)
-            if sd.qr_id:
-                by_qr.setdefault(sd.qr_id, []).append((si, sd))
     return by_pos, by_qr, ports
 
 

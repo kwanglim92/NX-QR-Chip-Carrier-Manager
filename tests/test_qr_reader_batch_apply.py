@@ -70,6 +70,7 @@ class _AcceptDialog:
         self.rescan_requested = _Sig()
 
     def exec(self): return 1
+    def deleteLater(self): pass
     def selected_items(self):
         from src.core.qr_reader.slot_assigner import AssignStatus
         return [i for i in self.plan.items if i.status is AssignStatus.APPLY
@@ -101,7 +102,7 @@ def test_full_frame_applies_to_loaded_sets(qapp, db_conn, patch_dialog):
     assert sets[1].slots[2].qr_id == "2680086CB6"
     assert len(host.saved) == 5 and all(ms.db_id for ms in sets)
     assert sum(len(r["grid"].updated) for r in host._folder_tabs) == 58
-    assert host.refreshed == ["labels", "progress", "pool"]
+    assert host.refreshed == ["labels", "pool", "progress"]   # 폴더 뷰 기준 진행률이 마지막
     assert any(k == "ok" and "58칸 매칭" in m for k, m in host.logger.lines)
 
 
@@ -147,6 +148,46 @@ def test_same_port_in_two_folders_uses_tab_order(qapp, db_conn, patch_dialog):
     host._on_reader_frame(_frame(["A"]))
     assert sets[0].slots[0].qr_id == "A" and sets[1].slots[0].qr_id is None
     assert any(k == "warn" and "같은 Port 폴더 중복" in m for k, m in host.logger.lines)
+
+
+def test_multiple_atx_loaded_blocks_scan(qapp, db_conn, patch_dialog):
+    patch_dialog(_AcceptDialog)
+    sets = [_set(1, "PO-ATX1", atx=1), _set(1, "PO-ATX2", atx=2)]
+    host = _Host(db_conn, sets)
+    host._on_reader_frame(_frame(["Z1"]))
+    assert host.logger.lines[-1][0] == "error" and "ATX 1, 2" in host.logger.lines[-1][1]
+    assert all(s.qr_id is None for ms in sets for s in ms.slots)
+    assert host.saved == []
+
+
+def test_single_atx_is_passed_to_build_plan(qapp, db_conn, patch_dialog):
+    patch_dialog(_AcceptDialog)
+    sets = [_set(1, "PO-ATX2", atx=2)]
+    host = _Host(db_conn, sets)
+    host._on_reader_frame(_frame(["Z1"]))
+    assert sets[0].slots[0].qr_id == "Z1"
+
+
+def test_dup_in_shadowed_folder_blocks_cell(qapp, db_conn, patch_dialog):
+    patch_dialog(_AcceptDialog)
+    sets = [_set(1, "P1"), _set(1, "P2")]
+    sets[1].slots[3].qr_id = "DUPCODE"                # 탭 2(선택되지 않음)에 이미 있음
+    host = _Host(db_conn, sets)
+    host._on_reader_frame(_frame(["DUPCODE", "OK1"]))
+    assert sets[0].slots[0].qr_id is None and sets[0].slots[1].qr_id == "OK1"
+
+
+def test_progress_refresh_order_folder_view_vs_pool(qapp, db_conn, patch_dialog):
+    patch_dialog(_AcceptDialog)
+    sets = [_set(1, "P1")]
+    host = _Host(db_conn, sets)
+    host._atx_pool_active = lambda: False
+    host._on_reader_frame(_frame(["A"]))
+    assert host.refreshed == ["labels", "pool", "progress"]      # 폴더 뷰: 마지막에 폴더 기준 진행률
+    host.refreshed.clear()
+    host._atx_pool_active = lambda: True
+    host._on_reader_frame(_frame([None, "B"]))
+    assert host.refreshed == ["labels", "pool"]                  # Pool 뷰: Pool 진행률 유지
 
 
 def test_invalid_override_from_settings_reports_error(qapp, db_conn, patch_dialog):

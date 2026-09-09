@@ -165,10 +165,18 @@ def test_same_atx_port_in_two_sets_needs_set_for_port():
     plan = build_plan(_frame(["A"]), sets, set_for_port={1: 1})
     assert plan.items[0].set_index == 1
     assert plan.items[0].target is sets[1].slots[0]
-    # 선택되지 않은 세트의 QR 도 로드된 중복 검사 대상에서 빠진다
+    # 선택되지 않은 세트에 있는 QR 도 "로드된 폴더 전체" 중복 검사에 포함된다 (§5)
     sets[0].slots[3].qr_id = "A"
     plan = build_plan(_frame(["A"]), sets, set_for_port={1: 1})
-    assert plan.items[0].status is AssignStatus.APPLY
+    assert plan.items[0].status is AssignStatus.DUP_LOADED
+    assert "_1104" in plan.items[0].note
+
+
+def test_dup_loaded_sees_other_atx_when_atx_filtered():
+    sets = [_set(1, atx=1, po="P1"), _set(1, atx=2, po="P2")]
+    sets[1].slots[5].qr_id = "A"
+    plan = build_plan(_frame(["A"]), sets, atx=1)
+    assert plan.items[0].status is AssignStatus.DUP_LOADED and "_2106" in plan.items[0].note
 
 
 def test_unparseable_slot_code_raises_assign_error():

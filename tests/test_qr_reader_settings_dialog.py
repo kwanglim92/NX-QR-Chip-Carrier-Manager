@@ -106,6 +106,36 @@ def test_read_test_reports_command_error(qapp):
     server.close()
 
 
+def test_accept_during_connection_test_cleans_up_client(qapp):
+    server = FakeReader(silent=True)                 # 접속은 받되 응답 없음
+    dlg = QRReaderSettingsDialog({"host": "127.0.0.1", "port": server.serverPort()})
+    dlg._test_connection()
+    assert wait_until(lambda: len(server.clients) == 1)
+    assert dlg._test_client is not None and dlg._test_timer.isActive()
+    dlg._on_accept()                                 # 저장
+    assert dlg._test_client is None and not dlg._test_timer.isActive()
+    assert dlg.result() == 1
+    server.close()
+
+
+def test_hidden_timeout_settings_survive_save(qapp):
+    dlg = QRReaderSettingsDialog({"result_timeout_s": 42.0, "connect_timeout_s": 7.5})
+    s = dlg.result_settings()
+    assert s["result_timeout_s"] == 42.0 and s["connect_timeout_s"] == 7.5
+    dlg.close()
+
+
+def test_tests_refused_for_non_lan_transport(qapp, monkeypatch):
+    dlg = QRReaderSettingsDialog({"transport": "keyboard"})
+    shown = []
+    monkeypatch.setattr("src.ui.dialogs.qr_reader_settings_dialog.QMessageBox.information",
+                        lambda *a, **k: shown.append(a[2]))
+    dlg._test_connection()
+    dlg._test_read()
+    assert len(shown) == 2 and "LAN" in shown[0] and dlg._test_client is None
+    dlg.close()
+
+
 def test_test_is_refused_when_form_invalid(qapp, monkeypatch):
     dlg = QRReaderSettingsDialog({})
     dlg.host_input.setText("")

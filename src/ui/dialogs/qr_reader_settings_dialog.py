@@ -49,6 +49,7 @@ class QRReaderSettingsDialog(QDialog):
         self.setModal(True)
         self.resize(620, 640)
         s = normalize_qr_reader_settings(settings)
+        self._base = s   # 폼에 노출하지 않는 키(result_timeout_s, connect_timeout_s)는 저장 시 그대로 유지
         self._test_client: KeyenceClient | None = None
         self._test_timer = QTimer(self)
         self._test_timer.setSingleShot(True)
@@ -227,6 +228,8 @@ class QRReaderSettingsDialog(QDialog):
             targets[(port, slot)] = cell
 
         return normalize_qr_reader_settings({
+            "result_timeout_s": self._base["result_timeout_s"],
+            "connect_timeout_s": self._base["connect_timeout_s"],
             "enabled": self.enabled_check.isChecked(),
             "transport": self.transport_combo.currentData(),
             "host": host,
@@ -264,6 +267,9 @@ class QRReaderSettingsDialog(QDialog):
             settings = self._collect()
         except _FormError as exc:
             QMessageBox.warning(self, "리더기 설정 오류", str(exc))
+            return None
+        if settings["transport"] != "lan":
+            QMessageBox.information(self, "리더기 테스트", "연결 테스트·테스트 판독은 전송 방식이 LAN (TCP) 일 때만 가능합니다.")
             return None
         client = KeyenceClient(self)
         client.configure(auto_reconnect=False, **client_kwargs(settings))
@@ -320,10 +326,7 @@ class QRReaderSettingsDialog(QDialog):
                 action()
         client.state_changed.connect(on_state)
 
-    def closeEvent(self, event) -> None:
+    def done(self, result: int) -> None:
+        """accept/reject/close 모두 여기를 지난다 — 진행 중인 테스트 클라이언트·타이머를 반드시 정리."""
         self._end_test("미확인", FG2)
-        super().closeEvent(event)
-
-    def reject(self) -> None:
-        self._end_test("미확인", FG2)
-        super().reject()
+        super().done(result)

@@ -94,6 +94,7 @@ def test_settings_dialog_save_reapplies_client(host, db_conn, monkeypatch):
     class _Dlg:
         def __init__(self, *a, **k): pass
         def exec(self): return 1          # QDialog.Accepted
+        def deleteLater(self): pass
         def result_settings(self): return new
 
     monkeypatch.setattr("src.ui.dialogs.qr_reader_settings_dialog.QRReaderSettingsDialog", _Dlg)

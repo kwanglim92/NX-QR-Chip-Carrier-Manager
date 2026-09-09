@@ -41,9 +41,11 @@ _STYLE: dict[AssignStatus, tuple[str, int, str, str, str]] = {
     AssignStatus.DUP_FRAME: (ORANGE, 2, ORANGE, "중복", ORANGE),
     AssignStatus.DUP_LOADED: (ORANGE, 2, ORANGE, "중복", ORANGE),
     AssignStatus.NO_RECORD: (RED, 2, RED, "레코드없음", RED),
-    AssignStatus.EXCLUDED: (BG3, 1, BG3, "제외", FG3),
+    AssignStatus.EXCLUDED: (BG3, 1, FG3, "제외", FG3),
 }
 _FORCED_STYLE = (YELLOW, 2, YELLOW, "덮어씀", YELLOW)
+_DIMMED_STYLE = (BG3, 1, BG3, "", FG3)
+# "이상 칸만 보기" 에서 흐리게 처리하는(확인이 필요 없는) 상태. 숨기지 않고 흐리게 해 격자 위치를 유지한다.
 _NORMAL_STATUSES = {AssignStatus.APPLY, AssignStatus.SAME, AssignStatus.EXCLUDED}
 _COLS = 3
 
@@ -55,6 +57,7 @@ class _CellCard(QFrame):
         super().__init__(parent)
         self.item = item
         self.forced = False
+        self.dimmed = False
         self.setFixedHeight(58)
         layout = QVBoxLayout(self)
         layout.setContentsMargins(6, 4, 6, 4)
@@ -96,18 +99,24 @@ class _CellCard(QFrame):
 
     def refresh(self) -> None:
         it = self.item
-        border, width, bbg, btext, ccolor = _FORCED_STYLE if self.forced else _STYLE[it.status]
+        if self.dimmed:
+            border, width, bbg, btext, ccolor = _DIMMED_STYLE
+        elif self.forced:
+            border, width, bbg, btext, ccolor = _FORCED_STYLE
+        else:
+            border, width, bbg, btext, ccolor = _STYLE[it.status]
         self.setStyleSheet(
             f"_CellCard {{ background: {BG2}; border: {width}px solid {border}; border-radius: 6px; }}"
         )
         self._badge.setText(btext)
+        self._badge.setVisible(bool(btext))
         self._badge.setStyleSheet(
             f"background: {bbg}; color: {BG}; border-radius: 9px; padding: 0 6px; font-size: 10px; font-weight: bold;"
         )
         if it.status is AssignStatus.NG:
             self._code.setText("미판독")
             self._code.setStyleSheet(f"color: {FG3}; font-size: 12px;")
-        elif it.status is AssignStatus.EXCLUDED:
+        elif it.status is AssignStatus.EXCLUDED or self.dimmed:
             self._code.setText(it.code or "")
             self._code.setStyleSheet(f"color: {FG3}; font-size: 12px;")
         else:
@@ -121,12 +130,16 @@ class _CellCard(QFrame):
         if self.forced:
             note = f"{it.note} → 교체"
         self._note.setText(note)
-        self.setToolTip(f"셀 {it.cell} → Port {it.port} Slot {it.slot}\n{btext}: {note}")
+        status_text = _STYLE[it.status][3] if not self.forced else "덮어쓰기"
+        self.setToolTip(
+            f"셀 {it.cell} → Port {it.port} Slot {it.slot}\n"
+            f"코드: {it.code or '(미판독)'}\n{status_text}: {note}"
+        )
 
     def set_dimmed(self, dimmed: bool) -> None:
-        self.setGraphicsEffect(None)
-        self.setWindowOpacity(1.0)
-        self.setVisible(not dimmed)
+        if dimmed != self.dimmed:
+            self.dimmed = dimmed
+            self.refresh()
 
 
 class BatchReadReviewDialog(QDialog):
@@ -150,10 +163,11 @@ class BatchReadReviewDialog(QDialog):
         # ── 요약 칩 ──
         counts = plan.counts()
         n = len(plan.items)
+        unread = sum(1 for it in plan.items if it.code is None)   # NG + 미로드 포트의 미판독 칸
         chips = QHBoxLayout()
         self._chip_labels: dict[str, QLabel] = {}
         for key, label, value, color in (
-            ("read", "판독", f"{n - counts[AssignStatus.NG]} / {n}", FG),
+            ("read", "판독", f"{n - unread} / {n}", FG),
             ("apply", "적용 가능", counts[AssignStatus.APPLY], GREEN),
             ("ng", "NG", counts[AssignStatus.NG], FG2),
             ("same", "동일", counts[AssignStatus.SAME], TEAL),
@@ -172,16 +186,19 @@ class BatchReadReviewDialog(QDialog):
         # ── 필터 + 범례 ──
         bar = QHBoxLayout()
         self.chk_issues_only = QCheckBox("이상 칸만 보기")
+        self.chk_issues_only.setToolTip("적용·동일·제외 칸을 흐리게 표시하고 확인이 필요한 칸만 강조합니다.")
         self.chk_issues_only.toggled.connect(self._apply_filter)
         bar.addWidget(self.chk_issues_only)
-        for color, text, thick in ((GREEN, "적용", True), (BG3, "NG", False), (TEAL, "동일 QR", False),
-                                   (ORANGE, "중복", True), (RED, "충돌 / 레코드 없음", True), (YELLOW, "덮어쓰기", True)):
+        for color, text, thick in ((GREEN, "적용", True), (BG3, "NG", False), (TEAL, "동일", False),
+                                   (ORANGE, "중복", True), (RED, "충돌/레코드없음", True), (YELLOW, "덮어쓰기", True)):
             bar.addWidget(self._legend(color, text, thick))
         bar.addStretch()
-        hint = QLabel("셀 번호 = 리더기 격자 순서 · Port = (셀−1)÷12+1 · 충돌 칸 우클릭 → 덮어쓰기")
+        hint = QLabel("충돌 칸 우클릭 → 덮어쓰기")
         hint.setStyleSheet(f"color: {FG3}; font-size: 12px;")
+        hint.setToolTip("셀 번호 = 리더기 격자 순서 · Port = (셀−1)÷12+1, Slot = (셀−1)%12+1")
         bar.addWidget(hint)
         outer.addLayout(bar)
+        self.setMinimumWidth(960)
 
         # ── 패널 (스크롤) ──
         scroll = QScrollArea()
@@ -251,12 +268,13 @@ class BatchReadReviewDialog(QDialog):
         return w
 
     def _panel(self, port: int, items: list[AssignItem]) -> QGroupBox:
+        # 포트가 로드됐는지는 EXCLUDED 여부로 판단 (NO_RECORD 칸만 있는 포트도 "로드됨")
+        loaded = any(it.status is not AssignStatus.EXCLUDED for it in items)
         set_idx = next((it.set_index for it in items if it.set_index is not None), None)
-        loaded = set_idx is not None
-        if loaded and set_idx < len(self._sets):
+        if loaded and set_idx is not None and set_idx < len(self._sets):
             title = f"Port {port} · {circled_number(set_idx + 1)} {self._sets[set_idx].po_number}"
         elif loaded:
-            title = f"Port {port}"
+            title = f"Port {port} · 레코드 없음"
         else:
             title = f"Port {port} · 폴더 미로드"
         box = QGroupBox(title)
@@ -298,9 +316,8 @@ class BatchReadReviewDialog(QDialog):
         self._refresh_footer()
 
     def _apply_filter(self, issues_only: bool) -> None:
-        for cell, card in self._cards.items():
-            normal = card.item.status in _NORMAL_STATUSES and cell not in self._forced
-            card.set_dimmed(issues_only and normal)
+        for card in self._cards.values():
+            card.set_dimmed(issues_only and card.item.status in _NORMAL_STATUSES)
 
     def _refresh_footer(self) -> None:
         counts = self._plan.counts()

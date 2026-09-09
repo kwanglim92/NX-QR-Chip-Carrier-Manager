@@ -74,7 +74,8 @@ class QRReaderMixin:
         self.btn_reader_status.setToolTip(
             f"SR-X300W {s['host']}:{s['port']} — {label}\n클릭하면 리더기 설정을 엽니다."
         )
-        self.btn_cassette_scan.setEnabled(state == ReaderState.CONNECTED.value)
+        if hasattr(self, "btn_cassette_scan"):
+            self.btn_cassette_scan.setEnabled(state == ReaderState.CONNECTED.value)
 
     def _on_reader_frame(self, frame: ParsedFrame) -> None:
         self._last_frame = frame
@@ -92,11 +93,22 @@ class QRReaderMixin:
         if not sets:
             self.logger.warn("로드된 ATX 폴더가 없습니다 — 폴더를 먼저 로드한 뒤 카세트 스캔을 실행하세요")
             return
+        atx_numbers = self._loaded_atx_numbers(sets)
+        if len(atx_numbers) > 1:
+            # 셀 → (port, slot) 공식에는 ATX 가 없으므로 ATX 가 섞이면 어느 폴더에 쓸지 결정할 수 없다 → 차단
+            self.logger.error(
+                "로드된 폴더의 ATX 번호가 여러 개입니다 (ATX "
+                + ", ".join(map(str, sorted(atx_numbers)))
+                + ") — 카세트 스캔 대상 ATX 폴더만 남기고 다시 스캔하세요"
+            )
+            return
+        atx = next(iter(atx_numbers), None)
         try:
             plan = build_plan(
                 frame, sets,
+                atx=atx,
                 override=self._qr_reader_settings["cell_override"],
-                set_for_port=self._set_for_port(sets),
+                set_for_port=self._set_for_port(sets, atx),
             )
         except AssignError as exc:
             self.logger.error(f"카세트 판독 대응 실패: {exc}")
@@ -106,22 +118,39 @@ class QRReaderMixin:
 
         dlg = BatchReadReviewDialog(plan, sets, frame.scan_time_ms, self)
         dlg.rescan_requested.connect(lambda: (dlg.reject(), self._scan_cassette()))
-        if dlg.exec() != QDialog.Accepted:
-            self.logger.info("카세트 판독 적용 취소")
-            return
-        self._apply_batch(dlg.selected_items(), sets)
+        try:
+            if dlg.exec() != QDialog.Accepted:
+                self.logger.info("카세트 판독 적용 취소")
+                return
+            items = dlg.selected_items()
+        finally:
+            dlg.deleteLater()
+        self._apply_batch(items, sets)
 
-    def _set_for_port(self, sets) -> dict[int, int]:
-        """같은 Port 가 여러 폴더에 있으면 탭 순서(①②③…)의 앞 폴더를 대상으로 삼는다."""
+    @staticmethod
+    def _loaded_atx_numbers(sets) -> set[int]:
+        numbers: set[int] = set()
+        for ms in sets:
+            for sd in ms.slots:
+                try:
+                    numbers.add(parse_slot_code(sd.slot_code)["atx"])
+                except (ValueError, IndexError):
+                    continue
+        return numbers
+
+    def _set_for_port(self, sets, atx: int | None) -> dict[int, int]:
+        """같은 Port 가 여러 폴더에 있으면 탭 순서(①②③…)의 앞 폴더를 대상으로 삼는다 (같은 ATX 안에서)."""
         mapping: dict[int, int] = {}
         shadowed: list[str] = []
         for si, ms in enumerate(sets):
             ports = set()
             for sd in ms.slots:
                 try:
-                    ports.add(parse_slot_code(sd.slot_code)["port"])
+                    info = parse_slot_code(sd.slot_code)
                 except (ValueError, IndexError):
                     continue
+                if atx is None or info["atx"] == atx:
+                    ports.add(info["port"])
             for port in sorted(ports):
                 if port in mapping:
                     shadowed.append(f"Port {port}: {ms.po_number} (탭 {si + 1}) → {sets[mapping[port]].po_number} (탭 {mapping[port] + 1}) 사용")
@@ -160,10 +189,15 @@ class QRReaderMixin:
             except Exception as exc:  # DB 실패 시 화면 데이터는 유지 (기존 Pool 경로와 동일)
                 self.logger.error(f"DB 저장 실패 ({ms.po_number}, 화면 데이터는 유지됨): {exc}")
 
-        for name in ("_atx_refresh_tab_labels", "_update_progress", "_pool_refresh_view"):
+        # 순서 주의: _pool_refresh_view 는 진행률 바를 Pool 기준으로 덮어쓰므로,
+        # 폴더 뷰가 활성이면 마지막에 _update_progress 로 활성 폴더 기준으로 되돌린다.
+        for name in ("_atx_refresh_tab_labels", "_pool_refresh_view"):
             fn = getattr(self, name, None)
             if callable(fn):
                 fn()
+        pool_active = getattr(self, "_atx_pool_active", lambda: False)()
+        if not pool_active and callable(getattr(self, "_update_progress", None)):
+            self._update_progress()
         self.logger.ok(
             f"카세트 판독 적용: {len(items)}칸 매칭 (폴더 {len(touched)}개"
             + (f", 덮어쓰기 {overwritten}" if overwritten else "") + ")"
@@ -191,9 +225,13 @@ class QRReaderMixin:
         from src.ui.dialogs.qr_reader_settings_dialog import QRReaderSettingsDialog
 
         dlg = QRReaderSettingsDialog(self._qr_reader_settings, self)
-        if dlg.exec() != QDialog.Accepted:
-            return
-        self._qr_reader_settings = save_qr_reader_settings(self._db_conn, dlg.result_settings())
+        try:
+            if dlg.exec() != QDialog.Accepted:
+                return
+            new_settings = dlg.result_settings()
+        finally:
+            dlg.deleteLater()
+        self._qr_reader_settings = save_qr_reader_settings(self._db_conn, new_settings)
         self._apply_reader_settings()
         self.logger.ok("리더기 설정이 저장되었습니다")
 
