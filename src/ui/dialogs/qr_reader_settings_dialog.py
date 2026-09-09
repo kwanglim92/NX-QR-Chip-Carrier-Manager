@@ -38,6 +38,32 @@ _TRANSPORT_LABELS = [("lan", "LAN (TCP)"), ("serial", "Serial (USB 가상 COM)")
 _TEST_TIMEOUT_MS = 20_000
 
 
+def _hex_ascii(payload: str) -> str:
+    try:
+        return bytes.fromhex(payload).decode("ascii")
+    except (ValueError, UnicodeDecodeError):
+        return payload
+
+
+def _enum(mapping: dict[str, str]):
+    return lambda v: mapping.get(v.lstrip("0") or "0", v)
+
+
+# 실기기(SR-X300W, 2026-09-09)로 확인한 읽기 전용 조회 항목: (명령, 표시명, 값 포맷)
+# RB 는 "RB,<뱅크 2자리><번호 3자리>", RP 는 "RP,<번호>" (매뉴얼 14-3, p.104~)
+READER_PARAMS: list[tuple[str, str, object]] = [
+    ("RP,101", "트리거 방식", _enum({"0": "레벨 (LON~LOFF)", "1": "원샷"})),
+    ("RP,103", "트리거 ON 문자열", _hex_ascii),
+    ("RP,104", "트리거 OFF 문자열", _hex_ascii),
+    ("RP,205", "판독 에러 문자열", _hex_ascii),
+    ("RP,290", "다중 코드 출력 형식", _enum({"0": "표준", "1": "뱅크별", "2": "영역별 (고정 개수)"})),
+    ("RB,01100", "노출 시간 (뱅크 1)", lambda v: f"{int(v)} µs" if v.isdigit() else v),
+    ("RB,01101", "게인 (뱅크 1)", lambda v: v.lstrip("0") or "0"),
+    ("RB,01010", "내부 조명 종류 (뱅크 1)", _enum({"0": "직접광", "1": "편광", "2": "확산광"})),
+    ("RB,01108", "콘트라스트 (뱅크 1)", _enum({"0": "표준", "1": "HDR", "2": "HDR2", "3": "콘트라스트 줌"})),
+]
+
+
 class _FormError(Exception):
     """폼 입력 검증 실패."""
 
@@ -158,6 +184,24 @@ class QRReaderSettingsDialog(QDialog):
         ov_layout.addLayout(ov_btns)
         outer.addWidget(ov_box, 1)
 
+        # ── 리더기 현재 값 (읽기 전용, RB/RP 조회) ──
+        val_box = QGroupBox("리더기 현재 값 (읽기 전용)")
+        val_layout = QVBoxLayout(val_box)
+        self.param_table = QTableWidget(len(READER_PARAMS), 2)
+        self.param_table.setHorizontalHeaderLabels(["항목", "리더기 값"])
+        self.param_table.verticalHeader().setVisible(False)
+        self.param_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        self.param_table.setEditTriggers(QTableWidget.NoEditTriggers)
+        self.param_table.setFixedHeight(24 + 22 * len(READER_PARAMS))
+        for row, (_cmd, label, _fmt) in enumerate(READER_PARAMS):
+            self.param_table.setItem(row, 0, QTableWidgetItem(label))
+            self.param_table.setItem(row, 1, QTableWidgetItem("—"))
+        val_layout.addWidget(self.param_table)
+        val_hint = QLabel("조명·노출·격자 등 설정 변경은 AutoID Network Navigator 에서 합니다. 여기서는 확인만 합니다.")
+        val_hint.setStyleSheet(f"color: {FG2}; font-size: 12px;")
+        val_layout.addWidget(val_hint)
+        outer.addWidget(val_box)
+
         # ── 상태 + 버튼 ──
         footer = QHBoxLayout()
         self.status_dot = QLabel("●")
@@ -167,16 +211,23 @@ class QRReaderSettingsDialog(QDialog):
         footer.addWidget(self.status_label, 1)
         self.btn_test_conn = QPushButton("연결 테스트")
         self.btn_test_conn.clicked.connect(self._test_connection)
+        self.btn_read_params = QPushButton("리더기 값 읽기")
+        self.btn_read_params.clicked.connect(self._read_params)
         self.btn_test_read = QPushButton("테스트 판독")
         self.btn_test_read.clicked.connect(self._test_read)
+        self.btn_preview = QPushButton("판독 미리보기")
+        self.btn_preview.setToolTip("리더기 서치 영역을 실제 좌표대로 그리고 판독 결과를 칸에 표시합니다 (Navigator 불필요)")
+        self.btn_preview.clicked.connect(lambda: self._open_preview(self._last_frame))
         btn_cancel = QPushButton("취소")
         btn_cancel.clicked.connect(self.reject)
         btn_save = QPushButton("저장")
         btn_save.setProperty("accent", "true")
         btn_save.clicked.connect(self._on_accept)
-        for b in (self.btn_test_conn, self.btn_test_read, btn_cancel, btn_save):
+        for b in (self.btn_test_conn, self.btn_read_params, self.btn_test_read, self.btn_preview, btn_cancel, btn_save):
             footer.addWidget(b)
         outer.addLayout(footer)
+        self._last_frame = None
+        self._preview = None
 
     # ─── override 표 ───
 
@@ -287,8 +338,7 @@ class QRReaderSettingsDialog(QDialog):
         self._test_timer.stop()
         client, self._test_client = self._test_client, None
         if client is not None:
-            client.close()
-            client.deleteLater()
+            client.close()          # 창의 자식이므로 창과 함께 파괴 (deleteLater 는 창 파괴 시 이중 삭제 위험)
         self._set_status(text, color)
         self.btn_test_conn.setEnabled(True)
         self.btn_test_read.setEnabled(True)
@@ -312,11 +362,48 @@ class QRReaderSettingsDialog(QDialog):
             ms = f", {frame.scan_time_ms} ms" if frame.scan_time_ms is not None else ""
             ng_text = f", NG {len(ng)}칸 ({', '.join(map(str, ng[:8]))}{'…' if len(ng) > 8 else ''})" if ng else ""
             self._end_test(f"판독 {n - len(ng)}/{n}{ng_text}{ms}", GREEN)
+            self._last_frame = frame
+            self._open_preview(frame)
 
         client.frame_received.connect(on_frame)
         client.frame_rejected.connect(lambda m: self._end_test(f"프레임 거부: {m}", RED))
         self._once_connected(client, lambda: (self._set_status("판독 중…", TEAL), client.trigger()))
         client.open()
+
+    def _read_params(self) -> None:
+        """RB/RP 로 확인된 파라미터를 순차 조회해 표에 채운다 (읽기 전용)."""
+        client = self._start_test()
+        if client is None:
+            return
+        remaining = [len(READER_PARAMS)]
+
+        def fill(row: int, fmt, payload: str | None, reason: str) -> None:
+            text = fmt(payload) if payload is not None else f"({reason})"
+            self.param_table.item(row, 1).setText(text)
+            remaining[0] -= 1
+            if remaining[0] == 0:
+                self._end_test("리더기 값 읽기 완료", GREEN)
+
+        def start() -> None:
+            self._set_status("리더기 값 읽는 중…", TEAL)
+            for row, (cmd, _label, fmt) in enumerate(READER_PARAMS):
+                client.query(cmd, lambda p, r, row=row, fmt=fmt: fill(row, fmt, p, r))
+
+        self._once_connected(client, start)
+        client.open()
+
+    def _open_preview(self, frame) -> None:
+        from src.ui.dialogs.frame_preview_dialog import FramePreviewDialog
+
+        try:
+            settings = self._collect()
+        except _FormError as exc:
+            QMessageBox.warning(self, "리더기 설정 오류", str(exc))
+            return
+        if self._preview is not None:
+            self._preview.close()
+        self._preview = FramePreviewDialog(settings, frame, self)
+        self._preview.show()
 
     @staticmethod
     def _once_connected(client: KeyenceClient, action) -> None:
