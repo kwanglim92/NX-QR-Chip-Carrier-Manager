@@ -126,6 +126,7 @@ src/ui/widgets/inspection_page.py           3열 레이아웃(뷰 전용)
 src/ui/widgets/sweep_verdict_chart.py       matplotlib 판정 차트 (더블클릭 → Explorer)
 src/ui/widgets/sweep_explorer_window.py     pyqtgraph 인터랙티브 창(크로스헤어·피크 표·공진 세로선·기준 오버레이)
 src/ui/dialogs/image_popup_dialog.py        이미지 더블클릭 확대 창
+src/ui/widgets/inspection_layout_window.py  레이아웃 보기(ATX 2×2 실물 배치, 색 기준 콤보)
 src/ui/dialogs/inspection_template_dialog.py  템플릿 New
 tests/fixtures/mtc/20260909/                실런 7슬롯 발췌(PNG 800×600 축소)
 tests/test_mtc_parser · test_sweep_shape · test_vision_check · test_inspection_grading · test_lot_builder · test_inspection_mixin
@@ -139,6 +140,13 @@ tests/test_mtc_parser · test_sweep_shape · test_vision_check · test_inspectio
 판정 차트 더블클릭 → 비모달 창(여러 개 동시). 위 ZoomOut·아래 줌인, 크로스헤어는 최근접 데이터 점에 스냅해
 주파수·진폭 표시. 공진 세로선 = MTC Frequency(주황) · 측정 최대 피크(빨강) · Lorentzian f0(청록).
 피크 표는 `sweep_shape.peak_details`(prominence, 반높이 FWHM, Q 추정 = f/FWHM). 판정 값은 바꾸지 않는다.
+
+### 8.2 레이아웃 보기
+
+`레이아웃 보기` 버튼 → 비모달 창 1개. ATX1 좌상·ATX2 우상·ATX3 좌하·ATX4 우하, ATX 안은 Port1 왼쪽·Port2 오른쪽,
+Port 는 `slot_mapper.slot_to_grid`(Slot 1 좌하단) 규칙. 셀 배경 = 등급 색(기본) 또는 Sweep 점수·Frequency·Q 그라데이션,
+빈 슬롯 = 점선. 결과표의 등급 필터(기본 전부 표시, 체크 해제 = 숨김)는 레이아웃에서 흐림으로 반영되고,
+셀 클릭은 표 행 선택과 같은 경로(`row_selected`)를 타므로 상세·Explorer·우클릭 메뉴가 그대로 동작한다.
 
 ## 9. 후속 (미구현)
 

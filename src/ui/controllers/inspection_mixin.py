@@ -88,6 +88,7 @@ class InspectionMixin:
         self._insp_grouped: dict[str, str] = {}
         self._insp_overrides: dict[str, tuple[str | None, bool | None]] = {}
         self._insp_explorers: list = []   # 열려 있는 Sweep Explorer 창들(비모달)
+        self._insp_layout_win = None      # 레이아웃 보기 창(비모달, 1개)
 
         self._insp_templates = self._load_inspection_templates()
         if not self._insp_templates:
@@ -124,6 +125,7 @@ class InspectionMixin:
         for viewer in (p.vision_viewer, p.sweep_viewer, p.zoom_viewer):
             viewer.double_clicked.connect(self._insp_popup_image)
         p.chart.double_clicked.connect(self._insp_open_explorer)
+        p.btn_layout.clicked.connect(self._insp_open_layout)
 
         p.grp_path_edit.setText(lot_dir or "")
         p.set_template_names(sorted(self._insp_templates), self._insp_current_tip)
@@ -138,6 +140,8 @@ class InspectionMixin:
             w.wait(3000)
         for win in list(self._insp_explorers):
             win.close()
+        if self._insp_layout_win is not None:
+            self._insp_layout_win.close()
 
     # ─── 템플릿 ───
 
@@ -349,6 +353,7 @@ class InspectionMixin:
         counts = grade_counts(self._insp_verdicts)
         p.lbl_total.setText(f"Total: {len(rows)}")
         p.lbl_counts.setText(" · ".join(f"{GRADE_NAMES[k]} {counts.get(k, 0)}" for k in ALL_GRADE_KEYS))
+        self._insp_refresh_layout()
 
     def _insp_verdict(self, code: str | None):
         if not code:
@@ -361,6 +366,50 @@ class InspectionMixin:
     def _insp_on_row(self, code: str):
         self._insp_selected = code
         self._insp_show_detail()
+        if self._insp_layout_win is not None:
+            self._insp_layout_win.select(code)
+
+    # ─── 레이아웃 보기 (비모달 창) ───
+
+    def _insp_open_layout(self):
+        if self._insp_layout_win is None:
+            from src.ui.widgets.inspection_layout_window import InspectionLayoutWindow
+            win = InspectionLayoutWindow(self)
+            win.cell_clicked.connect(self._insp_layout_cell_clicked)
+            win.cell_double_clicked.connect(self._insp_layout_cell_double_clicked)
+            win.cell_context_requested.connect(self._insp_context_menu)
+            win.mode_combo.currentIndexChanged.connect(lambda _i: self._insp_refresh_layout())
+            win.closed.connect(self._insp_layout_closed)
+            self._insp_layout_win = win
+        self._insp_refresh_layout()
+        self._insp_layout_win.select(self._insp_selected)
+        self._insp_layout_win.show()
+        self._insp_layout_win.raise_()
+        self._insp_layout_win.activateWindow()
+
+    def _insp_layout_closed(self, _win):
+        self._insp_layout_win = None
+
+    def _insp_refresh_layout(self):
+        win = self._insp_layout_win
+        if win is None:
+            return
+        win.update_view(self._insp_run, self._insp_verdicts,
+                        self._insp_ref.code if self._insp_ref else None,
+                        self._insp_grouped, self.inspection_page.grade_filter())
+
+    def _insp_layout_cell_clicked(self, code: str):
+        # 표 행 선택 → row_selected → _insp_on_row (상세 갱신 + 레이아웃 선택 표시)
+        p = self.inspection_page
+        if code in p._codes:
+            p.select_code(code)
+        else:
+            # 필터로 표에 없는 슬롯: 상세만 갱신
+            self._insp_on_row(code)
+
+    def _insp_layout_cell_double_clicked(self, code: str):
+        self._insp_layout_cell_clicked(code)
+        self._insp_open_explorer()
 
     # ─── 상세 ───
 

@@ -204,3 +204,22 @@ def test_save_report(app_window, qapp, monkeypatch, tmp_path):
     monkeypatch.setattr(im.QFileDialog, "getSaveFileName", staticmethod(lambda *a, **k: (str(out), "")))
     win._insp_save_report()
     assert out.exists() and "20260909_1101" in out.read_text(encoding="utf-8-sig")
+
+
+def test_layout_window_opens_and_syncs(app_window, qapp, monkeypatch):
+    win = _open_fixture(app_window, qapp, monkeypatch)
+    win._insp_open_layout()
+    lw = win._insp_layout_win
+    assert lw is not None and lw.isVisible()
+    assert lw.cells["1101"]._selected                 # 현재 선택 동기화
+    lw.cells["3212"].clicked.emit("3212")
+    qapp.processEvents()
+    assert win._insp_selected == "3212" and lw.cells["3212"]._selected
+    # 필터 변경 → 레이아웃 흐림 반영
+    win.inspection_page.chk_grade["reject"].setChecked(False)
+    assert lw.cells["3212"]._bg.alpha() < 255
+    # override → 배지
+    win._insp_override("1101", grade="research")
+    assert lw.cells["1101"].badge.text() == "*"
+    lw.close()
+    assert win._insp_layout_win is None
