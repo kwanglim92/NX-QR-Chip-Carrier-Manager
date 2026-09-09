@@ -106,6 +106,24 @@ def test_settings_dialog_save_reapplies_client(host, db_conn, monkeypatch):
     server.close()
 
 
+def test_saving_lan_settings_connects_even_without_autoconnect(host, db_conn, monkeypatch):
+    server = FakeReader()
+    host._init_qr_reader()
+    new = {"enabled": False, "host": "127.0.0.1", "port": server.serverPort()}
+
+    class _Dlg:
+        def __init__(self, *a, **k): pass
+        def exec(self): return 1
+        def deleteLater(self): pass
+        def result_settings(self): return new
+
+    monkeypatch.setattr("src.ui.dialogs.qr_reader_settings_dialog.QRReaderSettingsDialog", _Dlg)
+    host._open_qr_reader_settings()
+    assert wait_until(host._reader.is_connected)        # 저장 = 즉시 접속
+    assert load_qr_reader_settings(db_conn)["enabled"] is False   # 다음 앱 시작에는 자동 접속 안 함
+    server.close()
+
+
 def test_shutdown_closes_reader(host, db_conn):
     server = FakeReader()
     save_qr_reader_settings(db_conn, {"enabled": True, "host": "127.0.0.1", "port": server.serverPort()})

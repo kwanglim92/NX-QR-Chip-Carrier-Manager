@@ -42,15 +42,16 @@ class QRReaderMixin:
         self._reader.frame_rejected.connect(lambda m: self.logger.warn(f"리더기 프레임 거부: {m}"))
         self._reader.command_error.connect(self._on_reader_command_error)
         self._reader.comm_error.connect(lambda m: self.logger.warn(f"리더기 통신: {m}"))
-        self._apply_reader_settings()
+        # 앱 시작: '앱 시작 시 자동 접속' 이 켜진 경우에만 접속
+        self._apply_reader_settings(connect_now=self._qr_reader_settings["enabled"])
 
-    def _apply_reader_settings(self) -> None:
-        """설정을 클라이언트에 반영. LAN + enabled 면 접속, 아니면 끊고 버튼 비활성."""
+    def _apply_reader_settings(self, connect_now: bool) -> None:
+        """설정을 클라이언트에 반영. LAN 이고 connect_now 면 접속, 아니면 끊긴 상태로 둔다(버튼 비활성)."""
         s = self._qr_reader_settings
         self._reader.close()
         self._reader.configure(**client_kwargs(s))
         self._update_reader_chip(self._reader.state.value)
-        if s["transport"] == "lan" and s["enabled"]:
+        if s["transport"] == "lan" and connect_now:
             self._reader.open()
 
     # ─── UI 반응 ───
@@ -232,8 +233,12 @@ class QRReaderMixin:
         finally:
             dlg.deleteLater()
         self._qr_reader_settings = save_qr_reader_settings(self._db_conn, new_settings)
-        self._apply_reader_settings()
-        self.logger.ok("리더기 설정이 저장되었습니다")
+        # 저장 = 이 리더기를 쓰겠다는 뜻이므로 LAN 이면 즉시 접속 (자동 접속 체크는 다음 앱 시작에만 영향)
+        self._apply_reader_settings(connect_now=True)
+        self.logger.ok(
+            "리더기 설정이 저장되었습니다"
+            + ("" if self._qr_reader_settings["transport"] == "lan" else " (LAN 이 아니므로 접속하지 않음)")
+        )
 
     def _shutdown_qr_reader(self) -> None:
         reader = getattr(self, "_reader", None)

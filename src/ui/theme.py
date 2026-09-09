@@ -192,6 +192,12 @@ QComboBox QAbstractItemView {{
 }}
 QLabel {{ color: {fg}; }}
 QLabel[header="true"] {{ color: {purple}; font-weight: bold; font-size: 15px; }}
+QCheckBox {{ color: {fg}; spacing: 6px; }}
+QCheckBox::indicator {{
+    width: 16px; height: 16px; border: 1px solid {bg4}; border-radius: 3px; background: {bg2};
+}}
+QCheckBox::indicator:hover {{ border-color: {accent}; }}
+QCheckBox::indicator:checked {{ background: {accent}; border-color: {accent}; }}
 QGroupBox {{
     color: {accent}; border: 1px solid {bg3}; border-radius: 6px;
     margin-top: 8px; padding-top: 14px; font-weight: bold;

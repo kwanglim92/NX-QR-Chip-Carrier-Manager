@@ -79,9 +79,10 @@ class QRReaderSettingsDialog(QDialog):
         host_row.addStretch()
         conn_form.addRow("IP 주소", host_row)
 
-        self.enabled_check = QCheckBox("앱 시작 시 자동 접속, 끊기면 자동 재접속")
+        self.enabled_check = QCheckBox("앱 시작 시 자동 접속 (저장하면 지금 바로 접속합니다)")
         self.enabled_check.setChecked(s["enabled"])
-        conn_form.addRow("연결 유지", self.enabled_check)
+        self.enabled_check.setToolTip("켜면 앱을 실행할 때 이 리더기에 자동으로 접속하고, 끊기면 재접속합니다.\n저장 버튼은 이 설정과 무관하게 즉시 접속을 시도합니다.")
+        conn_form.addRow("자동 접속", self.enabled_check)
         outer.addWidget(conn_box)
 
         # ── 판독 ──

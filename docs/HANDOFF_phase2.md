@@ -18,7 +18,7 @@
 | 중앙 DB 취합 | 보류 | 설계 v0.2 문서만 커밋 |
 | 릴리스 2.4.0 | 미수행 | `VERSION`=2.3.0, CHANGELOG `[Unreleased]` 누적 중 |
 
-테스트: `pytest -q --ignore=tests/test_server_uploader.py` → 250 passed / 15 skipped (2026-09-09, 필드 노트북 시스템 Python 3.12 기준 — `requests`·`pytesseract`·`pytest-qt` 미설치라 업로더 테스트 제외, Tesseract 없음). `%LOCALAPPDATA%` 를 임시 경로로 리다이렉트하고 실행할 것(실 DB 보호).
+테스트: `pytest -q --ignore=tests/test_server_uploader.py` → 251 passed / 15 skipped (2026-09-09, 필드 노트북 시스템 Python 3.12 기준 — `requests`·`pytesseract`·`pytest-qt` 미설치라 업로더 테스트 제외, Tesseract 없음). `%LOCALAPPDATA%` 를 임시 경로로 리다이렉트하고 실행할 것(실 DB 보호).
 
 > **필드 노트북 주의**: `python` 명령은 Windows Python 관리자 셈이라 `LOCALAPPDATA` 를 바꾸면 새 Python 을 내려받는다. 반드시 절대 경로 인터프리터를 쓸 것:
 > `LOCALAPPDATA=<임시경로> C:\Users\Levi.Beak\AppData\Local\Python\pythoncore-3.12-64\python.exe -m pytest -q`
