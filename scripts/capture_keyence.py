@@ -54,7 +54,15 @@ def unescape_send(text: str) -> bytes:
     return text.encode("utf-8").decode("unicode_escape").encode("latin-1")
 
 
-def capture(host: str, port: int, duration: float, send: str | None, tag: str) -> Path:
+def capture(
+    host: str,
+    port: int,
+    duration: float,
+    send: str | None,
+    tag: str,
+    then: str | None = None,
+    then_after: float = 0.0,
+) -> Path:
     FIXTURE_DIR.mkdir(parents=True, exist_ok=True)
     stamp = _dt.datetime.now().strftime("%Y%m%d_%H%M%S")
     raw_path = FIXTURE_DIR / f"{stamp}_{tag}.raw"
@@ -70,8 +78,15 @@ def capture(host: str, port: int, duration: float, send: str | None, tag: str) -
             print(f"[sent] {make_readable(payload)}", flush=True)
 
         chunks: list[bytes] = []
-        deadline = time.monotonic() + duration
+        start = time.monotonic()
+        deadline = start + duration
+        then_at = start + then_after if then else None
         while time.monotonic() < deadline:
+            if then_at is not None and time.monotonic() >= then_at:
+                payload = unescape_send(then)
+                sock.sendall(payload)
+                print(f"\n[sent] {make_readable(payload)}", flush=True)
+                then_at = None
             try:
                 chunk = sock.recv(65536)
             except socket.timeout:
@@ -85,7 +100,8 @@ def capture(host: str, port: int, duration: float, send: str | None, tag: str) -
     data = b"".join(chunks)
     raw_path.write_bytes(data)
     txt_path.write_text(
-        f"# host={host} port={port} send={send!r} duration={duration}s bytes={len(data)}\n"
+        f"# host={host} port={port} send={send!r} then={then!r} then_after={then_after}s "
+        f"duration={duration}s bytes={len(data)}\n"
         + make_readable(data),
         encoding="utf-8",
     )
@@ -100,9 +116,11 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--duration", type=float, default=30.0, help="수집 시간(초), 기본 30")
     ap.add_argument("--send", default=None, help='접속 직후 보낼 문자열 (예: "LON\\r")')
     ap.add_argument("--tag", default="capture", help="파일명 태그 (full / partial / empty / rotated / dup 등)")
+    ap.add_argument("--then", default=None, help='--then-after 초 뒤에 보낼 두 번째 문자열 (예: "LOFF\\r")')
+    ap.add_argument("--then-after", type=float, default=0.0, help="--then 전송까지 대기 시간(초)")
     args = ap.parse_args(argv)
     try:
-        capture(args.host, args.port, args.duration, args.send, args.tag)
+        capture(args.host, args.port, args.duration, args.send, args.tag, args.then, args.then_after)
     except OSError as e:
         print(f"[error] {e}", file=sys.stderr)
         return 1
