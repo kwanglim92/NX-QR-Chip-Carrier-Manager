@@ -33,7 +33,7 @@ _STATE_STYLE = {
 
 class QRReaderMixin:
     def _init_qr_reader(self) -> None:
-        """UI 구성 후 호출. 설정을 읽고 클라이언트를 만들며, enabled 면 접속한다."""
+        """UI 구성 후 호출. 설정을 읽고 클라이언트를 만들며, enabled(기본 켜짐) 면 바로 접속을 시도한다."""
         self._qr_reader_settings = load_qr_reader_settings(self._db_conn)
         self._last_frame: ParsedFrame | None = None
         self._reader = KeyenceClient(self)
@@ -42,7 +42,7 @@ class QRReaderMixin:
         self._reader.frame_rejected.connect(lambda m: self.logger.warn(f"리더기 프레임 거부: {m}"))
         self._reader.command_error.connect(self._on_reader_command_error)
         self._reader.comm_error.connect(lambda m: self.logger.warn(f"리더기 통신: {m}"))
-        # 앱 시작: '앱 시작 시 자동 접속' 이 켜진 경우에만 접속
+        # 앱 시작: '앱 시작 시 자동 접속'(기본 켜짐) 이면 접속 시도 — 실패해도 백오프 재접속으로 계속 확인
         self._apply_reader_settings(connect_now=self._qr_reader_settings["enabled"])
 
     def _apply_reader_settings(self, connect_now: bool) -> None:

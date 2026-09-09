@@ -28,6 +28,12 @@ class _Grid:
     def update_slot(self, slot): self.updated.append(slot.slot_code)
 
 
+@pytest.fixture(autouse=True)
+def _no_autoconnect(db_conn):
+    """자동 접속 기본 켜짐 → 테스트가 실기기 IP 로 나가지 않도록 끈다."""
+    save_qr_reader_settings(db_conn, {"enabled": False})
+
+
 class _Host(QRReaderMixin, QObject):
     def __init__(self, db_conn, sets):
         super().__init__()

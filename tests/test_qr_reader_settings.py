@@ -18,7 +18,7 @@ def test_defaults_when_empty_or_invalid():
         assert s["host"] == "192.168.100.2" and s["port"] == 9004
         assert s["read_seconds"] == 6.0 and s["expected_count"] == 72
         assert s["ng_token"] == "ERROR" and s["cell_override"] == {}
-        assert s["enabled"] is False and s["transport"] == "lan"
+        assert s["enabled"] is True and s["transport"] == "lan"   # 자동 접속 기본 켜짐
 
 
 def test_out_of_range_and_bad_types_fall_back():

@@ -17,7 +17,7 @@ QR_READER_KEY = "qr_reader"
 TRANSPORTS = ("lan", "serial", "keyboard")
 
 DEFAULT_QR_READER_SETTINGS: dict[str, Any] = {
-    "enabled": False,               # True 면 앱 시작 시 자동 접속
+    "enabled": True,                # 앱 시작 시 자동 접속(기본 켜짐). 끄면 설정 창에서 저장할 때만 접속
     "transport": "lan",             # lan | serial | keyboard(폴백: 리더기 기능 비활성)
     "host": "192.168.100.2",
     "port": 9004,

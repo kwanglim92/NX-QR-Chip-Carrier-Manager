@@ -34,17 +34,31 @@ class _Host(QRReaderMixin, QObject):
 
 @pytest.fixture
 def host(qapp, db_conn):
+    # 자동 접속이 기본 켜짐이므로, 테스트가 실기기 IP 로 나가지 않도록 기본은 꺼 둔다(필요한 테스트는 다시 저장)
+    save_qr_reader_settings(db_conn, {"enabled": False})
     h = _Host(db_conn)
     yield h
     h._shutdown_qr_reader()
 
 
-def test_init_without_enabled_stays_disconnected(host):
+def test_init_with_auto_connect_off_stays_disconnected(host):
     host._init_qr_reader()
     assert host._reader.state.value == "disconnected"
     assert not host.btn_cassette_scan.isEnabled()
     assert "미연결" in host.btn_reader_status.text()
     assert host._last_frame is None
+
+
+def test_init_default_auto_connects(host, db_conn):
+    """저장된 설정에 enabled 가 없어도(기본값) 앱 시작 시 접속을 시도한다."""
+    server = FakeReader()
+    save_qr_reader_settings(db_conn, {"host": "127.0.0.1", "port": server.serverPort()})
+    assert load_qr_reader_settings(db_conn)["enabled"] is True
+    host._init_qr_reader()
+    assert host._reader.state.value != "disconnected"
+    assert wait_until(host._reader.is_connected)
+    assert host.btn_cassette_scan.isEnabled()
+    server.close()
 
 
 def test_enabled_lan_connects_and_scan_records_frame(host, db_conn):
