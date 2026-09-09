@@ -155,7 +155,7 @@ def test_sidebar_selects_single_page(qapp):
     dlg.show()
     qapp.processEvents()
     assert dlg.nav.count() == len(SECTIONS) == 4
-    assert dlg.nav.title(0).startswith("1.  연결") and dlg.nav.title(3).startswith("4.  리더기 현재 값")
+    assert dlg.nav.title(0).startswith("1.  연결") and dlg.nav.title(3).startswith("4.  리더기 튜닝")
     assert dlg.nav.currentRow() == 0 and dlg.current_section() == "conn"
     assert dlg.stack.currentWidget() is dlg.pages["conn"] and dlg.pages["params"].isVisible() is False
 
@@ -213,4 +213,73 @@ def test_action_buttons_live_in_their_sections(qapp):
     assert dlg.btn_test_conn.parent() is dlg.sections["conn"]
     assert dlg.btn_test_read.parent() is dlg.sections["read"] and dlg.btn_preview.parent() is dlg.sections["read"]
     assert dlg.btn_read_params.parent() is dlg.sections["params"]
+    dlg.close()
+
+
+# ─── 리더기 튜닝 페이지 (뱅크 1 읽기·쓰기·오토 포커스) ───
+
+def test_read_params_fills_bank_form_and_table(qapp):
+    server = FakeReader()
+    dlg = QRReaderSettingsDialog({"host": "127.0.0.1", "port": server.serverPort()})
+    dlg._read_params()
+    assert wait_until(lambda: dlg.status_label.text() == "리더기 값 읽기 완료", 4000)
+    assert dlg.bank_values() == {"exposure": 5922, "gain": 22, "lighting": 1, "contrast": 1}
+    assert dlg.param_table.item(0, 1).text().startswith("레벨") and dlg.param_table.item(1, 1).text() == "LON"
+    assert "노출 5922 µs" in dlg.bank_status.text() and "편광" in dlg.bank_status.text()
+    assert dlg._test_client is None
+    dlg.close()
+    server.close()
+
+
+def test_write_params_sends_wb_then_save_and_verifies(qapp):
+    server = FakeReader()
+    dlg = QRReaderSettingsDialog({"host": "127.0.0.1", "port": server.serverPort()})
+    dlg.exposure_spin.setValue(3000)
+    dlg.gain_spin.setValue(30)
+    dlg.lighting_combo.setCurrentIndex(dlg.lighting_combo.findData(2))
+    dlg.contrast_combo.setCurrentIndex(dlg.contrast_combo.findData(0))
+    dlg._write_params()
+    assert wait_until(lambda: dlg.status_label.text() == "리더기 쓰기 + 저장 완료", 4000)
+    assert server.received[:5] == ["WB,01100,03000", "WB,01101,30", "WB,01010,2", "WB,01108,0", "SAVE"]
+    assert server.received[5:] == ["RB,01100", "RB,01101", "RB,01010", "RB,01108"]
+    assert server.saved["RB,01100"] == "03000" and server.saved["RB,01101"] == "30"
+    assert "저장됨: 노출 3000 µs · 게인 30 · 확산광 · 표준" in dlg.bank_status.text()
+    assert dlg.btn_write_params.isEnabled() and dlg._test_client is None
+    dlg.close()
+    server.close()
+
+
+def test_write_params_stops_on_reader_error(qapp, monkeypatch):
+    server = FakeReader()
+    dlg = QRReaderSettingsDialog({"host": "127.0.0.1", "port": server.serverPort()})
+    monkeypatch.setattr("src.ui.dialogs.qr_reader_settings_dialog.BANK_PARAMS",
+                        [("01100", "노출 시간", "exposure"), ("01999", "없는 항목", "gain")])
+    dlg._write_params()
+    assert wait_until(lambda: dlg.status_label.text().startswith("리더기 쓰기 실패"), 4000)
+    assert "gain" in dlg.status_label.text() and "SAVE" not in server.received
+    dlg.close()
+    server.close()
+
+
+def test_autofocus_reports_result(qapp):
+    server = FakeReader()
+    dlg = QRReaderSettingsDialog({"host": "127.0.0.1", "port": server.serverPort()})
+    dlg._autofocus()
+    assert not dlg.btn_autofocus.isEnabled()
+    assert wait_until(lambda: dlg.status_label.text().startswith("오토 포커스 성공"), 4000)
+    assert server.received == ["FTUNE"] and "테스트 판독" in dlg.bank_status.text()
+    assert dlg.btn_autofocus.isEnabled() and dlg._test_client is None
+
+    server.ftune_fail = True
+    dlg._autofocus()
+    assert wait_until(lambda: dlg.status_label.text().startswith("오토 포커스 실패"), 4000)
+    dlg.close()
+    server.close()
+
+
+def test_tuning_buttons_live_in_params_section(qapp):
+    dlg = QRReaderSettingsDialog({})
+    for b in (dlg.btn_read_params, dlg.btn_write_params, dlg.btn_autofocus, dlg.btn_test_read_tune):
+        assert b.parent() is dlg.sections["params"]
+    assert dlg.nav.title(3).startswith("4.  리더기 튜닝")
     dlg.close()

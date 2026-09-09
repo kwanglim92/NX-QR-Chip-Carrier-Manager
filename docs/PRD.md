@@ -296,7 +296,7 @@ class ChipCarrierManagerApp(
 | 구성 파일 | `core/qr_reader/{payload_parser,slot_assigner,keyence_client,settings,boat_layout}.py`, `ui/dialogs/qr_reader_settings_dialog.py`, `ui/dialogs/frame_preview_dialog.py`, `ui/dialogs/batch_read_review_dialog.py`, `ui/controllers/qr_reader_mixin.py`, `scripts/capture_keyence.py`, `scripts/fake_keyence_server.py` |
 
 **기능**
-1. **리더기 설정** — 전송 방식(LAN, Serial/Keyboard 는 폴백 자리), IP·포트, 자동 접속, 트리거/종료 명령, 판독 시간, 기대 코드 수, NG 문자열, 셀→Port/Slot 재정의 표(범위·대상 중복 검증). `연결 테스트`(`KEYENCE` 응답)·`테스트 판독`(판독 n/N·NG·스캔타임)은 임시 클라이언트로 수행.
+1. **리더기 설정** — 전송 방식(LAN, Serial/Keyboard 는 폴백 자리), IP·포트, 자동 접속, 트리거/종료 명령, 판독 시간, 기대 코드 수, NG 문자열, 셀→Port/Slot 재정의 표(범위·대상 중복 검증). `연결 테스트`(`KEYENCE` 응답)·`테스트 판독`(판독 n/N·NG·스캔타임)은 임시 클라이언트로 수행. **리더기 튜닝** 페이지: 뱅크 1 노출·게인·조명 종류·콘트라스트를 읽고(`RB`) 수정해 `리더기에 쓰기 + 저장`(`WB` → `SAVE` → 재확인), `오토 포커스 실행`(`FTUNE`, 완료 통지 대기). 동작 파라미터(`RP`)는 읽기 전용.
 2. **상시 연결·상태 칩** — 앱 시작 시 자동 접속(기본 켜짐, 설정에서 해제 가능), 끊기면 3s→30s 백오프 재접속, 접속 타임아웃 5s. 상태: 미연결/접속 중/연결됨/판독 중/재접속 중.
 3. **다중 QR 스캔 → 즉시 적용, 판독 검토는 별도** — 프레임을 로드된 ATX 폴더(탭 순서 ①②③…)에 대응해 셀별 상태를 분류: 적용 / NG(미판독) / 동일 / 중복(프레임 내·로드된 슬롯) / 충돌(기존 다른 QR) / 레코드 없음 / 제외(폴더 미로드). **적용 칸은 검토 창 없이 바로 현재 창에 QR 입력**(슬롯 QR 갱신 → 그리드·탭 라벨·진행률·Pass Pool 갱신 → 폴더별 DB 자동 저장, 기존 단일 QR 경로와 동일 규칙), 나머지는 로그 요약. 레코드 없음은 그 칸만 미적용(차단 아님). `판독 검토` 버튼은 마지막 스캔을 **실물 배치**(보트 2열×3행, 카세트 4열×3행 — 판독 미리보기와 같은 `boat_layout`)로 펼쳐 보여 주고, 충돌 칸 우클릭 덮어쓰기 등을 `적용` 으로 반영.
 4. **하드웨어 없는 검증** — `tests/fixtures/qr_reader/*.raw` 실제 캡처 원문을 파서·대응·클라이언트 테스트 입력으로 사용, `scripts/fake_keyence_server.py` 로 앱 전체를 리더기 없이 시험.

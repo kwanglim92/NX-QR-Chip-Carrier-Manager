@@ -4,7 +4,7 @@
 사이드바 항목을 고르면 우측에 그 섹션 페이지만 보인다(스크롤 없음). 검증 오류는 해당 섹션 페이지로 이동한다.
 
 섹션: ① 연결(전송 방식·IP·포트·자동 접속, [연결 테스트]) ② 판독(LON·LOFF·판독 시간·기대 코드 수·NG 문자열,
-[테스트 판독][판독 미리보기]) ③ 셀 → Port·Slot 재정의 표 ④ 리더기 현재 값(읽기 전용 RB/RP, [리더기 값 읽기]).
+[테스트 판독][판독 미리보기]) ③ 셀 → Port·Slot 재정의 표 ④ 리더기 튜닝(뱅크 1 노출·게인·조명·콘트라스트 읽기·쓰기+SAVE, 오토 포커스 FTUNE, 동작 파라미터 RP 는 읽기 전용).
 하단 푸터: 상태 + [취소][저장].
 
 연결 테스트·테스트 판독·값 읽기는 폼의 현재 값으로 임시 ``KeyenceClient`` 를 만들어 수행하고 끝나면 닫는다.
@@ -40,7 +40,7 @@ from PySide6.QtWidgets import (
 from src.core.qr_reader.keyence_client import KeyenceClient
 from src.core.qr_reader.settings import client_kwargs, normalize_qr_reader_settings
 from src.core.qr_reader.slot_assigner import SLOTS_PER_PORT
-from src.ui.theme import ACCENT, BG2, BG3, FG, FG2, GREEN, RED, TEAL
+from src.ui.theme import ACCENT, BG2, BG3, FG, FG2, GREEN, ORANGE, RED, TEAL
 
 _TRANSPORT_LABELS = [("lan", "LAN (TCP)"), ("serial", "Serial (USB 가상 COM)"), ("keyboard", "Keyboard (폴백)")]
 _ROTATION_LABELS = [(0, "리더기 화상 그대로 (가로)"), (90, "시계 방향 90° (세로)"), (180, "180°"), (270, "반시계 방향 90° (세로, 기본)")]
@@ -51,7 +51,7 @@ SECTIONS: list[tuple[str, str, str]] = [
     ("conn", "연결", "전송 방식 · IP · 포트 · 자동 접속"),
     ("read", "판독", "트리거 명령 · 판독 시간 · 기대 코드 수"),
     ("map", "셀 → Port / Slot", "기본 공식과 재정의 표"),
-    ("params", "리더기 현재 값", "노출 · 게인 · 조명 · 트리거 (읽기 전용)"),
+    ("params", "리더기 튜닝", "노출 · 게인 · 조명 · 오토 포커스"),
 ]
 _SECTION_KEYS = [k for k, _, _ in SECTIONS]
 
@@ -75,11 +75,19 @@ READER_PARAMS: list[tuple[str, str, object]] = [
     ("RP,104", "트리거 OFF 문자열", _hex_ascii),
     ("RP,205", "판독 에러 문자열", _hex_ascii),
     ("RP,290", "다중 코드 출력 형식", _enum({"0": "표준", "1": "뱅크별", "2": "영역별 (고정 개수)"})),
-    ("RB,01100", "노출 시간 (뱅크 1)", lambda v: f"{int(v)} µs" if v.isdigit() else v),
-    ("RB,01101", "게인 (뱅크 1)", lambda v: v.lstrip("0") or "0"),
-    ("RB,01010", "내부 조명 종류 (뱅크 1)", _enum({"0": "직접광", "1": "편광", "2": "확산광"})),
-    ("RB,01108", "콘트라스트 (뱅크 1)", _enum({"0": "표준", "1": "HDR", "2": "HDR2", "3": "콘트라스트 줌"})),
 ]
+
+# 뱅크 1 조명·노출 파라미터 — 앱에서 읽고(RB) 쓴다(WB + SAVE). 범위는 매뉴얼 14-3 p.104, 쓰기·SAVE·FTUNE 은 실기기 검증 2026-09-09.
+# (RB/WB 키, 표시명, 폼 위젯 키)
+BANK_PARAMS: list[tuple[str, str, str]] = [
+    ("01100", "노출 시간", "exposure"),      # 12~10000 µs
+    ("01101", "게인", "gain"),               # 0~50
+    ("01010", "내부 조명 종류", "lighting"),  # 0 직접광 / 1 편광 / 2 확산광
+    ("01108", "콘트라스트 조정", "contrast"), # 0 표준 / 1 HDR / 2 HDR2 / 3 콘트라스트 줌
+]
+LIGHTING_LABELS = [(0, "직접광"), (1, "편광"), (2, "확산광")]
+CONTRAST_LABELS = [(0, "표준"), (1, "HDR"), (2, "HDR2"), (3, "콘트라스트 줌")]
+_AUTOFOCUS_TIMEOUT_MS = 75_000   # FTUNE 은 OK 뒤 수 초~수십 초 후 "Focus Tuning SUCCEEDED/FAILED" 가 온다
 
 
 class _FormError(Exception):
@@ -351,7 +359,59 @@ class QRReaderSettingsDialog(QDialog):
         return box
 
     def _build_params_section(self) -> QWidget:
-        box, layout = self._section("params", "리더기 현재 값 (읽기 전용)")
+        box, layout = self._section("params", "리더기 튜닝 (뱅크 1)")
+
+        # ── 조명·노출 (읽기 → 수정 → 리더기에 쓰기 + SAVE) ──
+        form = QFormLayout()
+        self.exposure_spin = QSpinBox()
+        self.exposure_spin.setRange(12, 10000)
+        self.exposure_spin.setSuffix(" µs")
+        self.exposure_spin.setFixedWidth(120)
+        self.gain_spin = QSpinBox()
+        self.gain_spin.setRange(0, 50)
+        self.gain_spin.setFixedWidth(80)
+        self.lighting_combo = QComboBox()
+        for v, label in LIGHTING_LABELS:
+            self.lighting_combo.addItem(label, v)
+        self.contrast_combo = QComboBox()
+        for v, label in CONTRAST_LABELS:
+            self.contrast_combo.addItem(label, v)
+        self._bank_widgets = {"exposure": self.exposure_spin, "gain": self.gain_spin,
+                              "lighting": self.lighting_combo, "contrast": self.contrast_combo}
+        for _key, label, wkey in BANK_PARAMS:
+            row = QHBoxLayout()
+            row.addWidget(self._bank_widgets[wkey])
+            if wkey == "exposure":
+                row.addWidget(_hint("12~10000. 어두우면 늘리고, 번들거리면 줄입니다"))
+            elif wkey == "gain":
+                row.addWidget(_hint("0~50. 노출로 부족할 때만 조금씩"))
+            row.addStretch()
+            form.addRow(label, row)
+        layout.addLayout(form)
+        self.bank_status = _hint("리더기 값 읽기를 눌러 현재 값을 가져오세요.", wrap=True)
+        layout.addWidget(self.bank_status)
+
+        actions = QHBoxLayout()
+        self.btn_read_params = QPushButton("리더기 값 읽기")
+        self.btn_read_params.setToolTip("RB/RP 조회 명령으로 리더기의 현재 값을 읽어 위 입력칸과 아래 표에 채웁니다. 값을 바꾸지는 않습니다.")
+        self.btn_read_params.clicked.connect(self._read_params)
+        self.btn_write_params = QPushButton("리더기에 쓰기 + 저장")
+        self.btn_write_params.setProperty("accent", "true")
+        self.btn_write_params.setToolTip("위 4개 값을 WB 명령으로 리더기 뱅크 1에 쓰고 SAVE 로 전원을 꺼도 유지되게 저장한 뒤 다시 읽어 확인합니다.")
+        self.btn_write_params.clicked.connect(self._write_params)
+        self.btn_autofocus = QPushButton("오토 포커스 실행")
+        self.btn_autofocus.setToolTip("FTUNE 명령으로 리더기가 초점을 자동 조정합니다(수 초~1분, 결과는 리더기 ROM 에 저장). 끝나면 테스트 판독으로 확인하세요.")
+        self.btn_autofocus.clicked.connect(self._autofocus)
+        self.btn_test_read_tune = QPushButton("테스트 판독")
+        self.btn_test_read_tune.setToolTip("현재 조명·초점으로 한 번 판독해 판독 수와 NG 칸을 확인합니다 (판독 섹션의 테스트 판독과 같음)")
+        self.btn_test_read_tune.clicked.connect(self._test_read)
+        for b in (self.btn_read_params, self.btn_write_params, self.btn_autofocus, self.btn_test_read_tune):
+            actions.addWidget(b)
+        actions.addStretch()
+        layout.addLayout(actions)
+
+        # ── 동작 파라미터 (읽기 전용) ──
+        layout.addWidget(_hint("동작 파라미터 (읽기 전용 — 변경은 AutoID Network Navigator)"))
         self.param_table = QTableWidget(len(READER_PARAMS), 2)
         self.param_table.setHorizontalHeaderLabels(["항목", "리더기 값"])
         self.param_table.verticalHeader().setVisible(False)
@@ -364,14 +424,36 @@ class QRReaderSettingsDialog(QDialog):
         row_h = self.param_table.verticalHeader().defaultSectionSize()
         self.param_table.setFixedHeight(self.param_table.horizontalHeader().sizeHint().height() + row_h * len(READER_PARAMS) + 4)
         layout.addWidget(self.param_table)
-        actions = QHBoxLayout()
-        self.btn_read_params = QPushButton("리더기 값 읽기")
-        self.btn_read_params.setToolTip("RB/RP 조회 명령으로 리더기의 현재 설정값을 읽어 표에 채웁니다. 값을 바꾸지는 않습니다.")
-        self.btn_read_params.clicked.connect(self._read_params)
-        actions.addWidget(self.btn_read_params)
-        actions.addWidget(_hint("조명·노출·격자 등 설정 변경은 AutoID Network Navigator 에서 합니다. 여기서는 확인만 합니다.", wrap=True), 1)
-        layout.addLayout(actions)
         return box
+
+    # ─── 뱅크 값 ↔ 폼 ───
+
+    def _set_bank_widget(self, wkey: str, raw: str) -> None:
+        """리더기 응답 문자열(예 '05922', '22', '1') → 폼 위젯."""
+        try:
+            value = int(raw)
+        except (TypeError, ValueError):
+            return
+        w = self._bank_widgets[wkey]
+        if isinstance(w, QComboBox):
+            idx = w.findData(value)
+            if idx >= 0:
+                w.setCurrentIndex(idx)
+        else:
+            w.setValue(value)
+
+    def bank_values(self) -> dict[str, int]:
+        return {
+            "exposure": self.exposure_spin.value(),
+            "gain": self.gain_spin.value(),
+            "lighting": self.lighting_combo.currentData(),
+            "contrast": self.contrast_combo.currentData(),
+        }
+
+    @staticmethod
+    def _bank_payload(wkey: str, value: int) -> str:
+        """WB 전송값 — 노출은 리더기가 돌려주는 형식(5자리)과 같게, 나머지는 정수 그대로 (실기기 확인 WB,01100,05922 → OK,WB)."""
+        return f"{value:05d}" if wkey == "exposure" else str(value)
 
     # ─── 사이드바 → 페이지 전환 ───
 
@@ -486,10 +568,11 @@ class QRReaderSettingsDialog(QDialog):
         self.status_label.setStyleSheet(f"color: {color}; font-size: 12px; font-weight: bold; background: transparent;")
 
     def _set_actions_enabled(self, enabled: bool) -> None:
-        for b in (self.btn_test_conn, self.btn_test_read, self.btn_read_params):
+        for b in (self.btn_test_conn, self.btn_test_read, self.btn_read_params,
+                  self.btn_write_params, self.btn_autofocus, self.btn_test_read_tune):
             b.setEnabled(enabled)
 
-    def _start_test(self) -> KeyenceClient | None:
+    def _start_test(self, timeout_ms: int = _TEST_TIMEOUT_MS) -> KeyenceClient | None:
         if self._test_client is not None:
             return None
         try:
@@ -507,7 +590,7 @@ class QRReaderSettingsDialog(QDialog):
         self._test_client = client
         self._set_actions_enabled(False)
         self._set_status(f"{settings['host']}:{settings['port']} 접속 중…", TEAL)
-        self._test_timer.start(_TEST_TIMEOUT_MS)
+        self._test_timer.start(timeout_ms)
         return client
 
     def _end_test(self, text: str, color: str) -> None:
@@ -545,8 +628,22 @@ class QRReaderSettingsDialog(QDialog):
         self._once_connected(client, lambda: (self._set_status("판독 중…", TEAL), client.trigger()))
         client.open()
 
+    def _query_bank(self, client: KeyenceClient, on_done) -> None:
+        """뱅크 1 값(RB)을 순차 조회해 폼에 채우고 on_done(values: dict[wkey, raw|None]) 호출."""
+        got: dict[str, str | None] = {}
+
+        def fill(wkey: str, payload: str | None, _reason: str) -> None:
+            got[wkey] = payload
+            if payload is not None:
+                self._set_bank_widget(wkey, payload)
+            if len(got) == len(BANK_PARAMS):
+                on_done(got)
+
+        for key, _label, wkey in BANK_PARAMS:
+            client.query(f"RB,{key}", lambda p, r, wkey=wkey: fill(wkey, p, r))
+
     def _read_params(self) -> None:
-        """RB/RP 로 확인된 파라미터를 순차 조회해 표에 채운다 (읽기 전용)."""
+        """RP(읽기 전용 표) + RB(뱅크 1 폼)를 순차 조회한다. 값을 바꾸지 않는다."""
         client = self._start_test()
         if client is None:
             return
@@ -556,15 +653,94 @@ class QRReaderSettingsDialog(QDialog):
             text = fmt(payload) if payload is not None else f"({reason})"
             self.param_table.item(row, 1).setText(text)
             remaining[0] -= 1
-            if remaining[0] == 0:
+
+        def bank_done(values: dict) -> None:
+            missing = [k for k, v in values.items() if v is None]
+            if missing:
+                self.bank_status.setText(f"뱅크 값 일부를 읽지 못했습니다: {', '.join(missing)}")
+                self._end_test("리더기 값 읽기 완료 (일부 실패)", ORANGE)
+            else:
+                v = self.bank_values()
+                self.bank_status.setText(f"리더기 현재 값: 노출 {v['exposure']} µs · 게인 {v['gain']} · "
+                                         f"{self.lighting_combo.currentText()} · {self.contrast_combo.currentText()}")
                 self._end_test("리더기 값 읽기 완료", GREEN)
 
         def start() -> None:
             self._set_status("리더기 값 읽는 중…", TEAL)
             for row, (cmd, _label, fmt) in enumerate(READER_PARAMS):
                 client.query(cmd, lambda p, r, row=row, fmt=fmt: fill(row, fmt, p, r))
+            self._query_bank(client, bank_done)
 
         self._once_connected(client, start)
+        client.open()
+
+    def _write_params(self) -> None:
+        """폼의 뱅크 1 값을 WB 로 쓰고 SAVE 로 저장한 뒤 RB 로 다시 읽어 확인한다 (실기기 검증 2026-09-09)."""
+        client = self._start_test()
+        if client is None:
+            return
+        values = self.bank_values()
+        pending = [len(BANK_PARAMS)]
+        failed: list[str] = []
+
+        def after_verify(got: dict) -> None:
+            mism = [wkey for (_k, _l, wkey) in BANK_PARAMS
+                    if got.get(wkey) is None or int(got[wkey]) != values[wkey]]
+            if mism:
+                self.bank_status.setText(f"저장 후 다시 읽은 값이 다릅니다: {', '.join(mism)}")
+                self._end_test("리더기 쓰기: 확인 실패", RED)
+            else:
+                self.bank_status.setText(f"리더기에 저장됨: 노출 {values['exposure']} µs · 게인 {values['gain']} · "
+                                         f"{self.lighting_combo.currentText()} · {self.contrast_combo.currentText()} — 테스트 판독으로 확인하세요")
+                self._end_test("리더기 쓰기 + 저장 완료", GREEN)
+
+        def on_save(payload: str | None, reason: str) -> None:
+            if payload is None:
+                self._end_test(f"SAVE 실패: {reason}", RED)
+                return
+            self._set_status("저장 확인 중…", TEAL)
+            self._query_bank(client, after_verify)
+
+        def on_write(wkey: str, payload: str | None, reason: str) -> None:
+            if payload is None:
+                failed.append(f"{wkey} ({reason})")
+            pending[0] -= 1
+            if pending[0] > 0:
+                return
+            if failed:
+                self._end_test("리더기 쓰기 실패: " + ", ".join(failed), RED)
+                return
+            self._set_status("SAVE 중…", TEAL)
+            client.query("SAVE", on_save, timeout_s=15.0)
+
+        def start() -> None:
+            self._set_status("리더기에 쓰는 중…", TEAL)
+            for key, _label, wkey in BANK_PARAMS:
+                client.query(f"WB,{key},{self._bank_payload(wkey, values[wkey])}",
+                             lambda p, r, wkey=wkey: on_write(wkey, p, r))
+
+        self._once_connected(client, start)
+        client.open()
+
+    def _autofocus(self) -> None:
+        """FTUNE — OK 뒤 리더기가 초점을 맞추고 'Focus Tuning SUCCEEDED/FAILED' 를 보낸다 (결과는 리더기 ROM 에 저장)."""
+        client = self._start_test(timeout_ms=_AUTOFOCUS_TIMEOUT_MS)
+        if client is None:
+            return
+
+        def on_result(text: str) -> None:
+            ok = "SUCCEEDED" in text
+            self.bank_status.setText("오토 포커스 " + ("성공 — 테스트 판독으로 판독 수를 확인하세요" if ok else "실패 — 보트 위치·조명을 확인한 뒤 다시 실행"))
+            self._end_test(f"오토 포커스 {'성공' if ok else '실패'} ({text})", GREEN if ok else RED)
+
+        def on_ack(payload: str | None, reason: str) -> None:
+            if payload is None:
+                self._end_test(f"FTUNE 거부: {reason}", RED)
+                return
+            self._set_status("오토 포커스 진행 중… (최대 1분)", TEAL)
+
+        client.tuning_result.connect(on_result)
+        self._once_connected(client, lambda: (self._set_status("FTUNE 전송…", TEAL), client.query("FTUNE", on_ack, timeout_s=10.0)))
         client.open()
 
     def _open_preview(self, frame) -> None:
