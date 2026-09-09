@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import pytest
 
-from src.ui.dialogs.qr_reader_settings_dialog import QRReaderSettingsDialog, _FormError
+from src.ui.dialogs.qr_reader_settings_dialog import SECTIONS, QRReaderSettingsDialog, _FormError
 from tests.test_qr_reader_client import FakeReader, wait_until
 
 
@@ -145,4 +145,51 @@ def test_test_is_refused_when_form_invalid(qapp, monkeypatch):
     dlg._test_connection()
     assert shown and "IP 주소" in shown[0]
     assert dlg._test_client is None
+    dlg.close()
+
+
+# ─── TOC 사이드바 ↔ 본문 스크롤 ───
+
+def test_sidebar_lists_sections_and_scrolls_to_them(qapp):
+    dlg = QRReaderSettingsDialog({})
+    dlg.show()
+    qapp.processEvents()
+    assert dlg.nav.count() == len(SECTIONS) == 4
+    assert dlg.nav.title(0).startswith("1.  연결") and dlg.nav.title(3).startswith("4.  리더기 현재 값")
+    assert dlg.nav.currentRow() == 0 and dlg.current_section() == "conn"
+
+    dlg.go_to("params")
+    qapp.processEvents()
+    assert dlg.scroll.verticalScrollBar().value() > 0
+    assert dlg.current_section() == "params" and dlg.nav.currentRow() == 3
+
+    dlg.scroll.verticalScrollBar().setValue(0)      # 본문을 직접 스크롤하면 사이드바가 따라온다
+    qapp.processEvents()
+    assert dlg.nav.currentRow() == 0
+    dlg.close()
+
+
+def test_form_error_jumps_to_related_section(qapp, monkeypatch):
+    dlg = QRReaderSettingsDialog({})
+    dlg.show()
+    qapp.processEvents()
+    shown = []
+    monkeypatch.setattr("src.ui.dialogs.qr_reader_settings_dialog.QMessageBox.warning",
+                        lambda *a, **k: shown.append(a[2]))
+    dlg.ng_input.setText("ER")
+    dlg._on_accept()
+    assert dlg.result() == 0 and "NG 문자열" in shown[-1] and dlg.nav.currentRow() == 1
+
+    dlg.ng_input.setText("ERROR")
+    dlg._append_override_row("x", "1", "1")
+    dlg._on_accept()
+    assert "정수" in shown[-1] and dlg.nav.currentRow() == 2
+    dlg.close()
+
+
+def test_action_buttons_live_in_their_sections(qapp):
+    dlg = QRReaderSettingsDialog({})
+    assert dlg.btn_test_conn.parent() is dlg.sections["conn"]
+    assert dlg.btn_test_read.parent() is dlg.sections["read"] and dlg.btn_preview.parent() is dlg.sections["read"]
+    assert dlg.btn_read_params.parent() is dlg.sections["params"]
     dlg.close()

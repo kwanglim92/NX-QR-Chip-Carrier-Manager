@@ -1,9 +1,13 @@
 """리더기 설정 다이얼로그 (설계 §4, 승인 목업 "리더기 설정").
 
-연결(전송 방식·IP·포트·자동 접속) / 판독(LON·LOFF·판독 시간·기대 코드 수·NG 문자열) /
-셀 → Port·Slot 재정의 표 / 하단 상태 + [연결 테스트][테스트 판독][취소][저장].
+좌측 **TOC 사이드바**(사용자 가이드 HTML 의 ``nav#toc`` 와 같은 구성) + 우측 **본문**(스크롤) 구조.
+사이드바 항목을 클릭하면 해당 섹션으로 스크롤하고, 본문을 스크롤하면 현재 섹션이 사이드바에 강조된다.
 
-연결 테스트·테스트 판독은 폼의 현재 값으로 임시 ``KeyenceClient`` 를 만들어 수행하고 끝나면 닫는다.
+섹션: ① 연결(전송 방식·IP·포트·자동 접속, [연결 테스트]) ② 판독(LON·LOFF·판독 시간·기대 코드 수·NG 문자열,
+[테스트 판독][판독 미리보기]) ③ 셀 → Port·Slot 재정의 표 ④ 리더기 현재 값(읽기 전용 RB/RP, [리더기 값 읽기]).
+하단 푸터: 상태 + [취소][저장].
+
+연결 테스트·테스트 판독·값 읽기는 폼의 현재 값으로 임시 ``KeyenceClient`` 를 만들어 수행하고 끝나면 닫는다.
 저장 시 ``result_settings()`` 가 정규화된 dict 를 돌려준다. DB 저장은 호출자(QRReaderMixin) 책임.
 """
 from __future__ import annotations
@@ -15,13 +19,17 @@ from PySide6.QtWidgets import (
     QDialog,
     QDoubleSpinBox,
     QFormLayout,
+    QFrame,
     QGroupBox,
     QHBoxLayout,
     QHeaderView,
     QLabel,
     QLineEdit,
+    QListWidget,
+    QListWidgetItem,
     QMessageBox,
     QPushButton,
+    QScrollArea,
     QSpinBox,
     QTableWidget,
     QTableWidgetItem,
@@ -32,10 +40,19 @@ from PySide6.QtWidgets import (
 from src.core.qr_reader.keyence_client import KeyenceClient
 from src.core.qr_reader.settings import client_kwargs, normalize_qr_reader_settings
 from src.core.qr_reader.slot_assigner import SLOTS_PER_PORT
-from src.ui.theme import FG2, GREEN, RED, TEAL
+from src.ui.theme import ACCENT, BG2, BG3, FG, FG2, GREEN, RED, TEAL
 
 _TRANSPORT_LABELS = [("lan", "LAN (TCP)"), ("serial", "Serial (USB 가상 COM)"), ("keyboard", "Keyboard (폴백)")]
 _TEST_TIMEOUT_MS = 20_000
+
+# TOC 사이드바 항목: (키, 제목, 한 줄 설명) — 본문 섹션 순서와 동일
+SECTIONS: list[tuple[str, str, str]] = [
+    ("conn", "연결", "전송 방식 · IP · 포트 · 자동 접속"),
+    ("read", "판독", "트리거 명령 · 판독 시간 · 기대 코드 수"),
+    ("map", "셀 → Port / Slot", "기본 공식과 재정의 표"),
+    ("params", "리더기 현재 값", "노출 · 게인 · 조명 · 트리거 (읽기 전용)"),
+]
+_SECTION_KEYS = [k for k, _, _ in SECTIONS]
 
 
 def _hex_ascii(payload: str) -> str:
@@ -68,29 +85,147 @@ class _FormError(Exception):
     """폼 입력 검증 실패."""
 
 
+def _hint(text: str, wrap: bool = False) -> QLabel:
+    lbl = QLabel(text)
+    lbl.setWordWrap(wrap)
+    lbl.setStyleSheet(f"color: {FG2}; font-size: 12px; background: transparent;")
+    return lbl
+
+
+class _SectionNav(QListWidget):
+    """좌측 TOC 사이드바. 항목마다 '번호. 제목'(굵게) + 설명(작게) 두 줄, 현재 섹션은 좌측 액센트 바 + 액센트 제목."""
+
+    def __init__(self, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self.setFixedWidth(250)
+        self.setFrameShape(QFrame.NoFrame)
+        self.setFocusPolicy(Qt.NoFocus)
+        self.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self.setSpacing(2)
+        self.setStyleSheet(f"""
+            QListWidget {{ background: {BG2}; border: none; border-right: 1px solid {BG3}; padding: 10px 6px; outline: 0; }}
+            QListWidget::item {{ border-radius: 6px; border-left: 3px solid transparent; }}
+            QListWidget::item:hover {{ background: {BG3}; }}
+            QListWidget::item:selected {{ background: {BG3}; border-left: 3px solid {ACCENT}; }}
+        """)
+        self._titles: list[QLabel] = []
+        for i, (_key, title, desc) in enumerate(SECTIONS, 1):
+            item = QListWidgetItem()
+            item.setToolTip(f"{title} — {desc}")
+            self.addItem(item)
+            w = QWidget()
+            w.setStyleSheet("background: transparent;")
+            v = QVBoxLayout(w)
+            v.setContentsMargins(10, 7, 8, 7)
+            v.setSpacing(2)
+            t = QLabel(f"{i}.  {title}")
+            d = QLabel(desc)
+            d.setStyleSheet(f"color: {FG2}; font-size: 12px; background: transparent;")
+            d.setWordWrap(True)
+            v.addWidget(t)
+            v.addWidget(d)
+            item.setSizeHint(w.sizeHint())
+            self.setItemWidget(item, w)
+            self._titles.append(t)
+        self.currentRowChanged.connect(self._restyle)
+        self._restyle(-1)
+
+    def title(self, row: int) -> str:
+        return self._titles[row].text()
+
+    def _restyle(self, current: int) -> None:
+        for i, t in enumerate(self._titles):
+            color, weight = (ACCENT, "bold") if i == current else (FG, "normal")
+            t.setStyleSheet(f"color: {color}; font-weight: {weight}; font-size: 14px; background: transparent;")
+
+
 class QRReaderSettingsDialog(QDialog):
     def __init__(self, settings: dict, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.setWindowTitle("리더기 설정")
         self.setModal(True)
-        self.resize(620, 640)
+        self.resize(920, 680)
         s = normalize_qr_reader_settings(settings)
         self._base = s   # 폼에 노출하지 않는 키(result_timeout_s, connect_timeout_s)는 저장 시 그대로 유지
         self._test_client: KeyenceClient | None = None
         self._test_timer = QTimer(self)
         self._test_timer.setSingleShot(True)
         self._test_timer.timeout.connect(lambda: self._end_test("응답 없음 (타임아웃)", RED))
+        self._last_frame = None
+        self._preview = None
+        self._syncing_nav = False
 
         outer = QVBoxLayout(self)
+        outer.setContentsMargins(0, 0, 0, 0)
+        outer.setSpacing(0)
 
-        # ── 연결 ──
-        conn_box = QGroupBox("연결")
-        conn_form = QFormLayout(conn_box)
+        # ── 좌: TOC 사이드바 / 우: 본문(스크롤) ──
+        body = QHBoxLayout()
+        body.setContentsMargins(0, 0, 0, 0)
+        body.setSpacing(0)
+        self.nav = _SectionNav()
+        body.addWidget(self.nav)
+
+        self.scroll = QScrollArea()
+        self.scroll.setWidgetResizable(True)
+        self.scroll.setFrameShape(QFrame.NoFrame)
+        content = QWidget()
+        content_layout = QVBoxLayout(content)
+        content_layout.setContentsMargins(20, 16, 20, 16)
+        content_layout.setSpacing(18)
+        self.sections: dict[str, QWidget] = {}
+        content_layout.addWidget(self._build_conn_section(s))
+        content_layout.addWidget(self._build_read_section(s))
+        content_layout.addWidget(self._build_map_section(s))
+        content_layout.addWidget(self._build_params_section())
+        content_layout.addStretch(1)
+        self.scroll.setWidget(content)
+        body.addWidget(self.scroll, 1)
+        outer.addLayout(body, 1)
+
+        self.nav.currentRowChanged.connect(self._on_nav_changed)
+        self.scroll.verticalScrollBar().valueChanged.connect(self._sync_nav_to_scroll)
+        self.nav.setCurrentRow(0)
+
+        # ── 푸터: 상태 + 취소/저장 ──
+        footer_frame = QFrame()
+        footer_frame.setObjectName("readerFooter")
+        footer_frame.setStyleSheet(f"QFrame#readerFooter {{ background: {BG2}; border-top: 1px solid {BG3}; }}")
+        footer = QHBoxLayout(footer_frame)
+        footer.setContentsMargins(16, 10, 16, 10)
+        self.status_dot = QLabel("●")
+        self.status_label = QLabel("미확인")
+        self._set_status("미확인", FG2)
+        footer.addWidget(self.status_dot)
+        footer.addWidget(self.status_label, 1)
+        btn_cancel = QPushButton("취소")
+        btn_cancel.clicked.connect(self.reject)
+        btn_save = QPushButton("저장")
+        btn_save.setProperty("accent", "true")
+        btn_save.setToolTip("설정을 저장하고 (LAN 이면) 지금 바로 리더기에 접속합니다.")
+        btn_save.clicked.connect(self._on_accept)
+        footer.addWidget(btn_cancel)
+        footer.addWidget(btn_save)
+        outer.addWidget(footer_frame)
+
+    # ─── 섹션 빌더 ───
+
+    def _section(self, key: str, title: str) -> tuple[QGroupBox, QVBoxLayout]:
+        box = QGroupBox(f"{_SECTION_KEYS.index(key) + 1}. {title}")
+        layout = QVBoxLayout(box)
+        layout.setSpacing(10)
+        self.sections[key] = box
+        return box, layout
+
+    def _build_conn_section(self, s: dict) -> QWidget:
+        box, layout = self._section("conn", "연결")
+        form = QFormLayout()
         self.transport_combo = QComboBox()
         for key, label in _TRANSPORT_LABELS:
             self.transport_combo.addItem(label, key)
         self.transport_combo.setCurrentIndex(max(0, [k for k, _ in _TRANSPORT_LABELS].index(s["transport"])))
-        conn_form.addRow("전송 방식", self.transport_combo)
+        form.addRow("전송 방식", self.transport_combo)
 
         host_row = QHBoxLayout()
         self.host_input = QLineEdit(s["host"])
@@ -103,17 +238,26 @@ class QRReaderSettingsDialog(QDialog):
         host_row.addWidget(QLabel("포트"))
         host_row.addWidget(self.port_spin)
         host_row.addStretch()
-        conn_form.addRow("IP 주소", host_row)
+        form.addRow("IP 주소", host_row)
 
-        self.enabled_check = QCheckBox("앱 시작 시 자동 접속 (저장하면 지금 바로 접속합니다)")
+        self.enabled_check = QCheckBox("앱 시작 시 자동 접속 (기본 켜짐)")
         self.enabled_check.setChecked(s["enabled"])
         self.enabled_check.setToolTip("켜면 앱을 실행할 때 이 리더기에 자동으로 접속하고, 끊기면 재접속합니다.\n저장 버튼은 이 설정과 무관하게 즉시 접속을 시도합니다.")
-        conn_form.addRow("자동 접속", self.enabled_check)
-        outer.addWidget(conn_box)
+        form.addRow("자동 접속", self.enabled_check)
+        layout.addLayout(form)
 
-        # ── 판독 ──
-        read_box = QGroupBox("판독")
-        read_form = QFormLayout(read_box)
+        actions = QHBoxLayout()
+        self.btn_test_conn = QPushButton("연결 테스트")
+        self.btn_test_conn.setToolTip("현재 입력한 IP·포트로 접속해 KEYENCE 명령 응답(모델·펌웨어)을 확인합니다.")
+        self.btn_test_conn.clicked.connect(self._test_connection)
+        actions.addWidget(self.btn_test_conn)
+        actions.addWidget(_hint("리더기가 AutoID Network Navigator 에 연결돼 있으면 ER,…,23 이 납니다. Navigator 에서 연결을 끊으세요.", wrap=True), 1)
+        layout.addLayout(actions)
+        return box
+
+    def _build_read_section(self, s: dict) -> QWidget:
+        box, layout = self._section("read", "판독")
+        form = QFormLayout()
         cmd_row = QHBoxLayout()
         self.trigger_input = QLineEdit(s["trigger_cmd"])
         self.trigger_input.setFixedWidth(100)
@@ -122,11 +266,9 @@ class QRReaderSettingsDialog(QDialog):
         cmd_row.addWidget(self.trigger_input)
         cmd_row.addWidget(QLabel("종료"))
         cmd_row.addWidget(self.stop_input)
-        hint = QLabel("종단자 CR")
-        hint.setStyleSheet(f"color: {FG2}; font-size: 12px;")
-        cmd_row.addWidget(hint)
+        cmd_row.addWidget(_hint("종단자 CR"))
         cmd_row.addStretch()
-        read_form.addRow("트리거 명령", cmd_row)
+        form.addRow("트리거 명령", cmd_row)
 
         sec_row = QHBoxLayout()
         self.read_spin = QDoubleSpinBox()
@@ -137,11 +279,9 @@ class QRReaderSettingsDialog(QDialog):
         self.read_spin.setValue(s["read_seconds"])
         self.read_spin.setFixedWidth(90)
         sec_row.addWidget(self.read_spin)
-        sec_hint = QLabel("LON 후 이 시간이 지나면 LOFF 로 결과 확정")
-        sec_hint.setStyleSheet(f"color: {FG2}; font-size: 12px;")
-        sec_row.addWidget(sec_hint)
+        sec_row.addWidget(_hint("LON 후 이 시간이 지나면 LOFF 로 결과 확정"))
         sec_row.addStretch()
-        read_form.addRow("판독 시간", sec_row)
+        form.addRow("판독 시간", sec_row)
 
         cnt_row = QHBoxLayout()
         self.count_spin = QSpinBox()
@@ -153,81 +293,112 @@ class QRReaderSettingsDialog(QDialog):
         cnt_row.addWidget(self.count_spin)
         cnt_row.addWidget(QLabel("NG 문자열"))
         cnt_row.addWidget(self.ng_input)
-        cnt_hint = QLabel("개수 불일치 시 프레임 폐기")
-        cnt_hint.setStyleSheet(f"color: {FG2}; font-size: 12px;")
-        cnt_row.addWidget(cnt_hint)
+        cnt_row.addWidget(_hint("개수 불일치 시 프레임 폐기"))
         cnt_row.addStretch()
-        read_form.addRow("기대 코드 수", cnt_row)
-        outer.addWidget(read_box)
+        form.addRow("기대 코드 수", cnt_row)
+        layout.addLayout(form)
 
-        # ── 셀 → Port / Slot 재정의 ──
-        ov_box = QGroupBox("셀 → Port / Slot 대응")
-        ov_layout = QVBoxLayout(ov_box)
-        formula = QLabel("기본 공식: Port = (셀−1)÷12+1, Slot = (셀−1)%12+1. 아래 표의 셀만 재정의됩니다.")
-        formula.setStyleSheet(f"color: {FG2}; font-size: 12px;")
-        ov_layout.addWidget(formula)
+        actions = QHBoxLayout()
+        self.btn_test_read = QPushButton("테스트 판독")
+        self.btn_test_read.setToolTip("LON → 판독 시간 대기 → LOFF 로 한 번 판독하고 결과를 하단 상태와 판독 미리보기 창에 표시합니다.")
+        self.btn_test_read.clicked.connect(self._test_read)
+        self.btn_preview = QPushButton("판독 미리보기")
+        self.btn_preview.setToolTip("리더기 서치 영역을 실제 좌표대로 그리고 판독 결과를 칸에 표시합니다 (Navigator 불필요)")
+        self.btn_preview.clicked.connect(lambda: self._open_preview(self._last_frame))
+        actions.addWidget(self.btn_test_read)
+        actions.addWidget(self.btn_preview)
+        actions.addStretch()
+        layout.addLayout(actions)
+        return box
+
+    def _build_map_section(self, s: dict) -> QWidget:
+        box, layout = self._section("map", "셀 → Port / Slot 대응")
+        layout.addWidget(_hint("기본 공식: Port = (셀−1)÷12+1, Slot = (셀−1)%12+1  (셀 1~12 = Port 1). 아래 표에 적은 셀만 재정의됩니다.", wrap=True))
         self.override_table = QTableWidget(0, 3)
         self.override_table.setHorizontalHeaderLabels(["셀", "Port", "Slot"])
         self.override_table.verticalHeader().setVisible(False)
         self.override_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        self.override_table.setMinimumHeight(180)
         for cell, (port, slot) in sorted(s["cell_override"].items()):
             self._append_override_row(cell, port, slot)
-        ov_layout.addWidget(self.override_table, 1)
-        ov_btns = QHBoxLayout()
+        layout.addWidget(self.override_table)
+        btns = QHBoxLayout()
         btn_add = QPushButton("행 추가")
         btn_add.clicked.connect(lambda: self._append_override_row())
         btn_del = QPushButton("선택 행 삭제")
         btn_del.clicked.connect(self._remove_selected_override_rows)
-        ov_btns.addWidget(btn_add)
-        ov_btns.addWidget(btn_del)
-        ov_btns.addStretch()
-        ov_layout.addLayout(ov_btns)
-        outer.addWidget(ov_box, 1)
+        btns.addWidget(btn_add)
+        btns.addWidget(btn_del)
+        btns.addStretch()
+        layout.addLayout(btns)
+        return box
 
-        # ── 리더기 현재 값 (읽기 전용, RB/RP 조회) ──
-        val_box = QGroupBox("리더기 현재 값 (읽기 전용)")
-        val_layout = QVBoxLayout(val_box)
+    def _build_params_section(self) -> QWidget:
+        box, layout = self._section("params", "리더기 현재 값 (읽기 전용)")
         self.param_table = QTableWidget(len(READER_PARAMS), 2)
         self.param_table.setHorizontalHeaderLabels(["항목", "리더기 값"])
         self.param_table.verticalHeader().setVisible(False)
         self.param_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
         self.param_table.setEditTriggers(QTableWidget.NoEditTriggers)
-        self.param_table.setFixedHeight(24 + 22 * len(READER_PARAMS))
         for row, (_cmd, label, _fmt) in enumerate(READER_PARAMS):
             self.param_table.setItem(row, 0, QTableWidgetItem(label))
             self.param_table.setItem(row, 1, QTableWidgetItem("—"))
-        val_layout.addWidget(self.param_table)
-        val_hint = QLabel("조명·노출·격자 등 설정 변경은 AutoID Network Navigator 에서 합니다. 여기서는 확인만 합니다.")
-        val_hint.setStyleSheet(f"color: {FG2}; font-size: 12px;")
-        val_layout.addWidget(val_hint)
-        outer.addWidget(val_box)
-
-        # ── 상태 + 버튼 ──
-        footer = QHBoxLayout()
-        self.status_dot = QLabel("●")
-        self.status_label = QLabel("미확인")
-        self._set_status("미확인", FG2)
-        footer.addWidget(self.status_dot)
-        footer.addWidget(self.status_label, 1)
-        self.btn_test_conn = QPushButton("연결 테스트")
-        self.btn_test_conn.clicked.connect(self._test_connection)
+        # 전 행이 스크롤 없이 보이도록: 헤더 + 행 높이 합 (테마 글꼴 기준 실제 섹션 크기 사용)
+        row_h = self.param_table.verticalHeader().defaultSectionSize()
+        self.param_table.setFixedHeight(self.param_table.horizontalHeader().sizeHint().height() + row_h * len(READER_PARAMS) + 4)
+        layout.addWidget(self.param_table)
+        actions = QHBoxLayout()
         self.btn_read_params = QPushButton("리더기 값 읽기")
+        self.btn_read_params.setToolTip("RB/RP 조회 명령으로 리더기의 현재 설정값을 읽어 표에 채웁니다. 값을 바꾸지는 않습니다.")
         self.btn_read_params.clicked.connect(self._read_params)
-        self.btn_test_read = QPushButton("테스트 판독")
-        self.btn_test_read.clicked.connect(self._test_read)
-        self.btn_preview = QPushButton("판독 미리보기")
-        self.btn_preview.setToolTip("리더기 서치 영역을 실제 좌표대로 그리고 판독 결과를 칸에 표시합니다 (Navigator 불필요)")
-        self.btn_preview.clicked.connect(lambda: self._open_preview(self._last_frame))
-        btn_cancel = QPushButton("취소")
-        btn_cancel.clicked.connect(self.reject)
-        btn_save = QPushButton("저장")
-        btn_save.setProperty("accent", "true")
-        btn_save.clicked.connect(self._on_accept)
-        for b in (self.btn_test_conn, self.btn_read_params, self.btn_test_read, self.btn_preview, btn_cancel, btn_save):
-            footer.addWidget(b)
-        outer.addLayout(footer)
-        self._last_frame = None
-        self._preview = None
+        actions.addWidget(self.btn_read_params)
+        actions.addWidget(_hint("조명·노출·격자 등 설정 변경은 AutoID Network Navigator 에서 합니다. 여기서는 확인만 합니다.", wrap=True), 1)
+        layout.addLayout(actions)
+        return box
+
+    # ─── 사이드바 ↔ 본문 스크롤 동기화 ───
+
+    def _on_nav_changed(self, row: int) -> None:
+        if self._syncing_nav or row < 0:
+            return
+        target = self.sections[_SECTION_KEYS[row]]
+        bar = self.scroll.verticalScrollBar()
+        self._syncing_nav = True
+        try:
+            bar.setValue(min(max(target.y() - 8, 0), bar.maximum()))
+        finally:
+            self._syncing_nav = False
+
+    def current_section(self) -> str:
+        """본문 스크롤 위치 기준 현재 섹션 키 (끝까지 내리면 마지막 섹션)."""
+        bar = self.scroll.verticalScrollBar()
+        if bar.maximum() > 0 and bar.value() >= bar.maximum():
+            return _SECTION_KEYS[-1]
+        top = bar.value() + 40
+        current = _SECTION_KEYS[0]
+        for key in _SECTION_KEYS:
+            if self.sections[key].y() <= top:
+                current = key
+        return current
+
+    def _sync_nav_to_scroll(self, _value: int) -> None:
+        if self._syncing_nav:
+            return
+        row = _SECTION_KEYS.index(self.current_section())
+        if self.nav.currentRow() != row:
+            self._syncing_nav = True
+            try:
+                self.nav.setCurrentRow(row)
+            finally:
+                self._syncing_nav = False
+
+    def go_to(self, key: str) -> None:
+        """섹션 키로 이동 (검증 오류 안내·테스트용)."""
+        row = _SECTION_KEYS.index(key)
+        if self.nav.currentRow() == row:
+            self._on_nav_changed(row)
+        else:
+            self.nav.setCurrentRow(row)
 
     # ─── override 표 ───
 
@@ -301,16 +472,34 @@ class QRReaderSettingsDialog(QDialog):
         try:
             self._collect()
         except _FormError as exc:
-            QMessageBox.warning(self, "리더기 설정 오류", str(exc))
+            self._show_form_error(exc)
             return
         self.accept()
 
-    # ─── 연결 테스트 / 테스트 판독 ───
+    @staticmethod
+    def _section_for_error(msg: str) -> str:
+        if msg.startswith("재정의 표"):
+            return "map"
+        if msg.startswith(("NG 문자열", "트리거")):
+            return "read"
+        return "conn"
+
+    def _show_form_error(self, exc: _FormError) -> None:
+        """검증 실패 시 해당 섹션으로 이동한 뒤 경고."""
+        msg = str(exc)
+        self.go_to(self._section_for_error(msg))
+        QMessageBox.warning(self, "리더기 설정 오류", msg)
+
+    # ─── 연결 테스트 / 테스트 판독 / 값 읽기 ───
 
     def _set_status(self, text: str, color: str) -> None:
-        self.status_dot.setStyleSheet(f"color: {color}; font-size: 12px;")
+        self.status_dot.setStyleSheet(f"color: {color}; font-size: 12px; background: transparent;")
         self.status_label.setText(text)
-        self.status_label.setStyleSheet(f"color: {color}; font-size: 12px; font-weight: bold;")
+        self.status_label.setStyleSheet(f"color: {color}; font-size: 12px; font-weight: bold; background: transparent;")
+
+    def _set_actions_enabled(self, enabled: bool) -> None:
+        for b in (self.btn_test_conn, self.btn_test_read, self.btn_read_params):
+            b.setEnabled(enabled)
 
     def _start_test(self) -> KeyenceClient | None:
         if self._test_client is not None:
@@ -318,7 +507,7 @@ class QRReaderSettingsDialog(QDialog):
         try:
             settings = self._collect()
         except _FormError as exc:
-            QMessageBox.warning(self, "리더기 설정 오류", str(exc))
+            self._show_form_error(exc)
             return None
         if settings["transport"] != "lan":
             QMessageBox.information(self, "리더기 테스트", "연결 테스트·테스트 판독은 전송 방식이 LAN (TCP) 일 때만 가능합니다.")
@@ -328,8 +517,7 @@ class QRReaderSettingsDialog(QDialog):
         client.comm_error.connect(lambda m: self._end_test(m, RED))
         client.command_error.connect(lambda cmd, code: self._end_test(f"명령 오류 ER,{cmd},{code}", RED))
         self._test_client = client
-        self.btn_test_conn.setEnabled(False)
-        self.btn_test_read.setEnabled(False)
+        self._set_actions_enabled(False)
         self._set_status(f"{settings['host']}:{settings['port']} 접속 중…", TEAL)
         self._test_timer.start(_TEST_TIMEOUT_MS)
         return client
@@ -340,8 +528,7 @@ class QRReaderSettingsDialog(QDialog):
         if client is not None:
             client.close()          # 창의 자식이므로 창과 함께 파괴 (deleteLater 는 창 파괴 시 이중 삭제 위험)
         self._set_status(text, color)
-        self.btn_test_conn.setEnabled(True)
-        self.btn_test_read.setEnabled(True)
+        self._set_actions_enabled(True)
 
     def _test_connection(self) -> None:
         client = self._start_test()
@@ -398,7 +585,7 @@ class QRReaderSettingsDialog(QDialog):
         try:
             settings = self._collect()
         except _FormError as exc:
-            QMessageBox.warning(self, "리더기 설정 오류", str(exc))
+            self._show_form_error(exc)
             return
         if self._preview is not None:
             self._preview.close()
