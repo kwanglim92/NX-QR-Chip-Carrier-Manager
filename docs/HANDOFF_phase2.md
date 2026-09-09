@@ -2,7 +2,7 @@
 
 | 항목 | 내용 |
 |---|---|
-| **작성일** | 2026-09-09 |
+| **작성일** | 2026-09-09 (갱신: 2026-09-09 필드 세션 후) |
 | **기준 커밋** | `main` (이 문서 커밋 포함) |
 | **용도** | 다른 PC(필드 노트북)에서 Claude Code 새 세션을 열어 Phase 2를 이어갈 때, 아래 §4 프롬프트를 그대로 붙여 넣는다 |
 | **선행 문서** | [`qr-reader-integration-design.md`](./qr-reader-integration-design.md), [`central-db-aggregation-design.md`](./central-db-aggregation-design.md)(보류), [`PRD.md`](./PRD.md) |
@@ -14,15 +14,21 @@
 | 항목 | 상태 | 비고 |
 |---|---|---|
 | **2-A 서버 업로드 연동** (probe-info.parksystems.com) | **완료 (main 92db21f)** | TLS 검증 활성, 세션 만료 감지·재로그인, Update(서버 수정) 메뉴, 이미지 전송명 `{QR ID}.png`, Fake Session 테스트 26건. **운영 DB이므로 실서버 업로드 검증은 수행하지 않음** — 서버의 이미지↔QR 매핑 규칙·Probe Type 명칭 매칭은 미확인(PRD §7) |
-| **2-B 다중 QR 리더기 연동** (키엔스, LAN) | **설계 v0.1 완료, 구현 미착수** | 설계 문서 §2 확정 결정, §10 A단계 확인 목록, §11 작업 분해 R1~R7. **다음 = A단계(리더기 원문 캡처)** |
+| **2-B 다중 QR 리더기 연동** (키엔스 SR-X300W, LAN) | **A단계 ①·R1·R2 완료, 설계 v0.2, UI 목업 승인** | 프로토콜 확정(설계 §3), 만석 fixture 캡처, `src/core/qr_reader/{payload_parser,slot_assigner}.py` + 테스트 47건. **다음 = A단계 ②~⑤ 시나리오 캡처 → R3(QTcpSocket 클라이언트 + fake 서버)**. UI 목업: [Keyence Cassette Scan UI](https://claude.ai/code/artifact/868c790f-eef6-4937-ae54-5cbbb723f208) |
 | 중앙 DB 취합 | 보류 | 설계 v0.2 문서만 커밋 |
 | 릴리스 2.4.0 | 미수행 | `VERSION`=2.3.0, CHANGELOG `[Unreleased]` 누적 중 |
 
-테스트: `pytest -q` → 151 passed / 6 skipped (2026-09-08 기준). `%LOCALAPPDATA%` 를 임시 경로로 리다이렉트하고 실행할 것(실 DB 보호).
+테스트: `pytest -q --ignore=tests/test_server_uploader.py` → 163 passed / 15 skipped (2026-09-09, 필드 노트북 시스템 Python 3.12 기준 — `requests`·`pytesseract`·`pytest-qt` 미설치라 업로더 테스트 제외, Tesseract 없음). `%LOCALAPPDATA%` 를 임시 경로로 리다이렉트하고 실행할 것(실 DB 보호).
+
+> **필드 노트북 주의**: `python` 명령은 Windows Python 관리자 셈이라 `LOCALAPPDATA` 를 바꾸면 새 Python 을 내려받는다. 반드시 절대 경로 인터프리터를 쓸 것:
+> `LOCALAPPDATA=<임시경로> C:\Users\Levi.Beak\AppData\Local\Python\pythoncore-3.12-64\python.exe -m pytest -q`
 
 ## 2. 확정된 설계 요점 (2-B)
 
-- 통신: **LAN/TCP, 앱이 클라이언트**로 리더기에 접속. 키보드 에뮬레이션은 폴백만.
+- 통신: **LAN/TCP 9004 단일 소켓, 앱이 클라이언트**. 트리거는 **레벨 방식** `LON` → 대기(6초 캡처 성공) → `LOFF` 에서 결과 출력. 키보드 에뮬레이션은 폴백만.
+- 프레임(확정): `code×72` 를 `,` 로, 끝에 `:NNNNms`, 종단 `CR`. 미판독 `ERROR`. 헤더·좌표·영역번호 없음(셀 = 인덱스).
+- **AutoID Network Navigator 연결 중이면 모든 명령이 `ER,<cmd>,23`** — 앱 사용 전 Navigator 에서 연결 해제(매뉴얼 10-2 p.59).
+- Phase 2 셀 대응: `port=(cell−1)÷12+1, slot=(cell−1)%12+1`, 카세트 1 = Port 1. MTC 물리 방향은 F단계.
 - 리더기가 **격자 셀 번호**와 **코드별 X,Y**를 출력. 셀 번호 규약 `cell = (port − 1) × 12 + slot` (1~72).
 - 결과 폴더 슬롯 번호 = **분류 후 최종 물리 위치**. 최대 6 포트 × 12 = 72 코드.
 - 고정 개수 + **NG 자리표시** 출력(미판독 칸이 밀리지 않게).
@@ -33,10 +39,10 @@
 
 - [ ] 저장소 clone 후 `python -m venv .venv` → `pip install -r requirements.txt -r requirements-dev.txt` (Python 3.11+)
 - [ ] `pytest -q` 그린 확인 (Tesseract 없으면 6 skip 정상)
-- [ ] 리더기 IP·데이터 포트·명령 포트·트리거 명령을 모델 통신 매뉴얼에서 확인 (설계 문서 §10)
-- [ ] 노트북과 리더기가 같은 서브넷, 아웃바운드 TCP 허용
-- [ ] 리더기 설정: 다중 코드 고정 개수, 격자 번호(§2 규약), X,Y 출력, NG 자리표시, 헤더/구분자/종단자
-- [ ] Pass 카세트 실물: 만석 / 일부 빈 칸 / 카세트 1개 통째 비움 / 회전 오프셋 / 중복 코드 시나리오 준비
+- [x] 리더기 IP·포트·트리거 확인 — 192.168.100.2:9004, LON/LOFF (설계 §3.2)
+- [x] 노트북 192.168.100.1/24 ↔ 리더기 192.168.100.2 (핑은 막혀 있고 TCP 9004 만 열림)
+- [x] 리더기 설정 확인 — 설계 §3.3 설정 시트 (X,Y 는 OFF 로 확정)
+- [ ] Pass 카세트 실물 시나리오: [x] 만석(`20260909_132804_full`, 셀 13·14 조명 미판독) [ ] 일부 빈 칸 [ ] 카세트 1개 통째 비움 [ ] 회전 오프셋 [ ] 중복 코드
 
 ## 4. 새 세션 프롬프트 (그대로 붙여 넣기)
 
@@ -69,10 +75,13 @@ CLAUDE.md 와 .agent/rules.md 의 개발 규칙(계획 먼저, 요청 범위만,
 
 # 접속 직후 트리거 문자열 전송 후 수집 (명령 문자열·포트는 모델 매뉴얼 기준)
 .venv\Scripts\python.exe scripts\capture_keyence.py --host <리더기IP> --port <포트> --send "LON\r" --duration 15 --tag partial
+
+# SR-X300W 확정 절차(레벨 트리거): LON → 6초 → LOFF. 시나리오 태그만 바꿔 반복
+python scripts\capture_keyence.py --host 192.168.100.2 --port 9004 --send "LON\r" --then "LOFF\r" --then-after 6 --duration 9 --tag partial
 ```
 
 산출물은 `tests/fixtures/qr_reader/<시각>_<tag>.raw`(원본 바이트)와 `.txt`(제어문자 표시)로 남는다. `.raw` 는 수정하지 않고 파서 테스트 입력으로 그대로 쓴다.
 
 ## 6. 이후 단계 (A 완료 후)
 
-R1 파서 → R2 슬롯 대응 → R3 TCP 클라이언트 → R4 설정/상태 표시 → R5 검토 다이얼로그 → R6 카세트 스캔 통합 → R7 문서. 세부는 설계 문서 §11. E단계(지그 현장 검증) 후 2.4.0 릴리스에 2-A와 함께 묶는다.
+~~R1 파서 → R2 슬롯 대응~~(완료) → **R3 TCP 클라이언트**(QTcpSocket, `split_frames`/`classify_line` 재사용, LON→지연→LOFF 시퀀스, `scripts/fake_keyence_server.py`) → R4 설정/상태 표시 → R5 검토 다이얼로그(목업 기준) → R6 카세트 스캔 통합 → R7 문서. 세부는 설계 문서 §11. 참고: 원격 브랜치 `feat/multi-qr-check`(2026-08-18, 미병합)에 SR-X300W 선행 구현(`srx_client.py`, `fake_srx_server.py`)이 있으나 프레임에 셀 상태 분류가 없어 참고용으로만 쓴다. E단계(지그 현장 검증) 후 2.4.0 릴리스에 2-A와 함께 묶는다.
