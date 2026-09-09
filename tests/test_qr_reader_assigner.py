@@ -8,6 +8,7 @@ import pytest
 from src.core.models import MeasurementSet, SlotData
 from src.core.qr_reader.payload_parser import CellRead, ParsedFrame, parse_frame
 from src.core.qr_reader.slot_assigner import (
+    AssignError,
     AssignStatus,
     build_plan,
     cell_to_port_slot,
@@ -41,9 +42,27 @@ def test_override_takes_precedence():
     assert cell_to_port_slot(2, {1: (6, 12)}) == (1, 2)
 
 
-def test_cell_below_one_rejected():
+def test_cell_below_one_rejected_even_with_override():
     with pytest.raises(ValueError):
         cell_to_port_slot(0)
+    with pytest.raises(ValueError):
+        cell_to_port_slot(0, {0: (1, 1)})
+
+
+@pytest.mark.parametrize("target", [(0, 1), (1, 0), (1, 13), (-1, 5)])
+def test_override_out_of_range_rejected(target):
+    with pytest.raises(ValueError, match="override 범위"):
+        cell_to_port_slot(5, {5: target})
+
+
+def test_override_duplicate_target_rejected_in_build_plan():
+    with pytest.raises(AssignError, match="override 대상 중복"):
+        build_plan(_frame(["A", "B"]), [_set(1)], override={1: (1, 1), 2: (1, 1)})
+
+
+def test_override_out_of_range_rejected_in_build_plan():
+    with pytest.raises(AssignError, match="override 범위"):
+        build_plan(_frame(["A"]), [_set(1)], override={1: (99, -3)})
 
 
 # ─── build_plan 상태 분류 ───
@@ -97,7 +116,8 @@ def test_conflict_with_existing_different_qr():
     plan = build_plan(_frame(["A"]), [ms])
     assert plan.items[0].status is AssignStatus.CONFLICT
     assert "OLD" in plan.items[0].note
-    assert plan.can_apply and plan.applicable == []
+    assert plan.applicable == []
+    assert not plan.can_apply  # 적용할 칸이 0개
 
 
 def test_dup_in_frame_marks_both_cells():
@@ -115,6 +135,15 @@ def test_dup_with_qr_loaded_elsewhere():
     assert "_1106" in plan.items[0].note
 
 
+def test_dup_loaded_lists_every_location_across_sets():
+    s1, s2 = _set(1, po="P1"), _set(2, po="P2")
+    s1.slots[5].qr_id = "A"
+    s2.slots[2].qr_id = "A"
+    plan = build_plan(_frame(["A"]), [s1, s2])
+    assert plan.items[0].status is AssignStatus.DUP_LOADED
+    assert "_1106" in plan.items[0].note and "_1203" in plan.items[0].note
+
+
 def test_multiple_sets_map_by_port():
     plan = build_plan(_frame(["A"] * 12 + ["B"] * 12), [_set(1, po="P1"), _set(2, po="P2")])
     assert plan.items[0].set_index == 0 and plan.items[12].set_index == 1
@@ -123,10 +152,35 @@ def test_multiple_sets_map_by_port():
 
 def test_atx_filter_resolves_ambiguity():
     sets = [_set(1, atx=1), _set(1, atx=2)]
-    with pytest.raises(ValueError, match="atx"):
+    with pytest.raises(AssignError, match="set_for_port"):
         build_plan(_frame(["A"]), sets)
     plan = build_plan(_frame(["A"]), sets, atx=2)
     assert plan.items[0].target.slot_code == "_2101"
+
+
+def test_same_atx_port_in_two_sets_needs_set_for_port():
+    sets = [_set(1, po="P1"), _set(1, po="P2")]  # 다른 PO, 같은 ATX1 Port1
+    with pytest.raises(AssignError, match="P1.*P2|P2.*P1"):
+        build_plan(_frame(["A"]), sets, atx=1)
+    plan = build_plan(_frame(["A"]), sets, set_for_port={1: 1})
+    assert plan.items[0].set_index == 1
+    assert plan.items[0].target is sets[1].slots[0]
+    # 선택되지 않은 세트의 QR 도 로드된 중복 검사 대상에서 빠진다
+    sets[0].slots[3].qr_id = "A"
+    plan = build_plan(_frame(["A"]), sets, set_for_port={1: 1})
+    assert plan.items[0].status is AssignStatus.APPLY
+
+
+def test_unparseable_slot_code_raises_assign_error():
+    ms = _set(1)
+    ms.slots[0].slot_code = "bad"
+    with pytest.raises(AssignError, match="슬롯 코드"):
+        build_plan(_frame(["A"]), [ms])
+
+
+def test_empty_frame_cannot_apply():
+    plan = build_plan(_frame([]), [_set(1)])
+    assert plan.items == [] and not plan.can_apply
 
 
 def test_override_routes_cell_to_other_slot():

@@ -31,6 +31,9 @@ from src.core.qr_reader.payload_parser import (
 )
 
 
+MAX_BUFFER_BYTES = 64 * 1024   # 72코드 프레임(~800B) 대비 충분. 종단자 없이 쌓이면 폐기.
+
+
 class ReaderState(str, Enum):
     DISCONNECTED = "disconnected"
     CONNECTING = "connecting"
@@ -204,6 +207,9 @@ class KeyenceClient(QObject):
     def _on_ready_read(self) -> None:
         self._buffer += bytes(self._socket.readAll())
         frames, self._buffer = split_frames(self._buffer)
+        if len(self._buffer) > MAX_BUFFER_BYTES:
+            self._buffer = b""
+            self.frame_rejected.emit(f"종단자 없는 수신 데이터 {MAX_BUFFER_BYTES} 바이트 초과 — 버퍼 폐기")
         for raw in frames:
             self._handle_line(raw.decode("ascii", errors="replace"))
 

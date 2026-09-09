@@ -12,6 +12,13 @@ Phase 2 규약: ``port = (cell−1)÷12+1``, ``slot = (cell−1)%12+1`` (카세�
 - DUP_LOADED  : 로드된 다른 슬롯에 이미 같은 QR
 - NO_RECORD   : 포트는 로드됐으나 슬롯 레코드 없음 → **전체 적용 차단**
 - EXCLUDED    : 포트 폴더 미로드 → 자동 제외
+
+주의:
+- DUP_FRAME 은 미로드(EXCLUDED) 포트의 셀까지 포함해 센다 — 같은 코드가 화각 어디에든 2개 있으면
+  오판독·중복 캐리어 신호이므로 로드된 쪽도 적용하지 않는다.
+- 같은 ATX+Port 를 가진 세트가 2개 이상 로드되면(다른 PO 의 같은 포트) ``set_for_port={port: set_index}``
+  로 대상 세트를 지정해야 한다. 지정이 없으면 ``AssignError``.
+- override 표는 ``{cell: (port, slot)}``. 셀·포트·슬롯 범위와 대상 중복을 ``build_plan`` 진입 시 검증한다.
 """
 from __future__ import annotations
 
@@ -41,6 +48,10 @@ class AssignStatus(str, Enum):
 BLOCKING_STATUSES = frozenset({AssignStatus.NO_RECORD})
 
 
+class AssignError(ValueError):
+    """세트/override 구성 문제로 계획을 세울 수 없음 (프레임 자체의 문제는 FrameError)."""
+
+
 @dataclass(frozen=True)
 class AssignItem:
     cell: int
@@ -59,7 +70,10 @@ class AssignPlan:
 
     @property
     def can_apply(self) -> bool:
-        return not any(i.status in BLOCKING_STATUSES for i in self.items)
+        """차단 상태가 없고 적용할 칸이 1개 이상일 때만 True."""
+        if any(i.status in BLOCKING_STATUSES for i in self.items):
+            return False
+        return any(i.status is AssignStatus.APPLY for i in self.items)
 
     @property
     def applicable(self) -> list[AssignItem]:
@@ -71,39 +85,66 @@ class AssignPlan:
 
 
 def cell_to_port_slot(cell: int, override: Mapping[int, tuple[int, int]] | None = None) -> tuple[int, int]:
-    """셀 번호 → (port, slot). override 가 있으면 우선."""
-    if override and cell in override:
-        port, slot = override[cell]
-        return int(port), int(slot)
+    """셀 번호 → (port, slot). override 가 있으면 우선. 범위를 벗어나면 ``ValueError``."""
     if cell < 1:
         raise ValueError(f"셀 번호는 1 이상: {cell}")
+    if override and cell in override:
+        port, slot = (int(v) for v in override[cell])
+        if port < 1 or not 1 <= slot <= SLOTS_PER_PORT:
+            raise ValueError(f"override 범위 오류: 셀 {cell} → (port {port}, slot {slot})")
+        return port, slot
     return (cell - 1) // SLOTS_PER_PORT + 1, (cell - 1) % SLOTS_PER_PORT + 1
 
 
+def _validate_override(override: Mapping[int, tuple[int, int]] | None, cells: Sequence[int]) -> None:
+    """override 를 적용한 뒤 두 셀이 같은 (port, slot) 을 가리키면 AssignError."""
+    seen: dict[tuple[int, int], int] = {}
+    for cell in cells:
+        try:
+            key = cell_to_port_slot(cell, override)
+        except ValueError as e:
+            raise AssignError(str(e)) from None
+        if key in seen:
+            raise AssignError(f"override 대상 중복: 셀 {seen[key]} 와 셀 {cell} 이 모두 Port {key[0]} Slot {key[1]}")
+        seen[key] = cell
+
+
 def _index_sets(
-    sets: Sequence[MeasurementSet], atx: int | None
-) -> tuple[dict[tuple[int, int], tuple[int, SlotData]], dict[str, tuple[int, SlotData]], set[int]]:
-    """(port, slot) → (set_index, SlotData), qr_id → (set_index, SlotData), 로드된 port 집합."""
+    sets: Sequence[MeasurementSet],
+    atx: int | None,
+    set_for_port: Mapping[int, int] | None,
+) -> tuple[dict[tuple[int, int], tuple[int, SlotData]], dict[str, list[tuple[int, SlotData]]], set[int]]:
+    """(port, slot) → (set_index, SlotData), qr_id → [(set_index, SlotData)...], 로드된 port 집합.
+
+    같은 (port, slot) 이 두 세트에 있으면 ``set_for_port[port]`` 로 대상 세트를 고르고, 없으면 AssignError.
+    """
     by_pos: dict[tuple[int, int], tuple[int, SlotData]] = {}
-    by_qr: dict[str, tuple[int, SlotData]] = {}
+    by_qr: dict[str, list[tuple[int, SlotData]]] = {}
     ports: set[int] = set()
     for si, ms in enumerate(sets):
         for sd in ms.slots:
             try:
                 info = parse_slot_code(sd.slot_code)
             except (ValueError, IndexError):
-                continue
+                raise AssignError(
+                    f"세트 {si}({ms.po_number}) 의 슬롯 코드를 해석할 수 없습니다: {sd.slot_code!r}"
+                ) from None
             if atx is not None and info["atx"] != atx:
                 continue
-            key = (info["port"], info["slot"])
+            port = info["port"]
+            if set_for_port and port in set_for_port and set_for_port[port] != si:
+                continue
+            key = (port, info["slot"])
             if key in by_pos:
-                raise ValueError(
-                    f"Port {key[0]} Slot {key[1]} 이 여러 세트에 있습니다 — atx 인자로 한정하세요"
+                other = by_pos[key][0]
+                raise AssignError(
+                    f"Port {port} Slot {info['slot']} 이 세트 {other}({sets[other].po_number}) 와 "
+                    f"세트 {si}({ms.po_number}) 에 모두 있습니다 — set_for_port 로 대상 세트를 지정하세요"
                 )
             by_pos[key] = (si, sd)
-            ports.add(info["port"])
+            ports.add(port)
             if sd.qr_id:
-                by_qr[sd.qr_id] = (si, sd)
+                by_qr.setdefault(sd.qr_id, []).append((si, sd))
     return by_pos, by_qr, ports
 
 
@@ -112,9 +153,17 @@ def build_plan(
     sets: Sequence[MeasurementSet],
     atx: int | None = None,
     override: Mapping[int, tuple[int, int]] | None = None,
+    set_for_port: Mapping[int, int] | None = None,
 ) -> AssignPlan:
-    """판독 프레임을 로드된 세트에 대응시켜 셀별 상태를 분류한다. 아무것도 변경하지 않는다."""
-    by_pos, by_qr, loaded_ports = _index_sets(sets, atx)
+    """판독 프레임을 로드된 세트에 대응시켜 셀별 상태를 분류한다. 아무것도 변경하지 않는다.
+
+    - ``atx``: 여러 ATX 가 로드됐을 때 대상 ATX 번호
+    - ``set_for_port``: ``{port: set_index}`` — 같은 포트를 가진 세트가 여럿일 때 대상 세트
+    - ``override``: ``{cell: (port, slot)}`` 셀 재정의
+    구성 문제는 ``AssignError``.
+    """
+    _validate_override(override, [r.cell for r in frame.reads])
+    by_pos, by_qr, loaded_ports = _index_sets(sets, atx, set_for_port)
     code_counts = Counter(r.code for r in frame.reads if r.code is not None)
 
     items: list[AssignItem] = []
@@ -138,8 +187,8 @@ def build_plan(
         elif target.qr_id:
             status, note = AssignStatus.CONFLICT, f"기존 QR {target.qr_id}"
         elif code in by_qr:
-            _, other = by_qr[code]
-            status, note = AssignStatus.DUP_LOADED, f"{other.slot_code} 에 이미 있음"
+            where = ", ".join(sd.slot_code for _, sd in by_qr[code])
+            status, note = AssignStatus.DUP_LOADED, f"{where} 에 이미 있음"
         else:
             status, note = AssignStatus.APPLY, ""
 

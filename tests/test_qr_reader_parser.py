@@ -90,6 +90,28 @@ def test_non_result_lines_raise(line):
         parse_frame(line, expected_count=1)
 
 
+def test_non_ascii_bytes_rejected():
+    with pytest.raises(FrameError, match="비ASCII"):
+        parse_frame(b"A\xff9,B", expected_count=2)
+
+
+def test_fields_are_stripped_but_raw_kept():
+    frame = parse_frame(" A ,B\t:5ms", expected_count=2)
+    assert frame.codes == ["A", "B"]
+    assert frame.reads[0].raw == " A "
+
+
+def test_whitespace_only_field_is_empty():
+    with pytest.raises(FrameError, match="빈 필드"):
+        parse_frame("A, ,C", expected_count=3)
+
+
+@pytest.mark.parametrize("token", ["OK", "ER", "ER,X", "OK,1"])
+def test_ng_token_overlapping_command_prefix_rejected(token):
+    with pytest.raises(ValueError, match="ng_token"):
+        parse_frame("A,B", expected_count=2, ng_token=token)
+
+
 def test_all_ng_frame_is_valid():
     frame = parse_frame(_frame(72, ng=set(range(1, 73))))
     assert frame.ng_cells == list(range(1, 73))

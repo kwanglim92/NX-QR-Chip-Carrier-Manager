@@ -79,8 +79,21 @@ def parse_frame(
     expected_count: int = DEFAULT_EXPECTED_COUNT,
     ng_token: str = DEFAULT_NG_TOKEN,
 ) -> ParsedFrame:
-    """결과 프레임 1개 → ``ParsedFrame``. 형식이 어긋나면 ``FrameError``."""
-    text = data.decode("ascii", errors="replace") if isinstance(data, bytes) else data
+    """결과 프레임 1개 → ``ParsedFrame``. 형식이 어긋나면 ``FrameError``.
+
+    - 비ASCII 바이트가 섞인 프레임은 폐기한다(§5 "프레임 잘림·개수 불일치").
+    - 필드 앞뒤 공백은 제거한다(키보드 입력 경로 ``QRInputWidget`` 과 동일 규칙).
+    - ``ng_token`` 은 명령 응답 접두어(``OK``/``ER``)와 겹치면 안 된다(``classify_line`` 이 먼저 걸러내므로).
+    """
+    if ng_token in ("OK", "ER") or ng_token.startswith("OK,") or ng_token.startswith("ER,"):
+        raise ValueError(f"ng_token 은 명령 응답 접두어와 겹칠 수 없습니다: {ng_token!r}")
+    if isinstance(data, bytes):
+        try:
+            text = data.decode("ascii")
+        except UnicodeDecodeError as e:
+            raise FrameError(f"비ASCII 바이트 (offset {e.start})") from None
+    else:
+        text = data
     text = text.strip("\r\n")
 
     kind = classify_line(text)
@@ -99,10 +112,11 @@ def parse_frame(
         raise FrameError(f"필드 수 불일치: {len(fields)} != {expected_count}")
 
     reads: list[CellRead] = []
-    for i, field in enumerate(fields, start=1):
+    for i, raw in enumerate(fields, start=1):
+        field = raw.strip()
         if field == "":
             raise FrameError(f"빈 필드 (셀 {i})")
         code = None if field == ng_token else field
-        reads.append(CellRead(cell=i, code=code, raw=field))
+        reads.append(CellRead(cell=i, code=code, raw=raw))
 
     return ParsedFrame(reads=tuple(reads), scan_time_ms=scan_time_ms)
