@@ -223,7 +223,7 @@ class InspectionLayoutWindow(QWidget):
             s = v.slot
             if mode == "grade":
                 bg = QColor(GRADE_COLORS.get(v.grade, FG2))
-                text = str(s.slot)
+                text = code
             elif mode == "sweep":
                 score = v.metrics.get("sweep_shape")
                 bg = gradient_color(score / 100.0) if score is not None else QColor(BG3)
