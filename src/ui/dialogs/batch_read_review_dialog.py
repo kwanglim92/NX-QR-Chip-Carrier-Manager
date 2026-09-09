@@ -214,6 +214,8 @@ class BatchReadReviewDialog(QDialog):
             by_port.setdefault(it.port, []).append(it)
         for i, port in enumerate(sorted(by_port)):
             grid.addWidget(self._panel(port, by_port[port]), i // _COLS, i % _COLS)
+        for c in range(_COLS):
+            grid.setColumnStretch(c, 1)          # 패널 3열을 뷰포트 폭에 균등 분배 (가로 스크롤 없음)
         grid.setRowStretch(grid.rowCount(), 1)
         scroll.setWidget(body)
         outer.addWidget(scroll, 1)
@@ -278,6 +280,9 @@ class BatchReadReviewDialog(QDialog):
         else:
             title = f"Port {port} · 폴더 미로드"
         box = QGroupBox(title)
+        # 제목·카드 내용이 패널 최소 폭을 밀어 올리지 않게 (3패널 × 3카드가 1180px 안에 들어가야 함)
+        box.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Preferred)
+        box.setToolTip(title)
         if not loaded:
             box.setStyleSheet(f"QGroupBox {{ color: {FG2}; }}")
         lay = QVBoxLayout(box)
