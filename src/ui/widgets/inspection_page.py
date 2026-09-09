@@ -123,7 +123,7 @@ class InspectionPage(QWidget):
         split.addWidget(_scroll(self._build_left()))
         split.addWidget(_scroll(self._build_middle()))
         split.addWidget(_scroll(self._build_right()))
-        split.setSizes([500, 620, 620])
+        split.setSizes([480, 680, 680])
         root.addWidget(split, 1)
 
     def _build_left(self) -> QWidget:
@@ -255,14 +255,18 @@ class InspectionPage(QWidget):
         return w
 
     def _build_middle(self) -> QWidget:
+        # 세로 스플리터: [이미지 블록] / [Reference · Info · Grouping]
+        top = QWidget()
+        tl = QVBoxLayout(top)
+        tl.setContentsMargins(0, 0, 0, 0)
+        tl.setSpacing(4)
+        self.vision_viewer = ImageViewer(inset=4)
+        self.vision_viewer.setMinimumHeight(360)
+        tl.addWidget(self.vision_viewer, 1)
         w = QWidget()
         lay = QVBoxLayout(w)
-        lay.setContentsMargins(4, 0, 4, 0)
+        lay.setContentsMargins(0, 0, 0, 0)
         lay.setSpacing(6)
-
-        self.vision_viewer = ImageViewer()
-        self.vision_viewer.setMinimumHeight(240)
-        lay.addWidget(self.vision_viewer, 2)
         vrow = QHBoxLayout()
         self.lbl_vision_path = QLabel("-")
         self.lbl_vision_path.setStyleSheet(f"color: {FG2}; font-size: 11px;")
@@ -272,7 +276,7 @@ class InspectionPage(QWidget):
         self.btn_vision_toggle.setCheckable(True)
         self.btn_vision_toggle.setToolTip("pickUp ↔ putBack 이미지 전환")
         vrow.addWidget(self.btn_vision_toggle)
-        lay.addLayout(vrow)
+        tl.addLayout(vrow)
 
         # Reference Cantilever
         self.ref_group = QGroupBox("Reference Cantilever (-)")
@@ -356,7 +360,18 @@ class InspectionPage(QWidget):
         gl.addWidget(self.btn_grp_run, 4, 6)
         lay.addWidget(grp)
         lay.addStretch()
-        return w
+
+        self.middle_split = QSplitter(Qt.Vertical)
+        self.middle_split.addWidget(top)
+        self.middle_split.addWidget(w)
+        self.middle_split.setStretchFactor(0, 3)
+        self.middle_split.setStretchFactor(1, 2)
+        self.middle_split.setSizes([480, 520])
+        holder = QWidget()
+        hl = QVBoxLayout(holder)
+        hl.setContentsMargins(4, 0, 4, 0)
+        hl.addWidget(self.middle_split)
+        return holder
 
     def _info_table(self, headers: list[str]) -> QTableWidget:
         t = QTableWidget(1, len(headers))
@@ -374,26 +389,22 @@ class InspectionPage(QWidget):
         return t
 
     def _build_right(self) -> QWidget:
-        w = QWidget()
-        lay = QVBoxLayout(w)
-        lay.setContentsMargins(4, 0, 0, 0)
-        lay.setSpacing(6)
+        def image_block(min_h: int) -> tuple[QWidget, ImageViewer, QLabel]:
+            blk = QWidget()
+            bl = QVBoxLayout(blk)
+            bl.setContentsMargins(0, 0, 0, 0)
+            bl.setSpacing(4)
+            viewer = ImageViewer(inset=4)
+            viewer.setMinimumHeight(min_h)
+            bl.addWidget(viewer, 1)
+            lbl = QLabel("-")
+            lbl.setStyleSheet(f"color: {FG2}; font-size: 11px;")
+            lbl.setWordWrap(True)
+            bl.addWidget(lbl)
+            return blk, viewer, lbl
 
-        self.sweep_viewer = ImageViewer()
-        self.sweep_viewer.setMinimumHeight(200)
-        lay.addWidget(self.sweep_viewer, 2)
-        self.lbl_sweep_path = QLabel("-")
-        self.lbl_sweep_path.setStyleSheet(f"color: {FG2}; font-size: 11px;")
-        self.lbl_sweep_path.setWordWrap(True)
-        lay.addWidget(self.lbl_sweep_path)
-
-        self.zoom_viewer = ImageViewer()
-        self.zoom_viewer.setMinimumHeight(200)
-        lay.addWidget(self.zoom_viewer, 2)
-        self.lbl_zoom_path = QLabel("-")
-        self.lbl_zoom_path.setStyleSheet(f"color: {FG2}; font-size: 11px;")
-        self.lbl_zoom_path.setWordWrap(True)
-        lay.addWidget(self.lbl_zoom_path)
+        sweep_blk, self.sweep_viewer, self.lbl_sweep_path = image_block(260)
+        zoom_blk, self.zoom_viewer, self.lbl_zoom_path = image_block(260)
 
         chart_grp = QGroupBox("Sweep 판정 (수치 기반)")
         cl = QVBoxLayout(chart_grp)
@@ -410,8 +421,18 @@ class InspectionPage(QWidget):
         zrow.addWidget(self.btn_zoom_out)
         zrow.addStretch()
         cl.addLayout(zrow)
-        lay.addWidget(chart_grp, 3)
-        return w
+
+        # 세로 스플리터: [FreqSweep] / [ZoomOut] / [판정 차트] — 드래그로 배분 조절
+        self.right_split = QSplitter(Qt.Vertical)
+        self.right_split.addWidget(sweep_blk)
+        self.right_split.addWidget(zoom_blk)
+        self.right_split.addWidget(chart_grp)
+        self.right_split.setSizes([380, 380, 240])
+        holder = QWidget()
+        hl = QVBoxLayout(holder)
+        hl.setContentsMargins(4, 0, 0, 0)
+        hl.addWidget(self.right_split)
+        return holder
 
     # ─── 표 ───
 

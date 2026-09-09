@@ -16,11 +16,14 @@ class ImageViewer(QWidget):
     """
 
     clicked = Signal()  # 좌클릭 — 호출자가 붙여넣기/불러오기 등에 연결
+    double_clicked = Signal(str)  # 좌더블클릭 — 현재 이미지 경로("" 이면 없음)
 
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, inset: int = 20):
+        """``inset`` = 테두리 안쪽 여백(px). Inspection 처럼 이미지를 크게 보일 때는 작게."""
         super().__init__(parent)
         self.setMinimumHeight(200)
         self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        self._inset = max(0, int(inset))
 
         self._current_path: str | None = None
         self._pixmap = QPixmap()
@@ -30,6 +33,14 @@ class ImageViewer(QWidget):
         if event.button() == Qt.LeftButton:
             self.clicked.emit()
         super().mousePressEvent(event)
+
+    def mouseDoubleClickEvent(self, event):
+        if event.button() == Qt.LeftButton:
+            self.double_clicked.emit(self._current_path or "")
+        super().mouseDoubleClickEvent(event)
+
+    def current_path(self) -> str | None:
+        return self._current_path
 
     def load_image(self, path: str | None):
         self._current_path = path
@@ -67,7 +78,8 @@ class ImageViewer(QWidget):
         painter.setPen(QPen(QColor(BG3), 1))
         painter.drawRoundedRect(rect, 6, 6)
 
-        inner = rect.adjusted(20, 20, -20, -20)
+        i = self._inset
+        inner = rect.adjusted(i, i, -i, -i)
         if self._pixmap.isNull():
             painter.setPen(QColor(FG2))
             painter.drawText(inner, Qt.AlignCenter | Qt.TextWordWrap, self._message)

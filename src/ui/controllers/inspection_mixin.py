@@ -40,6 +40,7 @@ from src.core.inspection.templates import (
     normalize_template,
 )
 from src.core.inspection.vision_check import measure_tip
+from src.ui.dialogs.image_popup_dialog import ImagePopupDialog
 from src.ui.dialogs.inspection_template_dialog import NewTemplateDialog
 
 LAST_TIP_KEY = "inspection_last_tip"
@@ -119,6 +120,8 @@ class InspectionMixin:
         p.btn_grp_run.clicked.connect(self._insp_build_lots)
         p.btn_zoom_in.clicked.connect(lambda: self._insp_set_zoom(False))
         p.btn_zoom_out.clicked.connect(lambda: self._insp_set_zoom(True))
+        for viewer in (p.vision_viewer, p.sweep_viewer, p.zoom_viewer):
+            viewer.double_clicked.connect(self._insp_popup_image)
 
         p.grp_path_edit.setText(lot_dir or "")
         p.set_template_names(sorted(self._insp_templates), self._insp_current_tip)
@@ -429,6 +432,13 @@ class InspectionMixin:
         path = s.zoom_txt if self._insp_show_zoom else s.sweep_txt
         freqs, amps = read_sweep_txt(path)
         self.inspection_page.chart.show(v.sweep, freqs, amps, s.set_point, zoomed_out=self._insp_show_zoom)
+
+    def _insp_popup_image(self, path: str):
+        """이미지 뷰어 더블클릭 → 원본 크기(화면 90% 이내) 확대 창."""
+        if not path or not Path(path).exists():
+            return
+        dlg = ImagePopupDialog(path, self)
+        dlg.exec()
 
     # ─── 기준 / override (우클릭) ───
 
