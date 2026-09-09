@@ -21,6 +21,24 @@ from pathlib import Path
 
 DEFAULT_FIXTURE = Path(__file__).resolve().parent.parent / "tests" / "fixtures" / "qr_reader" / "20260909_132804_full.raw"
 
+# 실기기(2026-09-09) 확인값 — 설정 조회(RB/RP) 응답 흉내
+FAKE_PARAMS = {
+    "RB,01100": "05922", "RB,01101": "22", "RB,01010": "1", "RB,01108": "1",
+    "RP,101": "0", "RP,103": "4C4F4E", "RP,104": "4C4F4646", "RP,205": "4552524F52", "RP,290": "2",
+}
+
+
+def region_payload(n: int) -> str:
+    """RD,nnn 응답 — 규약 배치(카세트 2행×3열, 카세트당 3열×4행)의 영역 좌표. 1~72 외는 미정의."""
+    if not 1 <= n <= 72:
+        return "0" * 16
+    cas, i = (n - 1) // 12, (n - 1) % 12
+    cell_w, cell_h, gap = 146, 129, 3
+    cas_w, cas_h = 3 * (cell_w + gap) + 60, 4 * (cell_h + gap) + 40
+    x0 = 351 + (cas % 3) * cas_w + (i % 3) * (cell_w + gap)
+    y0 = 48 + (cas // 3) * cas_h + (i // 3) * (cell_h + gap)
+    return f"{x0:04d}{y0:04d}{x0 + cell_w:04d}{y0 + cell_h:04d}"
+
 
 def load_frame(path: Path) -> bytes:
     data = path.read_bytes()
@@ -86,6 +104,12 @@ def handle_client(conn: socket.socket, addr, args, frame: bytes) -> None:
                     conn.sendall(b"OK,KEYENCE,FAKE-SR-X300,1.73,7.244\r")
                 elif cmd == "RLOCK":
                     conn.sendall(b"OK,RLOCK,UNLOCK\r")
+                elif cmd.startswith("RD,"):
+                    conn.sendall(f"OK,RD,{region_payload(int(cmd[3:] or 0))}\r".encode())
+                elif cmd in FAKE_PARAMS:
+                    conn.sendall(f"OK,{cmd.split(',')[0]},{FAKE_PARAMS[cmd]}\r".encode())
+                elif cmd.startswith(("RB,", "RP,")):
+                    conn.sendall(f"ER,{cmd.split(',')[0]},02\r".encode())
                 else:
                     conn.sendall(f"ER,{cmd},00\r".encode())
 

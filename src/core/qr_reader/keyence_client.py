@@ -21,7 +21,9 @@
 """
 from __future__ import annotations
 
+from collections import deque
 from enum import Enum
+from typing import Callable
 
 from PySide6.QtCore import QObject, QTimer, Signal
 from PySide6.QtNetwork import QAbstractSocket, QTcpSocket
@@ -98,6 +100,12 @@ class KeyenceClient(QObject):
         self._reconnect_timer = QTimer(self)
         self._reconnect_timer.setSingleShot(True)
         self._reconnect_timer.timeout.connect(self._attempt_reconnect)
+
+        # 순차 질의 큐: (응답 태그, 명령, 콜백, 타임아웃)
+        self._queries: deque[tuple[str, str, Callable[[str | None, str], None], float]] = deque()
+        self._query_timer = QTimer(self)
+        self._query_timer.setSingleShot(True)
+        self._query_timer.timeout.connect(self._on_query_timeout)
 
     # ─── 설정/상태 ───
 
@@ -177,6 +185,7 @@ class KeyenceClient(QObject):
         self._explicit_close = True
         self._reconnect_timer.stop()
         self._connect_timer.stop()
+        self._flush_queries("연결 종료")
         if self.is_reading() and self.is_connected():
             self._cancel_read()
             self._send_stop()
@@ -211,6 +220,49 @@ class KeyenceClient(QObject):
             self.comm_error.emit(f"전송 실패: {self._socket.errorString()}")
             return False
         return True
+
+    def query(self, cmd: str, on_reply: Callable[[str | None, str], None], timeout_s: float = 3.0) -> bool:
+        """응답이 있는 명령(RD/RB/RP/KEYENCE 등)을 순차 질의한다.
+
+        응답 ``OK,<tag>,<payload>`` 가 오면 ``on_reply(payload, "")``, ``ER,<tag>,<code>``·타임아웃·연결 끊김이면
+        ``on_reply(None, 사유)``. 질의는 FIFO 로 한 번에 하나만 전송한다(리더기 응답에 질의 식별자가 없으므로).
+        """
+        if not self.is_connected():
+            on_reply(None, "리더기가 연결되지 않았습니다")
+            return False
+        tag = cmd.split(",", 1)[0].strip()
+        self._queries.append((tag, cmd, on_reply, timeout_s))
+        if len(self._queries) == 1:
+            self._send_next_query()
+        return True
+
+    def _send_next_query(self) -> None:
+        while self._queries:
+            tag, cmd, on_reply, timeout_s = self._queries[0]
+            if self._socket.write(cmd.encode("ascii") + FRAME_TERMINATOR) < 0:
+                self._queries.popleft()
+                on_reply(None, f"전송 실패: {self._socket.errorString()}")
+                continue
+            self._query_timer.start(int(timeout_s * 1000))
+            return
+
+    def _finish_query(self, payload: str | None, reason: str) -> None:
+        self._query_timer.stop()
+        _tag, _cmd, on_reply, _t = self._queries.popleft()
+        try:
+            on_reply(payload, reason)
+        finally:
+            self._send_next_query()
+
+    def _on_query_timeout(self) -> None:
+        if self._queries:
+            self._finish_query(None, f"응답 없음 ({self._queries[0][1]})")
+
+    def _flush_queries(self, reason: str) -> None:
+        self._query_timer.stop()
+        pending, self._queries = list(self._queries), deque()
+        for _tag, _cmd, on_reply, _t in pending:
+            on_reply(None, reason)
 
     def trigger(self) -> bool:
         """LON 전송 후 read_seconds 뒤 LOFF. 판독 중이면 무시."""
@@ -266,6 +318,9 @@ class KeyenceClient(QObject):
             parts = line.strip().split(",")
             cmd = parts[1] if len(parts) > 1 else ""
             code = parts[2] if len(parts) > 2 else ""
+            if self._queries and self._queries[0][0] == cmd:
+                self._finish_query(None, f"ER,{cmd},{code}")
+                return
             if self.is_reading() and cmd == self._trigger_cmd:
                 # 트리거 자체가 거부됨(예: Navigator 연결 중 23) — 리더기는 LON 상태가 아니므로 LOFF 불필요
                 self._cancel_read()
@@ -273,7 +328,12 @@ class KeyenceClient(QObject):
             self.command_error.emit(cmd, code)
             return
         if kind == "ok":
-            self.response_received.emit(line.strip())
+            text = line.strip()
+            parts = text.split(",")
+            if self._queries and len(parts) > 1 and parts[1] == self._queries[0][0]:
+                self._finish_query(",".join(parts[2:]), "")
+                return
+            self.response_received.emit(text)
             return
         # result
         if not self.is_reading():
@@ -298,6 +358,7 @@ class KeyenceClient(QObject):
 
     def _on_disconnected(self) -> None:
         self._cancel_read()
+        self._flush_queries("연결 끊김")
         self._buffer = b""
         if self._explicit_close:
             return

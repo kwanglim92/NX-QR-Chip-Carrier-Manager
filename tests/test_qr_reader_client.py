@@ -13,6 +13,30 @@ from src.core.qr_reader.payload_parser import ParsedFrame
 FULL_RAW = Path(__file__).parent / "fixtures" / "qr_reader" / "20260909_132804_full.raw"
 FULL_FRAME = FULL_RAW.read_bytes()
 
+# 실기기(2026-09-09)에서 확인한 값들 — RB 는 "RB,bbmmm"(뱅크 2자리 + 번호 3자리), RP 는 "RP,mmm"
+FAKE_PARAMS = {
+    "RB,01100": "05922",        # 노출 시간 µs
+    "RB,01101": "22",           # 게인
+    "RB,01010": "1",            # 내부 조명 종류 1=편광
+    "RB,01108": "1",            # 콘트라스트 1=HDR
+    "RP,101": "0",              # 트리거 방식 0=레벨
+    "RP,103": "4C4F4E",         # 트리거 ON 문자열 (LON)
+    "RP,104": "4C4F4646",       # 트리거 OFF 문자열 (LOFF)
+    "RP,205": "4552524F52",     # 판독 에러 문자열 (ERROR)
+    "RP,290": "2",              # 다중 코드 출력 형식 2=영역별
+}
+
+
+def fake_region(cmd: str) -> str:
+    """``RD,nnn`` → 규약 배치의 영역 좌표 16자리. 72 초과는 미정의(0…0)."""
+    from src.ui.dialogs.frame_preview_dialog import schematic_regions
+    n = int(cmd.split(",")[1])
+    regions = schematic_regions(72)
+    if n not in regions:
+        return "0" * 16
+    x0, y0, x1, y1 = regions[n]
+    return f"{x0:04d}{y0:04d}{x1:04d}{y1:04d}"
+
 
 def wait_until(cond, timeout_ms: int = 3000) -> bool:
     """이벤트 루프를 돌리며 cond() 가 참이 될 때까지 대기."""
@@ -82,6 +106,12 @@ class FakeReader(QTcpServer):
                         self._send(s)
             elif cmd == "KEYENCE":
                 s.write(b"OK,KEYENCE,FAKE-SR-X300,1.73,7.244\r")
+            elif cmd.startswith("RD,"):
+                s.write(f"OK,RD,{fake_region(cmd)}\r".encode())
+            elif cmd in FAKE_PARAMS:
+                s.write(f"OK,{cmd.split(',')[0]},{FAKE_PARAMS[cmd]}\r".encode())
+            elif cmd.startswith(("RB,", "RP,")):
+                s.write(f"ER,{cmd.split(',')[0]},02\r".encode())
             else:
                 s.write(f"ER,{cmd},00\r".encode())
 
@@ -332,3 +362,52 @@ def test_retry_chain_survives_refused_connections_with_backoff(qapp):
     assert wait_until(lambda: len(log["frames"]) == 1)
     client.close()
     server.close()
+
+
+# ─── query(): 순차 질의 ───
+
+def test_query_sequence_and_payloads(server):
+    client, log = make_client(server)
+    client.open()
+    assert wait_until(client.is_connected)
+    got = []
+    for cmd in ("RD,001", "RB,01100", "RP,101", "KEYENCE"):
+        client.query(cmd, lambda p, r, c=cmd: got.append((c, p, r)))
+    assert wait_until(lambda: len(got) == 4)
+    assert got[0][0] == "RD,001" and len(got[0][1]) == 16 and got[0][2] == ""
+    assert got[1][1] == "05922" and got[2][1] == "0"
+    assert got[3][1] == "FAKE-SR-X300,1.73,7.244"
+    assert log["responses"] == []            # 질의 응답은 response_received 로 새지 않음
+    assert server.received == ["RD,001", "RB,01100", "RP,101", "KEYENCE"]
+    client.close()
+
+
+def test_query_error_reply_and_timeout(qapp):
+    server = FakeReader()
+    client, log = make_client(server)
+    client.open()
+    assert wait_until(client.is_connected)
+    got = []
+    client.query("RP,999", lambda p, r: got.append((p, r)))           # ER,RP,02
+    assert wait_until(lambda: len(got) == 1)
+    assert got[0] == (None, "ER,RP,02") and log["errors"] == []      # command_error 로도 새지 않음
+    server.silent = True
+    client.query("RP,101", lambda p, r: got.append((p, r)), timeout_s=0.2)
+    assert wait_until(lambda: len(got) == 2, 2000)
+    assert got[1][0] is None and "응답 없음" in got[1][1]
+    client.close()
+    server.close()
+
+
+def test_query_flushed_on_close_and_refused_when_disconnected(server):
+    client, log = make_client(server)
+    got = []
+    assert not client.query("RP,101", lambda p, r: got.append((p, r)))
+    assert got == [(None, "리더기가 연결되지 않았습니다")]
+    client.open()
+    assert wait_until(client.is_connected)
+    server.silent = True
+    client.query("RP,101", lambda p, r: got.append((p, r)))
+    client.query("RP,102", lambda p, r: got.append((p, r)))
+    client.close()
+    assert got[1:] == [(None, "연결 종료"), (None, "연결 종료")]
