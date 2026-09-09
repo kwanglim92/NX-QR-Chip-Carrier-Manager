@@ -5,7 +5,8 @@
 - ATX1 좌상 · ATX2 우상 · ATX3 좌하 · ATX4 우하
 - ATX 안: Port2 위, Port1 아래(상하 배치). 각 Port 는 ATX Mode 슬롯 그리드와 같은 규칙
   (``slot_mapper.slot_to_grid``: 아래 행 1~4, 중간 5~8, 위 9~12 — Slot 1 = 좌하단)
-- 셀: 배경 = 색 기준(등급 / Sweep 점수 / Frequency / Q), 글자 = 슬롯 번호. 빈 슬롯 = 점선 회색.
+- 셀: 배경 = 색 기준(등급 / Sweep 점수 / Frequency / Q), 글자 = 슬롯 코드 ``{ATX}{Port}{SS}``(예 1101,
+  2112 — 폴더·Summary.csv 의 코드와 동일). 빈 슬롯 = 점선 회색.
   기준 캔틸레버 = 굵은 테두리, 로트로 내보낸 슬롯 = ``→`` 배지, 수동 지정 = ``*``
 - 상호작용은 결과표와 동일: 클릭 선택 / 우클릭 메뉴 / 더블클릭 Sweep Explorer / 호버 툴팁
 
@@ -56,19 +57,20 @@ class LayoutCell(QFrame):
     double_clicked = Signal(str)
     context_requested = Signal(str, object)
 
-    def __init__(self, slot_num: int, parent=None):
+    def __init__(self, slot_num: int, parent=None, slot_code: str = ""):
         super().__init__(parent)
         self.slot_num = slot_num
+        self.slot_code = slot_code or str(slot_num)   # 표시용 코드(예 '1101')
         self.code: str | None = None
         self._bg = QColor(BG2)
         self._selected = False
         self._is_ref = False
-        self.setMinimumSize(44, 34)
+        self.setMinimumSize(56, 34)
         self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         lay = QVBoxLayout(self)
         lay.setContentsMargins(2, 1, 2, 1)
         lay.setSpacing(0)
-        self.lbl = QLabel(str(slot_num))
+        self.lbl = QLabel(self.slot_code)
         self.lbl.setAlignment(Qt.AlignCenter)
         lay.addWidget(self.lbl)
         self.badge = QLabel("")
@@ -81,9 +83,9 @@ class LayoutCell(QFrame):
         self.code = None
         self._bg = QColor(BG2)
         self._is_ref = False
-        self.lbl.setText(str(self.slot_num))
+        self.lbl.setText(self.slot_code)
         self.badge.setText("")
-        self.setToolTip("빈 슬롯")
+        self.setToolTip(f"{self.slot_code} 빈 슬롯")
         self._restyle(empty=True)
 
     def set_state(self, code: str, bg: QColor, text: str, badge: str, tooltip: str,
@@ -186,7 +188,7 @@ class InspectionLayoutWindow(QWidget):
             g.setSpacing(3)
             for slot in range(1, SLOTS_PER_PORT + 1):
                 row, col = slot_to_grid(slot)
-                cell = LayoutCell(slot)
+                cell = LayoutCell(slot, slot_code=f"{atx}{port}{slot:02d}")
                 cell.clicked.connect(self.cell_clicked)
                 cell.double_clicked.connect(self.cell_double_clicked)
                 cell.context_requested.connect(self.cell_context_requested)

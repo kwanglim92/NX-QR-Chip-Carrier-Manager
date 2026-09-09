@@ -43,7 +43,8 @@ def test_update_view_grade_mode(qapp, graded):
     assert c.code == "1101" and c._is_ref and c._bg == QColor(GRADE_COLORS["industrial"])
     assert w.cells["1102"].badge.text() == "→ P2401002"
     assert w.cells["3212"]._bg == QColor(GRADE_COLORS["reject"])
-    assert w.cells["2101"].code is None and w.cells["2101"].toolTip() == "빈 슬롯"
+    assert w.cells["2101"].code is None and w.cells["2101"].toolTip() == "2101 빈 슬롯"
+    assert w.cells["2101"].lbl.text() == "2101" and w.cells["1101"].lbl.text() == "1101"
     assert "산업용" in w.cells["1101"].toolTip() and "Sweep score" in w.cells["1101"].toolTip()
     # 필터 밖 등급은 흐리게(알파)
     w.update_view(run, verdicts, ref.code, {}, {"industrial"})
