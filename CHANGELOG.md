@@ -4,7 +4,8 @@
 
 ### Added
 - **키엔스 SR-X300W 다중 QR 리더기 연동 — 카세트 스캔 (F-21)**: 하단 바 `● Reader` 상태 칩 + `카세트 스캔`(F10). LAN/TCP 9004 레벨 트리거(LON → 판독 시간 → LOFF)로 최대 72칸을 한 번에 판독해 로드된 ATX 폴더 탭 전체에 일괄 매칭
-- **리더기 설정 다이얼로그**: IP·포트·자동 접속·LON/LOFF·판독 시간·기대 코드 수·NG 문자열·셀→Port/Slot 재정의 표, `연결 테스트`·`테스트 판독` (`app_settings.qr_reader`)
+- **리더기 설정 다이얼로그**: IP·포트·자동 접속·LON/LOFF·판독 시간·기대 코드 수·NG 문자열·셀→Port/Slot 재정의 표, `연결 테스트`·`테스트 판독`·`리더기 값 읽기`(노출·게인·조명·트리거 방식 등 읽기 전용) (`app_settings.qr_reader`)
+- **판독 미리보기 창**: 리더기 서치 영역을 실제 좌표(`RD` 조회)대로 그리고 셀 번호·Port/Slot·판독 코드/NG 표시 — AutoID Network Navigator 없이 번호 배치·판독 결과 확인, `다시 판독`
 - **카세트 판독 검토 다이얼로그**: 셀별 적용/NG/동일/중복/충돌/레코드 없음/제외 분류, 레코드 없음 시 적용 차단, 충돌 칸 우클릭 덮어쓰기, 이상 칸만 보기
 - `src/core/qr_reader/` (파서·슬롯 대응·QTcpSocket 클라이언트·설정, 순수 함수 + 시그널), `scripts/capture_keyence.py`(원문 캡처), `scripts/fake_keyence_server.py`(fixture 재생 가짜 리더기), 실제 캡처 fixture `tests/fixtures/qr_reader/`
 - 테스트 +130건(qr_reader 파서·대응·클라이언트·설정·다이얼로그·믹스인, 실제 네트워크 무접촉)

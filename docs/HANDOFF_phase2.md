@@ -14,11 +14,11 @@
 | 항목 | 상태 | 비고 |
 |---|---|---|
 | **2-A 서버 업로드 연동** (probe-info.parksystems.com) | **완료 (main 92db21f)** | TLS 검증 활성, 세션 만료 감지·재로그인, Update(서버 수정) 메뉴, 이미지 전송명 `{QR ID}.png`, Fake Session 테스트 26건. **운영 DB이므로 실서버 업로드 검증은 수행하지 않음** — 서버의 이미지↔QR 매핑 규칙·Probe Type 명칭 매칭은 미확인(PRD §7) |
-| **2-B 다중 QR 리더기 연동** (키엔스 SR-X300W, LAN) | **A단계 ①·R1~R7 완료 (B·C·D단계 종료)** | 프로토콜 확정(설계 §3), 만석 fixture, `src/core/qr_reader/`, 리더기 설정·검토 다이얼로그, `QRReaderMixin`(스캔 → 검토 → 일괄 적용), PRD F-21·가이드 §6.6·CHANGELOG. 테스트 140건. 클라이언트 실기기 판독 검증, 실앱 기동 확인. **다음 = E단계 현장 검증(지그): 실제 ATX 폴더 + 실기기로 스캔→검토→적용 E2E, 조명 튜닝(셀 13·14), 시나리오 ②~⑤ 캡처, 설정 시트 확정** → 2.4.0 릴리스(2-A 와 함께). UI 목업: [Keyence Cassette Scan UI](https://claude.ai/code/artifact/868c790f-eef6-4937-ae54-5cbbb723f208) |
+| **2-B 다중 QR 리더기 연동** (키엔스 SR-X300W, LAN) | **A단계 ①·R1~R7 완료 (B·C·D단계 종료)** | 프로토콜 확정(설계 §3), 만석 fixture, `src/core/qr_reader/`, 리더기 설정·검토 다이얼로그, **판독 미리보기 창(RD 영역 실좌표)**, 리더기 값 읽기(RB/RP), `QRReaderMixin`(스캔 → 검토 → 일괄 적용), PRD F-21·가이드 §6.6·CHANGELOG. 테스트 149건. 클라이언트 실기기 판독 검증, 실앱 기동 확인. **다음 = E단계 현장 검증(지그): 실제 ATX 폴더 + 실기기로 스캔→검토→적용 E2E, 조명 튜닝(셀 13·14), 시나리오 ②~⑤ 캡처, 설정 시트 확정** → 2.4.0 릴리스(2-A 와 함께). UI 목업: [Keyence Cassette Scan UI](https://claude.ai/code/artifact/868c790f-eef6-4937-ae54-5cbbb723f208) |
 | 중앙 DB 취합 | 보류 | 설계 v0.2 문서만 커밋 |
 | 릴리스 2.4.0 | 미수행 | `VERSION`=2.3.0, CHANGELOG `[Unreleased]` 누적 중 |
 
-테스트: `pytest -q --ignore=tests/test_server_uploader.py` → 251 passed / 15 skipped (2026-09-09, 필드 노트북 시스템 Python 3.12 기준 — `requests`·`pytesseract`·`pytest-qt` 미설치라 업로더 테스트 제외, Tesseract 없음). `%LOCALAPPDATA%` 를 임시 경로로 리다이렉트하고 실행할 것(실 DB 보호).
+테스트: `pytest -q --ignore=tests/test_server_uploader.py` → 260 passed / 15 skipped (2026-09-09, 필드 노트북 시스템 Python 3.12 기준 — `requests`·`pytesseract`·`pytest-qt` 미설치라 업로더 테스트 제외, Tesseract 없음). `%LOCALAPPDATA%` 를 임시 경로로 리다이렉트하고 실행할 것(실 DB 보호).
 
 > **필드 노트북 주의**: `python` 명령은 Windows Python 관리자 셈이라 `LOCALAPPDATA` 를 바꾸면 새 Python 을 내려받는다. 반드시 절대 경로 인터프리터를 쓸 것:
 > `LOCALAPPDATA=<임시경로> C:\Users\Levi.Beak\AppData\Local\Python\pythoncore-3.12-64\python.exe -m pytest -q`

@@ -88,6 +88,8 @@
 | 트리거 잠금 | `RLOCK<CR>` → `OK,RLOCK,UNLOCK<CR>` (LOCK 이면 판독 불가) |
 | 오류 23 | AutoID Network Navigator 연결 중 → 외부 명령 전부 거부. 앱 사용 전 Navigator "연결 해제" 필수 (매뉴얼 10-2 p.59, 5-6 p.22, 오류 코드 표 p.100~101) |
 | 종단자 수용 | 명령 CR / CR+LF / STX·ETX 모두 수용, 응답은 보낸 형식을 따름 |
+| 출력 대상 | 판독 결과 프레임은 **접속된 모든 클라이언트**에 전송됨(설정 창 테스트 판독 결과가 메인 연결에도 도착 → 판독 중이 아니면 무시) |
+| 설정 조회 (읽기 전용, 실기기 확인) | `RD,nnn` → `OK,RD,aaaabbbbccccdddd` 서치 영역 좌표(1920×1200, 미정의는 전부 0). `RB,bbmmm`(뱅크 2자리+번호 3자리): 100 노출 µs, 101 게인, 010 조명 종류(1=편광), 108 콘트라스트(1=HDR). `RP,mmm`: 101 트리거 방식(0=레벨), 103/104 LON·LOFF HEX, 205 에러 문자열 HEX(`4552524F52`=ERROR), 290 다중 코드 출력(2=영역별). 쓰기(`WD/WB/WP` + `SAVE`)는 앱에서 하지 않음(매뉴얼 14-3 p.104~) |
 
 ### 3.3 리더기 설정 시트 (SR-X300W, 2026-09-09 현재)
 
@@ -122,7 +124,8 @@
 - **UI** (목업 승인 2026-09-09: [Keyence Cassette Scan UI](https://claude.ai/code/artifact/868c790f-eef6-4937-ae54-5cbbb723f208))
   - **메인 창 하단 바**: 기존 QR 입력 오른쪽에 리더기 상태 칩(● Reader 192.168.100.2, 클릭 시 설정) + **"카세트 스캔"** 버튼(**F10** — F9 는 Manual 모드 캡처 단축키와 충돌해 변경). 연결됐을 때만 활성. 진행률 바는 유지.
   - **검토 다이얼로그 "카세트 판독 검토"**: 상단 요약 칩(판독 n/72 · 적용 가능 · NG · 동일 · 중복 · 충돌 · 레코드 없음 · 제외) + "이상 칸만 보기" + 범례. 본문은 리더기 격자 순서대로 Port 1~6 패널(각 3열×4행, 셀 번호·S번호·코드·상태 배지). 폴더 미로드 포트는 "자동 제외"로 흐리게. 하단에 차단 사유와 [재판독][취소][적용 (n)]. 레코드 없음이 1칸이라도 있으면 적용 비활성, 충돌·중복 칸은 적용에서 제외(덮어쓰기는 칸 우클릭).
-  - **리더기 설정 다이얼로그**: 연결(전송 방식 LAN/Serial/Keyboard, IP, 포트, 자동 재접속) · 판독(LON/LOFF, 판독 시간 s, 기대 코드 수, NG 문자열) · 셀→Port/Slot(공식 / 재정의 표) · 하단 상태(연결됨 · 모델 · FW) + [연결 테스트][테스트 판독][취소][저장].
+  - **리더기 설정 다이얼로그**: 연결(전송 방식 LAN/Serial/Keyboard, IP, 포트, 자동 접속) · 판독(LON/LOFF, 판독 시간 s, 기대 코드 수, NG 문자열) · 셀→Port/Slot(공식 / 재정의 표) · **리더기 현재 값(읽기 전용, `RB/RP` 조회)** · 하단 상태 + [연결 테스트][리더기 값 읽기][테스트 판독][판독 미리보기][취소][저장]. 저장하면 LAN 설정으로 즉시 접속.
+  - **판독 미리보기 창**(비모달, `frame_preview_dialog.py`): `RD` 로 읽은 서치 영역을 실제 좌표대로 그리고 셀 번호·Port/Slot·판독 코드/NG 를 칸에 표시. Navigator 없이 번호 배치와 판독 결과를 확인. [다시 판독] 지원. 좌표를 못 읽으면 규약 배치(점선).
 - **폴백**: 기존 키보드 입력창 유지(단일 정정, 리더기 장애).
 
 ---
@@ -209,8 +212,8 @@
 |---|---|---|---|
 | **R1** | `CellRead`/`ParsedFrame` + `payload_parser` (§3.1 고정 형식, `classify_line`, `split_frames`) | `src/core/qr_reader/payload_parser.py`, `tests/test_qr_reader_parser.py` | A① (완료) |
 | **R2** | `slot_assigner`: 공식 + override 표, 로드된 세트 탐색, 예외 분류(§5) `AssignPlan` | `src/core/qr_reader/slot_assigner.py`, `tests/test_qr_reader_assigner.py` | R1 (완료) |
-| **R3** | `KeyenceClient` (QTcpSocket, LON→지연→LOFF, 프레이밍, 재접속, 타임아웃, `send_command`) + 가짜 서버 + 인프로세스 테스트 17건 | `src/core/qr_reader/keyence_client.py`, `scripts/fake_keyence_server.py`, `tests/test_qr_reader_client.py` | R1 (완료) |
-| **R4** | 설정 키(`app_settings.qr_reader`) + 리더기 설정 다이얼로그(연결 테스트·테스트 판독) + 하단 바 상태 칩·카세트 스캔(F10) + `QRReaderMixin` | `src/core/qr_reader/settings.py`, `src/ui/dialogs/qr_reader_settings_dialog.py`, `src/ui/controllers/qr_reader_mixin.py`, `ui_builder_mixin.py`, `main_window.py` | R3 (완료) |
+| **R3** | `KeyenceClient` (QTcpSocket, LON→지연→LOFF, 프레이밍, 재접속, 타임아웃, `send_command`, `query` 순차 질의) + 가짜 서버(RD/RB/RP 응답 포함) + 인프로세스 테스트 20건 | `src/core/qr_reader/keyence_client.py`, `scripts/fake_keyence_server.py`, `tests/test_qr_reader_client.py` | R1 (완료) |
+| **R4** | 설정 키(`app_settings.qr_reader`) + 리더기 설정 다이얼로그(연결 테스트·테스트 판독·리더기 값 읽기·판독 미리보기) + 하단 바 상태 칩·카세트 스캔(F10) + `QRReaderMixin` | `src/core/qr_reader/settings.py`, `src/ui/dialogs/qr_reader_settings_dialog.py`, `src/ui/dialogs/frame_preview_dialog.py`, `src/ui/controllers/qr_reader_mixin.py`, `ui_builder_mixin.py`, `main_window.py` | R3 (완료) |
 | **R5** | 검토 다이얼로그(Port 패널·요약 칩·범례·차단 규칙·충돌 덮어쓰기·이상 칸 필터, 오프셋 경고는 X,Y OFF 계약으로 제외) | `src/ui/dialogs/batch_read_review_dialog.py`, `tests/test_batch_read_review_dialog.py` | R2 (완료) |
 | **R6** | `QRReaderMixin._review_frame/_apply_batch` — 프레임 → `build_plan`(탭 순서 `set_for_port`, 설정 override) → 검토 → 일괄 적용(그리드·탭 라벨·진행률·Pass Pool 갱신, 폴더별 DB 저장). 기존 `qr_match_mixin`/`pass_pool_mixin` 은 수정하지 않음 | `src/ui/controllers/qr_reader_mixin.py`, `tests/test_qr_reader_batch_apply.py` | R2, R4, R5 (완료) |
 | **R7** | 문서: PRD F-21 + user-guide §6.6·§6.5 + CHANGELOG | `docs/PRD.md`, `docs/PRD.html`, `docs/user-guide.html`, `CHANGELOG.md` | R6 (완료) |
