@@ -1,9 +1,9 @@
 {
   "version": "2.0",
-  "updated": "2026-06-08",
+  "updated": "2026-09-09",
   "project": "MC QR Code Chip Carrier Manager",
   "total_skills": 19,
-  "total_source_files": 36,
+  "total_source_files": 37,
   "skills": [
     {
       "id": "00",
@@ -69,7 +69,8 @@
         "05-wafer-map-die-system"
       ],
       "source_files": [
-        "src/ui/widgets/stats_dashboard.py"
+        "src/ui/widgets/stats_dashboard.py",
+        "src/ui/widgets/sweep_verdict_chart.py"
       ]
     },
     {
@@ -154,7 +155,9 @@
         "15-multi-recipe-comparison"
       ],
       "source_files": [
-        "src/core/atx_parser.py"
+        "src/core/atx_parser.py",
+        "src/core/inspection/mtc_parser.py",
+        "src/core/inspection/sweep_shape.py"
       ]
     },
     {
@@ -176,7 +179,9 @@
         "08-die-deviation-analysis"
       ],
       "source_files": [
-        "src/core/quality.py"
+        "src/core/quality.py",
+        "src/core/inspection/sweep_shape.py",
+        "src/core/inspection/grading.py"
       ]
     },
     {
@@ -222,7 +227,8 @@
       "source_files": [
         "src/core/csv_exporter.py",
         "src/core/bundle.py",
-        "src/ui/controllers/export_mixin.py"
+        "src/ui/controllers/export_mixin.py",
+        "src/core/inspection/lot_builder.py"
       ]
     },
     {
@@ -271,7 +277,8 @@
         "src/ui/widgets/history_table.py",
         "src/ui/widgets/system_logger.py",
         "src/ui/widgets/csv_preview_table.py",
-        "src/ui/widgets/slot_detail_table.py"
+        "src/ui/widgets/slot_detail_table.py",
+        "src/ui/widgets/inspection_page.py"
       ]
     },
     {
@@ -304,7 +311,8 @@
         "src/ui/controllers/export_mixin.py",
         "src/ui/controllers/upload_mixin.py",
         "src/ui/controllers/history_mixin.py",
-        "src/ui/controllers/settings_mixin.py"
+        "src/ui/controllers/settings_mixin.py",
+        "src/ui/controllers/inspection_mixin.py"
       ]
     },
     {
@@ -329,7 +337,8 @@
       "source_files": [
         "src/core/ocr_worker.py",
         "src/ui/controllers/upload_mixin.py",
-        "src/ui/controllers/manual_import_mixin.py"
+        "src/ui/controllers/manual_import_mixin.py",
+        "src/ui/controllers/inspection_mixin.py"
       ]
     },
     {
@@ -352,7 +361,8 @@
       "source_files": [
         "src/core/ocr_settings.py",
         "src/ui/controllers/settings_mixin.py",
-        "src/core/database.py"
+        "src/core/database.py",
+        "src/core/inspection/templates.py"
       ]
     },
     {

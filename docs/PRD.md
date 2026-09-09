@@ -85,7 +85,8 @@ main.py                              ← Entry Point (QApplication 부팅, 테�
 │   ├─ slot_mapper.py                — ATX 슬롯코드 ↔ 그리드 위치 매핑
 │   ├─ server_uploader.py            — HTTP 멀티파트 업로드
 │   ├─ quality.py                    — 규격(Spec) 평가 + In-Spec 수율 (F-20, 순수 함수)
-│   └─ qr_reader/                    — ★신규: 키엔스 리더기 (F-21) payload_parser · slot_assigner · keyence_client · settings
+│   ├─ qr_reader/                    — ★신규: 키엔스 리더기 (F-21) payload_parser · slot_assigner · keyence_client · settings
+│   └─ inspection/                   — ★신규: MTC Inspection (F-22) mtc_parser · sweep_shape · vision_check · reference · templates · grading · lot_builder
 ├─ src/ui/
 │   ├─ theme.py                      — Catppuccin Mocha 색상/QSS
 │   ├─ main_window.py                — ChipCarrierManagerApp = 8개 Mixin + QMainWindow 조립
@@ -108,7 +109,8 @@ class ChipCarrierManagerApp(
     ExportMixin,         # CSV / CSV+Images / Merge Export
     UploadMixin,         # 서버 업로드(QThread)
     HistoryMixin,        # 이력/통계/번들/백업복원 + 품질·리포트(F-20)
-    # … PassPoolMixin, QRReaderMixin(★F-21: 리더기 연결·카세트 스캔·검토·일괄 적용)
+    # … PassPoolMixin, QRReaderMixin(★F-21: 리더기 연결·카세트 스캔·검토·일괄 적용),
+    #    InspectionMixin(★F-22: 런 폴더 판정·템플릿·로트 생성)
     SettingsMixin,       # 설정 저장/복원
     QMainWindow,
 ):
@@ -305,6 +307,30 @@ class ChipCarrierManagerApp(
 
 **설계 노트**: 셀 번호와 MTC 물리 슬롯 방향의 대응은 Phase 2 에서 공식으로 고정하고, 지그 → MTC 직접 부착 전환 시 리더기 격자 재번호(또는 재정의 표)로 흡수한다. 좌표(X,Y)·서치 영역 번호 출력은 OFF 로 계약(필요 시 옵션).
 
+### ★ F-22 MTC Inspection — 등급 사다리 판정 + sweep/Vision 자동 판정 + 로트 생성 (신규, Phase 2-C)
+
+> MTC 런 폴더(`{YYYYMMDD}`: PSPD/FreqSweep/ZoomOut/Vision/Angle txt + 슬롯별 이미지)를 앱에서 직접 열어 산업용/연구용/재검사/불량 **등급 사다리**로 분류하고, 로트 폴더(`{UnitNo}_{qty}M_{Tip}`)를 만들어 **ATX 모드 탭으로 바로** 잇는다. 외부 "ATX Classification" 도구를 흡수. 설계 문서: [`inspection-design.md`](./inspection-design.md).
+
+| 항목 | 내용 |
+|------|------|
+| 진입 | 툴바 `Inspection` 모드(스택 index 4). `Open...` → 런 폴더 선택 → 자동 판정(QThread) |
+| 화면 | 3열: 결과표(ATX·Port·Slot·Grade·Error·No, 등급색)·필터·Fail Item 판정식·Threshold(Tip ID, 등급 탭별 항목 폼) / Vision 이미지·Reference Cantilever·Info·Grouping / FreqSweep·ZoomOut 이미지·sweep 판정 차트 |
+| 판정 | 항목 11종(A+B·A-B·C-D offset, Drive·Q·Frequency·X/Y Offset range, Angle offset, **Sweep Shape**, **Vision Match**) + 파손(자동, 불량 강제). 산업용→연구용→재검사 순 첫 통과 등급, 전부 실패=불량 |
+| 자동 판정 | **sweep 형상 점수**(줌인/ZoomOut txt: 피크 수·Lorentzian R²·비대칭·부피크, 0~100) · **Vision 팁 파손**(pickUp PNG 실루엣 길이/면적을 기준 슬롯 대비 비율로) |
+| 로트 | Grouping(등급·Unit No·Batch·12M/10M/5M 수량·Remain) Run → 로트 폴더(Summary.csv + FreqSweep/Vision 복사, `load_atx_folder` 호환) → ATX 탭 자동 오픈 + DB 저장 → ATX 모드 전환 |
+| 저장 | `app_settings.inspection_templates`({tip_id: template}) · `inspection_last_tip` · `inspection_lot_dir`. 템플릿 Save 시 산업용 Freq/Q → `spec_limits[tip_id]` 동기화 |
+| 구성 파일 | `core/inspection/{mtc_parser,sweep_shape,vision_check,reference,templates,grading,lot_builder}.py`, `ui/controllers/inspection_mixin.py`, `ui/widgets/{inspection_page,sweep_verdict_chart}.py`, `ui/dialogs/inspection_template_dialog.py` |
+
+**기능**
+1. **런 폴더 파싱** — 6개 탭 구분 txt 를 (ATX, Port, Slot) 키로 병합, 슬롯별 이미지/sweep txt 경로 해석. 줌인 sweep 이 없는 슬롯은 `No Sweep`.
+2. **기준 캔틸레버** — 첫 정상 슬롯 자동 선택, 우클릭/버튼으로 변경 → A+B/A-B/C-D·X/Y(um, 0.345 um/px)·Angle 오프셋 재계산.
+3. **등급 사다리 템플릿** — Tip ID 별 저장, `New...`(복사)·삭제·Save. 기본 AC160 은 원 도구 값(산업용) + 완화된 연구용/재검사.
+4. **수동 override** — 우클릭 `등급 수동 변경` / `파손 표시` / `자동 판정으로 되돌리기`; 재판정·기준 변경 후에도 유지, 표에 `*` 표시.
+5. **리포트** — `Save` → `Inspection_{run}.csv`(전 슬롯 등급·Error·원시값·오프셋·sweep 점수·vision 요약).
+6. **Grouping → ATX** — 내보낸 슬롯은 Error 열 `→ {UnitNo}` 표시 + 다음 Grouping 대상에서 제외, 다음 Unit No 자동 증가.
+
+**설계 노트**: 형상 판정은 이미지가 아닌 **수치(txt)** 기반 — sweep 이미지에 이미 Lorentzian 피팅이 그려져 있으므로 같은 모델을 수치로 재현해 R² 로 판정한다. Thermal Tune 은 런 폴더에 데이터가 없어 제외. 다중 런 폴더 합산은 후속.
+
 ### 부가 — SystemLogger 다중 싱크
 
 - ATX / Manual / Export 중심 로그 브로드캐스트, History 는 조회 공간 확보를 위해 전용 로그 박스 미노출
@@ -383,6 +409,7 @@ NX 1.0.0:  {{A8F2D4E5-B612-4B19-8C3E-7F5D9A0E4B21}   ← 구버전(별도 제품
 | `test_measurement_values.py` | 측정값 절삭 로직 |
 | `test_system_logger.py` | 로거 다중 싱크 / dead sink 정리 |
 | `test_quality.py` | ★신규: 규격 평가·수율 계산·설정 라운드트립 + 대시보드 스모크(PDF 생성) |
+| `test_mtc_parser.py`, `test_sweep_shape.py`, `test_vision_check.py`, `test_inspection_grading.py`, `test_lot_builder.py`, `test_inspection_mixin.py` | ★F-22: 런 폴더 파서 / sweep 형상 / Vision 파손 / 템플릿·사다리 / 로트 라운드트립 / 메인 윈도우 offscreen 통합(`requests` 필요) — fixture `tests/fixtures/mtc/20260909` |
 | `test_build_artifacts.py` | 빌드 산출물 구조(`dist/` 존재 시) |
 
 ---
@@ -477,6 +504,8 @@ pytest
 | `recent_folders` | 최근 ATX 폴더 5개 |
 | `manual_tip_catalog` | 관리형 Tip 이름 목록 |
 | `spec_limits` | ★ probe별 규격 한계 `{pt:{freq_min,freq_max,q_min,q_max}}` |
+| `inspection_templates` | ★ F-22 등급 사다리 템플릿 `{tip_id: {um_per_pixel, grades[…]}}` |
+| `inspection_last_tip` / `inspection_lot_dir` | F-22 마지막 Tip ID / 로트 출력 폴더 |
 | `ocr_roi` | 해상도별 ROI 프로파일(v2) |
 
 ### 9.5 확장 패턴 (자주 쓰는 작업)

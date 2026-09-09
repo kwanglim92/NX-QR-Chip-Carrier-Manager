@@ -3,6 +3,13 @@
 ## [Unreleased]
 
 ### Added
+- **MTC Inspection 모드 (F-22)**: 툴바 `Inspection` — MTC 런 폴더(`20260909` 등)를 열어 슬롯별 등급을 **산업용/연구용/재검사/불량 사다리**로 자동 판정. 결과표(등급색)·등급 필터·Fail Item 판정식(`2.91 - 1 < 0.46 < 2.91 + 1`)·Vision/FreqSweep/ZoomOut 이미지·Reference Cantilever·Info, 우클릭 등급 수동 변경/파손 표시/기준 지정/폴더 열기, `Save` 로 검사 리포트 CSV
+- **sweep 곡선 형상 자동 판정**: 줌인/ZoomOut txt 수치로 피크 수·Lorentzian R²·비대칭·부피크를 0~100 점수화(템플릿 항목 `Sweep Shape`), 판정 차트에 측정 곡선·피크·피팅·근거 오버레이(Zoom In/Out)
+- **Vision 팁 파손 자동 판정**: pickUp 이미지 실루엣 길이/면적을 기준 슬롯 대비 비율로 판정(해상도 무관), 파손은 불량 강제 + 수동 override
+- **등급 사다리 템플릿**: Tip ID 별 `Threshold` 폼(등급 탭 × 항목 11종, um/pixel), `New...`(복사)·삭제·Save — Save 시 산업용 Frequency/Q 를 History 의 Spec Limits 에 동기화(`app_settings.inspection_templates`)
+- **Grouping → 로트 생성**: 등급·Unit No·Batch·12M/10M/5M 수량·Remain·OK/INVALID, `Run` 으로 `{UnitNo}_{qty}M_{Tip}` 로트 폴더(Summary.csv + FreqSweep/Vision 복사, 기존 ATX 형식) 생성 후 **ATX 모드 탭으로 자동 오픈**(DB 저장), Unit No 자동 +1, 내보낸 슬롯은 표에 `→ Unit No` 표시
+- `src/core/inspection/`(파서·형상·Vision·기준·템플릿·사다리·로트, 순수 함수) + 실런 발췌 fixture `tests/fixtures/mtc/20260909` + 테스트 59건
+- 설계 문서 `docs/inspection-design.md`, PRD F-22, 사용자 가이드 §6.7
 - **키엔스 SR-X300W 다중 QR 리더기 연동 — 다중 QR 스캔 (F-21)**: 하단 바 QR 입력 옆 `다중 QR 스캔`(F10) + `판독 검토`, 상태 바(Theme 왼쪽) `● Reader` 상태 칩. LAN/TCP 9004 레벨 트리거(LON → 판독 시간 → LOFF)로 최대 72칸을 한 번에 판독해 **레코드가 있는 칸은 즉시 현재 창에 QR 입력**(검토 창 없이), 나머지는 로그 요약
 - **리더기 설정 다이얼로그**: IP·포트·자동 접속·LON/LOFF·판독 시간·기대 코드 수·NG 문자열·셀→Port/Slot 재정의 표, `연결 테스트`·`테스트 판독`·`리더기 값 읽기` (`app_settings.qr_reader`)
 - **리더기 튜닝 페이지**: 뱅크 1 노출·게인·조명 종류·콘트라스트를 앱에서 읽고(`RB`) 수정해 `리더기에 쓰기 + 저장`(`WB` → `SAVE` → 재확인), `오토 포커스 실행`(`FTUNE`, 결과 통지 대기) — 실기기 검증 2026-09-09. 동작 파라미터(트리거 등)는 읽기 전용 유지
