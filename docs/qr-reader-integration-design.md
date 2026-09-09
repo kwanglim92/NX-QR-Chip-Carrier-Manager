@@ -215,6 +215,11 @@
 | **R6** | `QRMatchMixin._on_batch_read` + 카세트 스캔 트리거(ATX 탭·Pass Pool) + 일괄 적용 | `qr_match_mixin.py`, `pass_pool_mixin.py` | R2, R4, R5 |
 | **R7** | 문서: PRD F-21(가칭) + user-guide + CHANGELOG | `docs/` | R6 |
 
+### R1~R3 검토에서 R5/R6 로 이월한 항목 (2026-09-09 code-reviewer)
+- `AssignItem` 에 ATX 번호·폴더 식별(PO)이 없고 EXCLUDED/NO_RECORD 는 `target=None` → R5 검토 다이얼로그가 "ATX1 Port1 Slot2" 라벨을 그리려면 `set_index` 로 세트를 역참조하거나 항목에 라벨 필드를 추가해야 함.
+- 충돌 칸 덮어쓰기(§4 우클릭)는 `AssignPlan` 을 바꾸지 않고 R6 가 별도 "강제 적용 셀 집합" 을 받아 처리한다(계획 불변 유지).
+- 같은 ATX+Port 폴더가 2개 로드된 경우 R6 는 탭 순서(①②③…)로 `set_for_port` 를 구성해 `build_plan` 에 넘긴다.
+
 ### 검수 게이트
 - [x] R1~R3 테스트 전부 그린(58건) + 기존 `tests/` 회귀 없음(174 passed), 테스트의 실제 네트워크 접속 0건 (2026-09-09)
 - [x] 가짜 서버(인프로세스 QTcpServer)로 72코드·NG·3분할 프레임·ER 23·개수 불일치·타임아웃·재접속 통과
