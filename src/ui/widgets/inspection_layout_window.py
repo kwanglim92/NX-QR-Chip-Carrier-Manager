@@ -9,6 +9,7 @@
   2112 — 폴더·Summary.csv 의 코드와 동일). 빈 슬롯 = 점선 회색.
   기준 캔틸레버 = 굵은 테두리, 로트로 내보낸 슬롯 = ``→`` 배지, 수동 지정 = ``*``
 - 상호작용은 결과표와 동일: 클릭 선택 / 우클릭 메뉴 / 더블클릭 Sweep Explorer / 호버 툴팁
+- 범례 버튼(산업용/연구용/재검사/불량) 클릭 = 그 등급만 표시(나머지는 빈 슬롯처럼), 다시 클릭 = 전체
 
 비모달 창. 메인 표 선택과 양방향 동기화는 ``InspectionMixin`` 이 담당한다.
 """
@@ -23,6 +24,7 @@ from PySide6.QtWidgets import (
     QGroupBox,
     QHBoxLayout,
     QLabel,
+    QPushButton,
     QSizePolicy,
     QVBoxLayout,
     QWidget,
@@ -65,6 +67,7 @@ class LayoutCell(QFrame):
         self._bg = QColor(BG2)
         self._selected = False
         self._is_ref = False
+        self._hidden = False
         self.setMinimumSize(56, 34)
         self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         lay = QVBoxLayout(self)
@@ -89,24 +92,26 @@ class LayoutCell(QFrame):
         self._restyle(empty=True)
 
     def set_state(self, code: str, bg: QColor, text: str, badge: str, tooltip: str,
-                  is_ref: bool, dimmed: bool):
+                  is_ref: bool, dimmed: bool, hidden: bool = False):
+        """hidden=True 면 코드만 흐리게 남기고 빈 슬롯처럼 그린다(범례 필터)."""
         self.code = code
         self._bg = QColor(bg)
         if dimmed:
             self._bg.setAlpha(60)
         self._is_ref = is_ref
-        self.lbl.setText(text)
-        self.badge.setText(badge)
+        self._hidden = hidden
+        self.lbl.setText(text.split("\n")[0] if hidden else text)
+        self.badge.setText("" if hidden else badge)
         self.setToolTip(tooltip)
-        self._restyle(empty=False)
+        self._restyle(empty=hidden)
 
     def set_selected(self, on: bool):
         self._selected = on
-        self._restyle(empty=self.code is None)
+        self._restyle(empty=self.code is None or self._hidden)
 
     def _restyle(self, empty: bool):
         if empty:
-            border = f"1px dashed {BG3}"
+            border = f"3px solid {ACCENT}" if (self._selected and self.code) else f"1px dashed {BG3}"
             bg = BG2
             fg = FG2
         else:
@@ -161,9 +166,26 @@ class InspectionLayoutWindow(QWidget):
         head.addWidget(self.mode_combo)
         root.addLayout(head)
 
+        legend_row = QHBoxLayout()
+        self.legend_buttons: dict[str, QPushButton] = {}
+        self.legend_filter: str | None = None
+        for key in ALL_GRADE_KEYS:
+            b = QPushButton(f"■ {GRADE_NAMES[key]}")
+            b.setCheckable(True)
+            b.setCursor(Qt.PointingHandCursor)
+            b.setToolTip(f"{GRADE_NAMES[key]}만 표시 (다시 클릭하면 전체)")
+            color = GRADE_COLORS[key]
+            b.setStyleSheet(
+                f"QPushButton {{ color: {color}; background: transparent; border: 1px solid {BG3};"
+                f" border-radius: 3px; padding: 2px 8px; }}"
+                f"QPushButton:checked {{ background: {color}; color: {BG}; font-weight: bold; }}")
+            b.clicked.connect(lambda _c=False, k=key: self._on_legend_clicked(k))
+            self.legend_buttons[key] = b
+            legend_row.addWidget(b)
         self.legend = QLabel("")
         self.legend.setStyleSheet(f"color: {FG2};")
-        root.addWidget(self.legend)
+        legend_row.addWidget(self.legend, 1)
+        root.addLayout(legend_row)
 
         grid = QGridLayout()
         grid.setSpacing(10)
@@ -215,11 +237,13 @@ class InspectionLayoutWindow(QWidget):
             vals = [getattr(v.slot, mode) for v in verdicts if getattr(v.slot, mode) is not None]
             if vals:
                 lo, hi = min(vals), max(vals)
+        self._last_view = (run, verdicts, ref_code, grouped, allowed_grades)
         for code, cell in self.cells.items():
             v = by_code.get(code)
             if v is None:
                 cell.set_empty()
                 continue
+            hidden = self.legend_filter is not None and v.grade != self.legend_filter
             s = v.slot
             if mode == "grade":
                 bg = QColor(GRADE_COLORS.get(v.grade, FG2))
@@ -246,17 +270,22 @@ class InspectionLayoutWindow(QWidget):
                    f" · A+B {s.a_plus_b if s.a_plus_b is not None else '-'} V\n"
                    f"Sweep {v.sweep.summary()} · Vision {v.vision.summary()}")
             dimmed = allowed_grades is not None and v.grade not in allowed_grades
-            cell.set_state(code, bg, text, badge, tip, code == ref_code, dimmed)
+            cell.set_state(code, bg, text, badge, tip, code == ref_code, dimmed, hidden)
         self._update_legend(mode, lo, hi)
         if self._selected:
             self.select(self._selected)
 
+    def _on_legend_clicked(self, key: str):
+        """범례 버튼: 그 등급만 표시. 같은 버튼을 다시 누르면 전체 표시."""
+        self.legend_filter = None if self.legend_filter == key else key
+        for k, b in self.legend_buttons.items():
+            b.setChecked(k == self.legend_filter)
+        if getattr(self, "_last_view", None):
+            self.update_view(*self._last_view)
+
     def _update_legend(self, mode: str, lo, hi):
         if mode == "grade":
-            self.legend.setText("   ".join(f"■ {GRADE_NAMES[k]}" for k in ALL_GRADE_KEYS)
-                                + "   ·   굵은 테두리 = 기준 캔틸레버, → = 로트로 내보냄, * = 수동 지정")
-            html = "   ".join(f'<span style="color:{GRADE_COLORS[k]}">■</span> {GRADE_NAMES[k]}' for k in ALL_GRADE_KEYS)
-            self.legend.setText(html + "   ·   굵은 테두리 = 기준 캔틸레버, → = 로트로 내보냄, * = 수동 지정")
+            self.legend.setText("굵은 테두리 = 기준 캔틸레버, → = 로트로 내보냄, * = 수동 지정")
         elif mode == "sweep":
             self.legend.setText(f'<span style="color:{RED}">■</span> 0  →  <span style="color:{ORANGE}">■</span> 50  →  '
                                 f'<span style="color:{GREEN}">■</span> 100  (Sweep 형상 점수)')

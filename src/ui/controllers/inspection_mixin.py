@@ -48,6 +48,7 @@ from src.ui.dialogs.inspection_template_dialog import NewTemplateDialog
 LAST_TIP_KEY = "inspection_last_tip"
 LOT_DIR_KEY = "inspection_lot_dir"
 LAST_BATCH_KEY = "inspection_last_batch"
+SPLITTERS_KEY = "inspection_splitters"
 DEFAULT_TIP = "AC160"
 
 
@@ -133,6 +134,7 @@ class InspectionMixin:
         p.btn_layout.clicked.connect(self._insp_open_layout)
 
         p.grp_path_edit.setText(lot_dir or "")
+        p.apply_splitter_sizes(load_setting(self._db_conn, SPLITTERS_KEY, None))
         p.set_template_names(sorted(self._insp_templates), self._insp_current_tip)
         p.template_to_form(self._insp_templates[self._insp_current_tip])
         p.clear_detail()
@@ -140,6 +142,11 @@ class InspectionMixin:
         self._insp_update_grouping()
 
     def _shutdown_inspection(self):
+        try:
+            from src.core.database import save_setting
+            save_setting(self._db_conn, SPLITTERS_KEY, self.inspection_page.splitter_sizes())
+        except Exception:
+            pass
         w = self._insp_worker
         if w is not None and w.isRunning():
             w.wait(3000)

@@ -75,3 +75,28 @@ def test_color_modes_and_selection(qapp, graded):
     w.cells["1101"].clicked.emit("1101")
     assert got == ["1101"]
     w.close()
+
+
+def test_legend_button_filters_to_one_grade(qapp, graded):
+    from src.ui.widgets.inspection_layout_window import InspectionLayoutWindow
+    run, ref, verdicts = graded
+    w = InspectionLayoutWindow()
+    w.update_view(run, verdicts, ref.code, {}, None)
+    assert set(w.legend_buttons) == {"industrial", "research", "recheck", "reject"}
+    w.legend_buttons["industrial"].click()
+    assert w.legend_filter == "industrial" and w.legend_buttons["industrial"].isChecked()
+    assert not w.cells["1101"]._hidden                 # 산업용 → 그대로
+    assert w.cells["3212"]._hidden                     # 불량 → 빈 슬롯처럼
+    assert w.cells["3212"].lbl.text() == "3212" and w.cells["3212"].badge.text() == ""
+    # 다른 등급 클릭 → 배타 전환
+    w.legend_buttons["reject"].click()
+    assert w.legend_filter == "reject" and not w.legend_buttons["industrial"].isChecked()
+    assert w.cells["1101"]._hidden and not w.cells["3212"]._hidden
+    # 같은 버튼 다시 클릭 → 전체
+    w.legend_buttons["reject"].click()
+    assert w.legend_filter is None and not w.cells["1101"]._hidden
+    # 숨긴 셀도 선택 테두리는 유지
+    w.legend_buttons["industrial"].click()
+    w.select("3212")
+    assert w.cells["3212"]._selected
+    w.close()

@@ -252,3 +252,20 @@ def test_lot_build_writes_check_sheet_and_remembers_batch(app_window, qapp, monk
     assert load_setting(win._db_conn, "inspection_last_batch") == "ac160(0001~0004)"
     win._insp_update_batch_default(force=True)
     assert p.grp_batch_edit.text() == "ac160(0001~0004)"
+
+
+def test_splitter_sizes_default_and_persist(app_window, qapp):
+    from src.core.database import load_setting
+    from src.ui.widgets.inspection_page import DEFAULT_SPLITS
+    win = app_window
+    p = win.inspection_page
+    assert DEFAULT_SPLITS["main"] == [590, 755, 520]
+    p.main_split.setSizes([600, 700, 500])
+    p.middle_split.setSizes([400, 600])
+    win._shutdown_inspection()
+    saved = load_setting(win._db_conn, "inspection_splitters")
+    assert saved["main"] and saved["middle"] and saved["right"]
+    # 잘못된 값은 무시
+    before = p.main_split.sizes()
+    p.apply_splitter_sizes({"main": [1, 2], "middle": "x"})
+    assert p.main_split.sizes() == before

@@ -53,6 +53,12 @@ TABLE_COLUMNS = ["ATX", "Port", "Slot", "Grade", "Error", "No"]
 GRADE_COLORS: dict[str, str] = {
     "industrial": GREEN, "research": TEAL, "recheck": ORANGE, REJECT_KEY: RED,
 }
+# 스플리터 기본 비율 — 2026-09-10 실앱(1920×1150)에서 사용자가 맞춘 배치 기준
+DEFAULT_SPLITS: dict[str, list[int]] = {
+    "main": [590, 755, 520],      # 좌(표·Threshold) / 중(Vision·Info·Grouping) / 우(이미지·차트)
+    "middle": [435, 570],         # Vision 이미지 / Reference·Info·Grouping
+    "right": [370, 365, 255],     # FreqSweep / ZoomOut / 판정 차트
+}
 INFO_ROW1 = ["Tip X (pxl)", "Tip Y (pxl)", "RefX - X (um)", "RefY - Y (um)", "Freq (kHz)", "Sweep Score"]
 INFO_ROW2 = ["Set Pt (nm)", "Drive (%)", "Q", "A+B (V)", "A-B (V)", "C-D (V)", "Angle (°)", "Match (%)"]
 
@@ -123,7 +129,8 @@ class InspectionPage(QWidget):
         split.addWidget(_scroll(self._build_left()))
         split.addWidget(_scroll(self._build_middle()))
         split.addWidget(_scroll(self._build_right()))
-        split.setSizes([480, 680, 680])
+        split.setSizes(DEFAULT_SPLITS["main"])
+        self.main_split = split
         root.addWidget(split, 1)
 
     def _build_left(self) -> QWidget:
@@ -383,7 +390,7 @@ class InspectionPage(QWidget):
         self.middle_split.addWidget(w)
         self.middle_split.setStretchFactor(0, 3)
         self.middle_split.setStretchFactor(1, 2)
-        self.middle_split.setSizes([480, 520])
+        self.middle_split.setSizes(DEFAULT_SPLITS["middle"])
         holder = QWidget()
         hl = QVBoxLayout(holder)
         hl.setContentsMargins(4, 0, 4, 0)
@@ -444,12 +451,29 @@ class InspectionPage(QWidget):
         self.right_split.addWidget(sweep_blk)
         self.right_split.addWidget(zoom_blk)
         self.right_split.addWidget(chart_grp)
-        self.right_split.setSizes([380, 380, 240])
+        self.right_split.setSizes(DEFAULT_SPLITS["right"])
         holder = QWidget()
         hl = QVBoxLayout(holder)
         hl.setContentsMargins(4, 0, 0, 0)
         hl.addWidget(self.right_split)
         return holder
+
+    # ─── 스플리터 상태 (설정 저장/복원) ───
+
+    def splitter_sizes(self) -> dict[str, list[int]]:
+        return {"main": self.main_split.sizes(), "middle": self.middle_split.sizes(),
+                "right": self.right_split.sizes()}
+
+    def apply_splitter_sizes(self, sizes: dict | None) -> None:
+        """저장된 비율 적용. 항목이 없거나 잘못되면 기본값 유지."""
+        if not isinstance(sizes, dict):
+            return
+        for key, split in (("main", self.main_split), ("middle", self.middle_split),
+                           ("right", self.right_split)):
+            vals = sizes.get(key)
+            if isinstance(vals, list) and len(vals) == split.count() and all(
+                    isinstance(v, (int, float)) and v >= 0 for v in vals) and sum(vals) > 0:
+                split.setSizes([int(v) for v in vals])
 
     # ─── 표 ───
 
