@@ -223,3 +223,32 @@ def test_layout_window_opens_and_syncs(app_window, qapp, monkeypatch):
     assert lw.cells["1101"].badge.text() == "*"
     lw.close()
     assert win._insp_layout_win is None
+
+
+def test_lot_build_writes_check_sheet_and_remembers_batch(app_window, qapp, monkeypatch, tmp_path):
+    import openpyxl
+    win = _open_fixture(app_window, qapp, monkeypatch)
+    p = win.inspection_page
+    p.model_edit.setText("AC160TS")
+    p.sheet_edit.setText(str(FIXTURE.parent / "check_sheet_template.xlsx"))
+    p.grp_unit_edit.setText("P2401002")
+    p.grp_batch_edit.setText("ac160(0001~0004)")
+    p.grp_path_edit.setText(str(tmp_path))
+    for code in [v.code for v in win._insp_verdicts if v.grade != "industrial"]:
+        win._insp_override(code, grade="industrial")
+    p.grp_spin[5].setValue(1)
+    win._insp_update_grouping()
+    monkeypatch.setattr(QMessageBox, "question", staticmethod(lambda *a, **k: QMessageBox.Yes))
+    win._insp_build_lots()
+    sheet = tmp_path / "P2401002_5M_AC160" / "P2401002_5M_AC160TS.xlsx"
+    assert sheet.exists()
+    ws = openpyxl.load_workbook(sheet, data_only=True).worksheets[0]
+    assert ws["B4"].value == "P2401002" and ws["B5"].value == "AC160TS"
+    assert ws["B41"].value == 284.81 and ws["G41"].value is None      # 5개 로트 → G(6번째)부터 빈 칸
+    assert sum(ws[f"{c}41"].value is not None for c in "BCDEF") >= 3   # sweep 없는 슬롯(1111 등)은 빈 칸
+    assert ws["L31"].value in ("■", "□") and ws["L26"].value == "■"
+    # Batch 마지막 값 기억 → 다음 런 열 때 기본값
+    from src.core.database import load_setting
+    assert load_setting(win._db_conn, "inspection_last_batch") == "ac160(0001~0004)"
+    win._insp_update_batch_default(force=True)
+    assert p.grp_batch_edit.text() == "ac160(0001~0004)"

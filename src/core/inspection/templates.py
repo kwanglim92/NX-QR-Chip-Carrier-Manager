@@ -102,7 +102,9 @@ def default_template(tip_id: str = "AC160") -> dict:
     for key, name in GRADES:
         items = {k: _item_from_tuple(ITEM_BY_KEY[k].kind, _DEFAULTS[key][k]) for k in ITEM_KEYS}
         grades.append({"key": key, "name": name, "items": items})
-    return {"tip_id": tip_id, "um_per_pixel": DEFAULT_UM_PER_PIXEL, "grades": grades}
+    return {"tip_id": tip_id, "um_per_pixel": DEFAULT_UM_PER_PIXEL, "grades": grades,
+            "model_name": "AC160TS" if tip_id == "AC160" else "",
+            "check_sheet_template": ""}
 
 
 def _to_float(v) -> float | None:
@@ -140,6 +142,10 @@ def normalize_template(raw, tip_id: str | None = None) -> dict | None:
     base = default_template(tid)
     upp = _to_float(raw.get("um_per_pixel"))
     base["um_per_pixel"] = upp if upp and upp > 0 else DEFAULT_UM_PER_PIXEL
+    if "model_name" in raw:
+        base["model_name"] = str(raw.get("model_name") or "").strip()
+    if "check_sheet_template" in raw:
+        base["check_sheet_template"] = str(raw.get("check_sheet_template") or "").strip()
     raw_grades = {g.get("key"): g for g in raw.get("grades", []) if isinstance(g, dict)}
     for grade in base["grades"]:
         rg = raw_grades.get(grade["key"])
@@ -194,6 +200,11 @@ def industrial_spec_limits(template: dict) -> dict | None:
         "q_max": q.get("max") if q.get("enabled") else None,
     }
     return spec if any(v is not None for v in spec.values()) else None
+
+
+def model_name_of(template: dict) -> str:
+    """체크시트 Type 용 정식 모델명(없으면 Tip ID)."""
+    return (template.get("model_name") or "").strip() or str(template.get("tip_id", ""))
 
 
 def clone_template(template: dict, new_tip_id: str) -> dict:

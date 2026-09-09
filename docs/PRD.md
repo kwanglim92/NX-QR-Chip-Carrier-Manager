@@ -319,7 +319,7 @@ class ChipCarrierManagerApp(
 | 자동 판정 | **sweep 형상 점수**(줌인/ZoomOut txt: 피크 수·Lorentzian R²·비대칭·부피크, 0~100) · **Vision 팁 파손**(pickUp PNG 실루엣 길이/면적을 기준 슬롯 대비 비율로) |
 | 로트 | Grouping(등급·Unit No·Batch·12M/10M/5M 수량·Remain) Run → 로트 폴더(Summary.csv + FreqSweep/Vision 복사, `load_atx_folder` 호환) → ATX 탭 자동 오픈 + DB 저장 → ATX 모드 전환 |
 | 저장 | `app_settings.inspection_templates`({tip_id: template}) · `inspection_last_tip` · `inspection_lot_dir`. 템플릿 Save 시 산업용 Freq/Q → `spec_limits[tip_id]` 동기화 |
-| 구성 파일 | `core/inspection/{mtc_parser,sweep_shape,vision_check,reference,templates,grading,lot_builder}.py`, `ui/controllers/inspection_mixin.py`, `ui/widgets/{inspection_page,sweep_verdict_chart,sweep_explorer_window,inspection_layout_window}.py`, `ui/dialogs/{inspection_template_dialog,image_popup_dialog}.py` |
+| 구성 파일 | `core/inspection/{mtc_parser,sweep_shape,vision_check,reference,templates,grading,lot_builder,check_sheet}.py`, `ui/controllers/inspection_mixin.py`, `ui/widgets/{inspection_page,sweep_verdict_chart,sweep_explorer_window,inspection_layout_window}.py`, `ui/dialogs/{inspection_template_dialog,image_popup_dialog}.py` |
 
 **기능**
 1. **런 폴더 파싱** — 6개 탭 구분 txt 를 (ATX, Port, Slot) 키로 병합, 슬롯별 이미지/sweep txt 경로 해석. 줌인 sweep 이 없는 슬롯은 `No Sweep`.
@@ -328,6 +328,7 @@ class ChipCarrierManagerApp(
 4. **수동 override** — 우클릭 `등급 수동 변경` / `파손 표시` / `자동 판정으로 되돌리기`; 재판정·기준 변경 후에도 유지, 표에 `*` 표시.
 5. **리포트** — `Save` → `Inspection_{run}.csv`(전 슬롯 등급·Error·원시값·오프셋·sweep 점수·vision 요약).
 6. **Grouping → ATX** — 내보낸 슬롯은 Error 열 `→ {UnitNo}` 표시 + 다음 Grouping 대상에서 제외, 다음 Unit No 자동 증가.
+9. **로트 체크시트** — Tip 템플릿의 정식 모델명·체크시트 템플릿(xlsx)으로 `{Unit}_{qty}M_{모델명}.xlsx` 자동 생성(zip 편집, 이미지 보존, Pass/Fail 자동).
 8. **레이아웃 보기** — 비모달 창에 ATX 2×2 · Port2 위/Port1 아래 · Slot 4×3 실물 배치로 등급 색 표시, 색 기준 콤보(등급/Sweep/Frequency/Q), 표 선택·필터와 양방향 동기화, 셀 클릭/우클릭/더블클릭은 표와 동일.
 7. **Sweep Explorer** — 판정 차트 더블클릭 → pyqtgraph 비모달 창(ZoomOut/줌인 2단, 크로스헤어, 공진 세로선 3종, 피크 표·클릭 확대, 기준 오버레이, 선택 따라가기). 이미지 더블클릭 → 원본 크기 창. 읽기 전용.
 

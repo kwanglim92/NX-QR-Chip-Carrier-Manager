@@ -117,6 +117,21 @@ pickUp PNG(그레이)에서 ① 어두운 픽셀 비율 ≥ 50% 인 마지막 �
   전환. 내보낸 슬롯은 표 Error 열에 `→ P2401002` 로 표시되고 다음 Grouping 대상에서 빠진다.
 - `Save` = 검사 리포트 CSV(`Inspection_{run}.csv`, 전 슬롯 등급·Error·원시값·오프셋·sweep 점수·vision).
 
+### 7.1 기존 로트 폴더와의 대조 (2026-09-09)
+
+`P2601001_12M_AC160`·`P2601002_12M_AC160` 과 비교: 폴더명·Summary.csv·FreqSweep/Vision 파일명·채우기 순서((ATX, Port, Slot)
+오름차순, 12개씩) 모두 일치. 차이는 두 가지 — ① Batch 문자열 `ac160(0001~0004)` 의 범위 의미는 미확인(→ 자유 텍스트,
+마지막 입력값 기억), ② `{Unit}_{12}M_{모델명}TS.xlsx` 체크시트(Unit, Type `AC160TS`, SEM/SPEC 이미지, Backside·A+B·
+Unipeak·Noise·Frequency Sweep Pass/Fail, Batch 1(L)~12(R) Frequency/Q, 보증 문구).
+
+### 7.2 체크시트 (`check_sheet.py`)
+
+템플릿 xlsx 를 openpyxl 로 열면 이미지가 사라지므로 **zip 안의 `sheet1.xml` 셀만 교체**(문자열 = inlineStr, 숫자 = v).
+B4 Unit · B5 Type(템플릿의 `정식 모델명`, 예 AC160TS) · L/M26 Backside(템플릿 유지) · L/M28 A+B · L/M31 Unipeak ·
+L/M32 Noise · L/M34 Frequency Sweep · B41~M41 Frequency · B42~M42 Q. 로트가 12개 미만이면 남는 열은 비움.
+판정(산업용 기준, 로트 내 전부 통과 시 ■): A+B = A+B 항목 통과, Unipeak = 피크 1개, Noise = Sweep 점수 ≥ 산업용 min,
+Frequency Sweep = Frequency 범위 통과. 템플릿 경로가 비어 있거나 없으면 체크시트는 건너뛴다(로그 경고).
+
 ## 8. 구성 파일
 
 ```

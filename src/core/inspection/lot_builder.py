@@ -18,6 +18,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from src.core.atx_parser import load_atx_folder
+from src.core.inspection.check_sheet import check_sheet_name, write_check_sheet
 from src.core.inspection.grading import SlotVerdict
 from src.core.inspection.mtc_parser import MtcRun, MtcSlot
 from src.core.inspection.templates import GRADE_NAMES, ITEM_CATALOG
@@ -70,6 +71,23 @@ class LotResult:
     size: int
     codes: list[str] = field(default_factory=list)
     measurement_set: MeasurementSet | None = None
+    check_sheet: str | None = None
+
+
+@dataclass
+class CheckSheetSpec:
+    """로트별 체크시트 생성 사양. ``checks_by_code[code] = {a_plus_b, unipeak, noise, frequency: bool}``."""
+    template: str
+    model_name: str
+    checks_by_code: dict[str, dict[str, bool]] = field(default_factory=dict)
+
+    def lot_checks(self, codes: list[str]) -> dict[str, bool | None]:
+        out: dict[str, bool | None] = {"backside": None}
+        for key in ("a_plus_b", "unipeak", "noise", "frequency"):
+            vals = [self.checks_by_code.get(c, {}).get(key) for c in codes]
+            vals = [v for v in vals if v is not None]
+            out[key] = all(vals) if vals else None
+        return out
 
 
 def _copy(src: str | None, dst: Path) -> None:
@@ -78,7 +96,8 @@ def _copy(src: str | None, dst: Path) -> None:
 
 
 def write_lot_folder(out_dir: str | Path, unit_no: str, size: int, tip_id: str,
-                     batch: str, slots: list[MtcSlot]) -> LotResult:
+                     batch: str, slots: list[MtcSlot],
+                     check_sheet: CheckSheetSpec | None = None) -> LotResult:
     """슬롯들을 로트 폴더로 기록하고 ``load_atx_folder`` 로 다시 읽은 MeasurementSet 을 돌려준다."""
     folder = Path(out_dir) / lot_folder_name(unit_no, size, tip_id)
     sweep_dir = folder / "FreqSweep"
@@ -116,12 +135,19 @@ def write_lot_folder(out_dir: str | Path, unit_no: str, size: int, tip_id: str,
         src = by_code.get(sd.slot_code)
         if src is not None:
             sd.drive = src.drive
+    sheet_path = None
+    if check_sheet is not None and check_sheet.template:
+        sheet_path = str(folder / check_sheet_name(unit_no, size, check_sheet.model_name))
+        write_check_sheet(check_sheet.template, sheet_path, unit_no, check_sheet.model_name,
+                          [s.frequency for s in slots], [s.q for s in slots],
+                          check_sheet.lot_checks(codes))
     return LotResult(folder=str(folder), unit_no=unit_no, size=size, codes=codes,
-                     measurement_set=ms)
+                     measurement_set=ms, check_sheet=sheet_path)
 
 
 def build_lots(out_dir: str | Path, slots: list[MtcSlot], sizes: list[int],
-               unit_no_start: str, tip_id: str, batch: str) -> tuple[list[LotResult], list[MtcSlot]]:
+               unit_no_start: str, tip_id: str, batch: str,
+               check_sheet: CheckSheetSpec | None = None) -> tuple[list[LotResult], list[MtcSlot]]:
     """slots(순서 유지)를 sizes 대로 잘라 로트 폴더들을 만든다. 반환: (로트들, 남은 슬롯)."""
     err = validate_plan(sizes, len(slots))
     if err:
@@ -132,7 +158,7 @@ def build_lots(out_dir: str | Path, slots: list[MtcSlot], sizes: list[int],
     for size in sizes:
         chunk = slots[pos:pos + size]
         pos += size
-        results.append(write_lot_folder(out_dir, unit_no, size, tip_id, batch, chunk))
+        results.append(write_lot_folder(out_dir, unit_no, size, tip_id, batch, chunk, check_sheet))
         unit_no = next_unit_no(unit_no)
     return results, slots[pos:]
 

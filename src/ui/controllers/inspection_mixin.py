@@ -19,6 +19,7 @@ from PySide6.QtWidgets import QFileDialog, QMenu, QMessageBox
 
 from src.core.inspection.grading import formula_text, grade_counts, grade_run, regrade
 from src.core.inspection.lot_builder import (
+    CheckSheetSpec,
     build_lots,
     default_batch,
     plan_lot_sizes,
@@ -37,6 +38,7 @@ from src.core.inspection.templates import (
     get_grade,
     get_item,
     industrial_spec_limits,
+    model_name_of,
     normalize_template,
 )
 from src.core.inspection.vision_check import measure_tip
@@ -45,6 +47,7 @@ from src.ui.dialogs.inspection_template_dialog import NewTemplateDialog
 
 LAST_TIP_KEY = "inspection_last_tip"
 LOT_DIR_KEY = "inspection_lot_dir"
+LAST_BATCH_KEY = "inspection_last_batch"
 DEFAULT_TIP = "AC160"
 
 
@@ -97,6 +100,7 @@ class InspectionMixin:
         last = load_setting(self._db_conn, LAST_TIP_KEY, None)
         self._insp_current_tip = last if last in self._insp_templates else next(iter(self._insp_templates))
         lot_dir = load_setting(self._db_conn, LOT_DIR_KEY, "")
+        self._insp_last_batch = load_setting(self._db_conn, LAST_BATCH_KEY, "") or ""
 
         p = self.inspection_page
         p.btn_open.clicked.connect(self._insp_open)
@@ -115,6 +119,7 @@ class InspectionMixin:
         p.btn_vision_toggle.toggled.connect(lambda _c: self._insp_show_detail())
         p.btn_set_ref.clicked.connect(lambda: self._insp_set_reference(self._insp_selected))
         p.btn_grp_change.clicked.connect(self._insp_choose_lot_dir)
+        p.btn_sheet_browse.clicked.connect(self._insp_choose_sheet_template)
         p.grp_grade_combo.currentIndexChanged.connect(lambda _i: self._insp_update_grouping())
         for sp in p.grp_spin.values():
             sp.valueChanged.connect(lambda _v: self._insp_update_grouping())
@@ -255,11 +260,42 @@ class InspectionMixin:
         self._insp_start_worker()
 
     def _insp_update_batch_default(self, force: bool = False):
+        """Batch 기본값: 마지막으로 로트를 만들 때 쓴 값 → 없으면 `{tip소문자}({run})`."""
         p = self.inspection_page
         if self._insp_run is None:
             return
         if force or not p.grp_batch_edit.text():
-            p.grp_batch_edit.setText(default_batch(self._insp_current_tip, self._insp_run.run_id))
+            p.grp_batch_edit.setText(
+                self._insp_last_batch or default_batch(self._insp_current_tip, self._insp_run.run_id))
+
+    def _insp_choose_sheet_template(self):
+        p = self.inspection_page
+        path, _ = QFileDialog.getOpenFileName(self, "체크시트 템플릿 xlsx", p.sheet_edit.text() or "",
+                                              "Excel (*.xlsx)")
+        if path:
+            p.sheet_edit.setText(path)
+
+    def _insp_check_sheet_spec(self) -> CheckSheetSpec | None:
+        """현재 템플릿의 체크시트 사양 + 슬롯별 체크 결과(산업용 기준)."""
+        tpl = self._insp_current_template()
+        template_path = tpl.get("check_sheet_template") or ""
+        if not template_path:
+            return None
+        if not Path(template_path).exists():
+            self.logger.warn(f"체크시트 템플릿을 찾을 수 없어 건너뜀: {template_path}")
+            return None
+        noise_min = (get_item(tpl, "industrial", "sweep_shape") or {}).get("min")
+        checks: dict[str, dict[str, bool]] = {}
+        for v in self._insp_verdicts:
+            failed = {f.item for f in v.failed_items("industrial")}
+            score = v.metrics.get("sweep_shape")
+            checks[v.code] = {
+                "a_plus_b": "a_plus_b" not in failed,
+                "unipeak": bool(v.sweep.available and v.sweep.n_peaks == 1),
+                "noise": bool(score is not None and (noise_min is None or score >= noise_min)),
+                "frequency": "frequency" not in failed,
+            }
+        return CheckSheetSpec(template=template_path, model_name=model_name_of(tpl), checks_by_code=checks)
 
     def _insp_start_worker(self):
         if self._insp_run is None:
@@ -662,16 +698,21 @@ class InspectionMixin:
         ) != QMessageBox.Yes:
             return
         try:
-            lots, _remaining = build_lots(out_dir, avail, sizes, unit_no, self._insp_current_tip, batch)
+            lots, _remaining = build_lots(out_dir, avail, sizes, unit_no, self._insp_current_tip, batch,
+                                          self._insp_check_sheet_spec())
         except Exception as e:
             self.logger.error(f"로트 생성 실패: {e}")
             QMessageBox.critical(self, "로트 생성 실패", str(e))
             return
         self.logger.section("로트 생성")
+        from src.core.database import save_setting
+        self._insp_last_batch = batch
+        save_setting(self._db_conn, LAST_BATCH_KEY, batch)
         for lot in lots:
             for code in lot.codes:
                 self._insp_grouped[code] = lot.unit_no
-            self.logger.ok(f"{Path(lot.folder).name}: {len(lot.codes)}개 → {lot.folder}")
+            self.logger.ok(f"{Path(lot.folder).name}: {len(lot.codes)}개 → {lot.folder}"
+                           + (f" (+ 체크시트 {Path(lot.check_sheet).name})" if lot.check_sheet else ""))
             ms = lot.measurement_set
             if ms is not None:
                 ms.production_date = self.date_edit.date().toString("yyyyMMdd")

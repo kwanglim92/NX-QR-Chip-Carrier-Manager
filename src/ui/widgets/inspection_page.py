@@ -212,6 +212,20 @@ class InspectionPage(QWidget):
         upp_row.addStretch()
         tl.addLayout(upp_row)
 
+        model_row = QHBoxLayout()
+        model_row.addWidget(QLabel("정식 모델명"))
+        self.model_edit = QLineEdit()
+        self.model_edit.setPlaceholderText("예: AC160TS (체크시트 Type)")
+        self.model_edit.setFixedWidth(120)
+        model_row.addWidget(self.model_edit)
+        model_row.addWidget(QLabel("체크시트 템플릿"))
+        self.sheet_edit = QLineEdit()
+        self.sheet_edit.setPlaceholderText("xlsx 없음 → 체크시트 생성 안 함")
+        model_row.addWidget(self.sheet_edit, 1)
+        self.btn_sheet_browse = QPushButton("찾기...")
+        model_row.addWidget(self.btn_sheet_browse)
+        tl.addLayout(model_row)
+
         self.grade_tabs = QTabWidget()
         for key, name in GRADES:
             self.grade_tabs.addTab(self._build_grade_form(key), name)
@@ -542,6 +556,8 @@ class InspectionPage(QWidget):
 
     def template_to_form(self, template: dict) -> None:
         self.um_spin.setValue(float(template.get("um_per_pixel") or 0.345))
+        self.model_edit.setText(template.get("model_name") or "")
+        self.sheet_edit.setText(template.get("check_sheet_template") or "")
         for grade in template.get("grades", []):
             widgets = self.item_widgets.get(grade["key"], {})
             for key in ITEM_KEYS:
@@ -574,7 +590,9 @@ class InspectionPage(QWidget):
                 else:
                     items[ikey] = {"enabled": rec["chk"].isChecked(), "min": rec["a"].value()}
             grades.append({"key": key, "name": name, "items": items})
-        return {"tip_id": tip_id, "um_per_pixel": self.um_spin.value(), "grades": grades}
+        return {"tip_id": tip_id, "um_per_pixel": self.um_spin.value(), "grades": grades,
+                "model_name": self.model_edit.text().strip(),
+                "check_sheet_template": self.sheet_edit.text().strip()}
 
     # ─── Grouping ───
 
