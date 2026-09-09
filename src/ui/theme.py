@@ -175,6 +175,7 @@ QPushButton[accent="true"] {{
     background: {accent}; color: {bg}; font-weight: bold;
 }}
 QPushButton[accent="true"]:hover {{ background: {accent_hover}; }}
+QPushButton[accent="true"]:disabled {{ background: {bg3}; color: {fg2}; font-weight: normal; }}
 QLineEdit, QSpinBox, QDoubleSpinBox, QComboBox, QDateEdit {{
     background: {bg2}; color: {fg}; border: 1px solid {bg3};
     border-radius: 4px; padding: 5px 8px; font-size: 14px;

@@ -9,7 +9,7 @@ from PySide6.QtWidgets import (
     QGroupBox, QFormLayout, QTextEdit, QProgressBar,
     QStackedWidget, QToolBar, QStatusBar, QTabWidget, QTabBar,
     QComboBox, QSpinBox, QToolButton, QMenu, QSizePolicy,
-    QMessageBox, QListWidget,
+    QMessageBox, QListWidget, QFrame,
 )
 
 from src.ui.theme import ACCENT, FG, FG2, BG, BG2, BG3, GREEN, PURPLE
@@ -900,6 +900,29 @@ class UIBuilderMixin:
         self.qr_input = QRInputWidget()
         self.qr_input.qr_scanned.connect(self._on_qr_scanned)
         bottom_layout.addWidget(self.qr_input, 1)
+
+        # 키엔스 리더기 상태 칩(클릭 → 설정) + 카세트 스캔 (R4, 설계 §4)
+        sep = QFrame()
+        sep.setFrameShape(QFrame.VLine)
+        sep.setStyleSheet(f"color: {BG3};")
+        bottom_layout.addWidget(sep)
+
+        self.btn_reader_status = QPushButton("● Reader 미연결")
+        self.btn_reader_status.setCursor(Qt.PointingHandCursor)
+        self.btn_reader_status.setStyleSheet(f"QPushButton {{ color: {FG2}; font-size: 12px; text-align: left; }}")
+        self.btn_reader_status.clicked.connect(self._open_qr_reader_settings)
+        bottom_layout.addWidget(self.btn_reader_status)
+
+        self.btn_cassette_scan = QPushButton("카세트 스캔  F10")
+        self.btn_cassette_scan.setProperty("accent", "true")
+        self.btn_cassette_scan.setToolTip("리더기로 화각 내 카세트 전체(최대 72칸)를 한 번에 판독합니다 (F10)")
+        self.btn_cassette_scan.setEnabled(False)
+        self.btn_cassette_scan.clicked.connect(self._scan_cassette)
+        bottom_layout.addWidget(self.btn_cassette_scan)
+        self.shortcut_cassette_scan = QShortcut(QKeySequence("F10"), self)
+        self.shortcut_cassette_scan.activated.connect(
+            lambda: self._scan_cassette() if self.btn_cassette_scan.isEnabled() else None
+        )
 
         self.progress_bar = QProgressBar()
         self.progress_bar.setFixedWidth(200)
