@@ -2,8 +2,10 @@
 
 - 설정(``app_settings.qr_reader``) 로드/저장 + 리더기 설정 다이얼로그
 - 상시 ``KeyenceClient`` 1개: 상태 → 하단 바 상태 칩, 프레임 → 로그 + ``_last_frame`` 보관
-- "카세트 스캔" 버튼(F10) → ``trigger()``. 프레임을 검토 다이얼로그로 넘기는 것은 R5/R6.
-DB 접근·매칭 변경은 여기서 하지 않는다.
+- "카세트 스캔" 버튼(F10) → ``trigger()``
+- R6: 프레임 → ``build_plan``(로드된 ATX 폴더 탭 순서, 설정의 cell_override) → 검토 다이얼로그 →
+  [적용] 시 선택 항목의 ``slot.qr_id`` 갱신, 그리드·탭 라벨·진행률·Pass Pool 갱신, 폴더별 DB 자동 저장.
+  (기존 단일 QR 경로 ``_match_qr_atx`` / ``_pool_on_qr_scanned`` 와 같은 저장 규칙)
 """
 from __future__ import annotations
 
@@ -16,6 +18,8 @@ from src.core.qr_reader.settings import (
     load_qr_reader_settings,
     save_qr_reader_settings,
 )
+from src.core.qr_reader.slot_assigner import AssignError, AssignItem, build_plan
+from src.core.slot_mapper import format_full_label, parse_slot_code
 from src.ui.theme import FG2, GREEN, ORANGE, RED, TEAL
 
 _STATE_STYLE = {
@@ -78,6 +82,91 @@ class QRReaderMixin:
         ms = f" ({frame.scan_time_ms} ms)" if frame.scan_time_ms is not None else ""
         self.logger.ok(
             f"카세트 스캔: {len(frame.reads)}칸 중 {len(frame.reads) - len(ng)} 판독, NG {len(ng)}{ms}"
+        )
+        self._review_frame(frame)
+
+    # ─── R6: 계획 → 검토 → 일괄 적용 ───
+
+    def _review_frame(self, frame: ParsedFrame) -> None:
+        sets = list(self._atx_folder_sets()) if hasattr(self, "_atx_folder_sets") else []
+        if not sets:
+            self.logger.warn("로드된 ATX 폴더가 없습니다 — 폴더를 먼저 로드한 뒤 카세트 스캔을 실행하세요")
+            return
+        try:
+            plan = build_plan(
+                frame, sets,
+                override=self._qr_reader_settings["cell_override"],
+                set_for_port=self._set_for_port(sets),
+            )
+        except AssignError as exc:
+            self.logger.error(f"카세트 판독 대응 실패: {exc}")
+            return
+
+        from src.ui.dialogs.batch_read_review_dialog import BatchReadReviewDialog
+
+        dlg = BatchReadReviewDialog(plan, sets, frame.scan_time_ms, self)
+        dlg.rescan_requested.connect(lambda: (dlg.reject(), self._scan_cassette()))
+        if dlg.exec() != QDialog.Accepted:
+            self.logger.info("카세트 판독 적용 취소")
+            return
+        self._apply_batch(dlg.selected_items(), sets)
+
+    def _set_for_port(self, sets) -> dict[int, int]:
+        """같은 Port 가 여러 폴더에 있으면 탭 순서(①②③…)의 앞 폴더를 대상으로 삼는다."""
+        mapping: dict[int, int] = {}
+        shadowed: list[str] = []
+        for si, ms in enumerate(sets):
+            ports = set()
+            for sd in ms.slots:
+                try:
+                    ports.add(parse_slot_code(sd.slot_code)["port"])
+                except (ValueError, IndexError):
+                    continue
+            for port in sorted(ports):
+                if port in mapping:
+                    shadowed.append(f"Port {port}: {ms.po_number} (탭 {si + 1}) → {sets[mapping[port]].po_number} (탭 {mapping[port] + 1}) 사용")
+                else:
+                    mapping[port] = si
+        for line in shadowed:
+            self.logger.warn(f"같은 Port 폴더 중복 — {line}")
+        return mapping
+
+    def _grid_for_set(self, ms):
+        for rec in getattr(self, "_folder_tabs", []):
+            if rec.get("set") is ms:
+                return rec.get("grid")
+        return None
+
+    def _apply_batch(self, items: list[AssignItem], sets) -> None:
+        touched: dict[int, object] = {}
+        overwritten = 0
+        for it in items:
+            if it.set_index is None or it.target is None or it.code is None:
+                continue
+            ms = sets[it.set_index]
+            slot = it.target
+            if slot.qr_id and slot.qr_id != it.code:
+                overwritten += 1
+                self.logger.warn(f"덮어쓰기: {format_full_label(slot.slot_code)} {slot.qr_id} → {it.code}")
+            slot.qr_id = it.code
+            touched[it.set_index] = ms
+            grid = self._grid_for_set(ms)
+            if grid is not None:
+                grid.update_slot(slot)
+
+        for ms in touched.values():
+            try:
+                ms.db_id = self._auto_save_to_db(ms)
+            except Exception as exc:  # DB 실패 시 화면 데이터는 유지 (기존 Pool 경로와 동일)
+                self.logger.error(f"DB 저장 실패 ({ms.po_number}, 화면 데이터는 유지됨): {exc}")
+
+        for name in ("_atx_refresh_tab_labels", "_update_progress", "_pool_refresh_view"):
+            fn = getattr(self, name, None)
+            if callable(fn):
+                fn()
+        self.logger.ok(
+            f"카세트 판독 적용: {len(items)}칸 매칭 (폴더 {len(touched)}개"
+            + (f", 덮어쓰기 {overwritten}" if overwritten else "") + ")"
         )
 
     def _on_reader_command_error(self, cmd: str, code: str) -> None:
