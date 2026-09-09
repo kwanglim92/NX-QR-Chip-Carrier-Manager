@@ -69,6 +69,9 @@ class FakeReader(QTcpServer):
         self.late_ms = late_ms   # LOFF 뒤 이 시간이 지나서 프레임 전송(지연 도착 재현)
         self.received: list[str] = []
         self.clients: list[QTcpSocket] = []
+        self.params: dict[str, str] = dict(FAKE_PARAMS)   # RB/RP 값 — WB 로 바뀌고 SAVE 로 saved 에 고정
+        self.saved: dict[str, str] = dict(FAKE_PARAMS)
+        self.ftune_fail = False
         self._buf: dict[QTcpSocket, bytes] = {}
         self._armed: dict[QTcpSocket, bool] = {}
         self.newConnection.connect(self._accept)
@@ -108,10 +111,24 @@ class FakeReader(QTcpServer):
                 s.write(b"OK,KEYENCE,FAKE-SR-X300,1.73,7.244\r")
             elif cmd.startswith("RD,"):
                 s.write(f"OK,RD,{fake_region(cmd)}\r".encode())
-            elif cmd in FAKE_PARAMS:
-                s.write(f"OK,{cmd.split(',')[0]},{FAKE_PARAMS[cmd]}\r".encode())
+            elif cmd in self.params:
+                s.write(f"OK,{cmd.split(',')[0]},{self.params[cmd]}\r".encode())
             elif cmd.startswith(("RB,", "RP,")):
                 s.write(f"ER,{cmd.split(',')[0]},02\r".encode())
+            elif cmd.startswith("WB,"):
+                _tag, key, value = cmd.split(",", 2)
+                if f"RB,{key}" in self.params and value.isdigit():
+                    self.params[f"RB,{key}"] = value
+                    s.write(b"OK,WB\r")
+                else:
+                    s.write(b"ER,WB,02\r")
+            elif cmd == "SAVE":
+                self.saved = dict(self.params)
+                s.write(b"OK,SAVE\r")
+            elif cmd == "FTUNE":
+                s.write(b"OK,FTUNE\r")
+                result = b"Focus Tuning FAILED\r" if self.ftune_fail else b"Focus Tuning SUCCEEDED\r"
+                QTimer.singleShot(60, lambda s=s: s.write(result))
             else:
                 s.write(f"ER,{cmd},00\r".encode())
 
@@ -411,3 +428,55 @@ def test_query_flushed_on_close_and_refused_when_disconnected(server):
     client.query("RP,102", lambda p, r: got.append((p, r)))
     client.close()
     assert got[1:] == [(None, "연결 종료"), (None, "연결 종료")]
+
+
+def test_tuning_result_line_is_not_a_frame(qapp):
+    """FTUNE 뒤 오는 'Focus Tuning SUCCEEDED' 는 프레임이 아니라 tuning_result 로 전달 (실기기 확인 2026-09-09)."""
+    server = FakeReader()
+    c = KeyenceClient()
+    c.configure(host="127.0.0.1", port=server.serverPort(), read_seconds=0.2)
+    got, rejected, acks = [], [], []
+    c.tuning_result.connect(got.append)
+    c.frame_rejected.connect(rejected.append)
+    c.open()
+    assert wait_until(c.is_connected)
+    c.query("FTUNE", lambda p, r: acks.append((p, r)))
+    assert wait_until(lambda: got == ["Focus Tuning SUCCEEDED"], 3000)
+    assert acks == [("", "")] and rejected == []
+    server.ftune_fail = True
+    c.query("FTUNE", lambda p, r: None)
+    assert wait_until(lambda: len(got) == 2, 3000) and got[1] == "Focus Tuning FAILED"
+    c.close()
+    server.close()
+
+
+def test_write_and_save_round_trip_on_fake_reader(qapp):
+    server = FakeReader()
+    c = KeyenceClient()
+    c.configure(host="127.0.0.1", port=server.serverPort())
+    replies = []
+    c.open()
+    assert wait_until(c.is_connected)
+    c.query("WB,01100,00450", lambda p, r: replies.append(("WB", p, r)))
+    c.query("SAVE", lambda p, r: replies.append(("SAVE", p, r)))
+    c.query("RB,01100", lambda p, r: replies.append(("RB", p, r)))
+    c.query("WB,01999,1", lambda p, r: replies.append(("WBbad", p, r)))
+    assert wait_until(lambda: len(replies) == 4, 3000)
+    assert replies[0] == ("WB", "", "") and replies[1] == ("SAVE", "", "") and replies[2] == ("RB", "00450", "")
+    assert replies[3][1] is None and "ER,WB,02" in replies[3][2]
+    assert server.saved["RB,01100"] == "00450"
+    c.close()
+    server.close()
+
+
+def test_query_enqueued_from_callback_is_sent_once(server):
+    """콜백 안에서 다음 질의를 넣어도(WB → SAVE 체인) 큐 머리가 두 번 전송되지 않는다 (회귀: SAVE 중복 전송)."""
+    client, _log = make_client(server)
+    client.open()
+    assert wait_until(client.is_connected)
+    order = []
+    client.query("WB,01100,00500", lambda p, r: (order.append("WB"), client.query("SAVE", lambda p2, r2: (order.append("SAVE"), client.query("RB,01100", lambda p3, r3: order.append(("RB", p3)))))))
+    assert wait_until(lambda: len(order) == 3, 3000)
+    assert server.received == ["WB,01100,00500", "SAVE", "RB,01100"]
+    assert order[2] == ("RB", "00500")
+    client.close()

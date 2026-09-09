@@ -60,6 +60,7 @@ def handle_client(conn: socket.socket, addr, args, frame: bytes) -> None:
     print(f"[fake-keyence] client {addr} connected", flush=True)
     buf = b""
     armed = False
+    params = dict(FAKE_PARAMS)   # 접속별 RB/RP 값 (WB 로 변경, SAVE 는 응답만)
     start = time.monotonic()
     conn.settimeout(0.2)
     with conn:
@@ -107,10 +108,26 @@ def handle_client(conn: socket.socket, addr, args, frame: bytes) -> None:
                     conn.sendall(b"OK,RLOCK,UNLOCK\r")
                 elif cmd.startswith("RD,"):
                     conn.sendall(f"OK,RD,{region_payload(int(cmd[3:] or 0))}\r".encode())
-                elif cmd in FAKE_PARAMS:
-                    conn.sendall(f"OK,{cmd.split(',')[0]},{FAKE_PARAMS[cmd]}\r".encode())
+                elif cmd in params:
+                    conn.sendall(f"OK,{cmd.split(',')[0]},{params[cmd]}\r".encode())
                 elif cmd.startswith(("RB,", "RP,")):
                     conn.sendall(f"ER,{cmd.split(',')[0]},02\r".encode())
+                elif cmd.startswith("WB,"):
+                    _tag, key, value = (cmd.split(",", 2) + ["", ""])[:3]
+                    if f"RB,{key}" in params and value.isdigit():
+                        params[f"RB,{key}"] = value
+                        conn.sendall(b"OK,WB\r")
+                        print(f"[fake-keyence] WB {key} = {value}", flush=True)
+                    else:
+                        conn.sendall(b"ER,WB,02\r")
+                elif cmd == "SAVE":
+                    conn.sendall(b"OK,SAVE\r")
+                    print("[fake-keyence] SAVE", flush=True)
+                elif cmd == "FTUNE":
+                    conn.sendall(b"OK,FTUNE\r")
+                    time.sleep(0.5)
+                    conn.sendall(b"Focus Tuning SUCCEEDED\r")
+                    print("[fake-keyence] FTUNE -> Focus Tuning SUCCEEDED", flush=True)
                 else:
                     conn.sendall(f"ER,{cmd},00\r".encode())
 

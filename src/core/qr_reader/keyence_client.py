@@ -41,6 +41,7 @@ from src.core.qr_reader.payload_parser import (
 
 
 MAX_BUFFER_BYTES = 64 * 1024   # 72코드 프레임(~800B) 대비 충분. 종단자 없이 쌓이면 폐기.
+TUNING_RESULT_PREFIXES = ("Focus Tuning ", "Tuning ")   # FTUNE / TUNE 완료 통지 (매뉴얼 14-2, 실기기 확인 2026-09-09)
 
 
 class ReaderState(str, Enum):
@@ -58,6 +59,7 @@ class KeyenceClient(QObject):
     command_error = Signal(str, str)     # (cmd, code)  예: ("LON", "23")
     response_received = Signal(str)      # "OK,..." 줄
     comm_error = Signal(str)             # 소켓 오류·타임아웃 메시지
+    tuning_result = Signal(str)          # "Focus Tuning SUCCEEDED/FAILED", "Tuning SUCCEEDED,…" (FTUNE/TUNE 완료 통지)
 
     def __init__(self, parent: QObject | None = None) -> None:
         super().__init__(parent)
@@ -103,6 +105,7 @@ class KeyenceClient(QObject):
 
         # 순차 질의 큐: (응답 태그, 명령, 콜백, 타임아웃)
         self._queries: deque[tuple[str, str, Callable[[str | None, str], None], float]] = deque()
+        self._query_inflight = False   # 큐 머리 질의를 이미 전송해 응답 대기 중인지 (콜백 안에서 새 질의를 넣어도 중복 전송 방지)
         self._query_timer = QTimer(self)
         self._query_timer.setSingleShot(True)
         self._query_timer.timeout.connect(self._on_query_timeout)
@@ -237,17 +240,21 @@ class KeyenceClient(QObject):
         return True
 
     def _send_next_query(self) -> None:
+        if self._query_inflight:
+            return
         while self._queries:
             tag, cmd, on_reply, timeout_s = self._queries[0]
             if self._socket.write(cmd.encode("ascii") + FRAME_TERMINATOR) < 0:
                 self._queries.popleft()
                 on_reply(None, f"전송 실패: {self._socket.errorString()}")
                 continue
+            self._query_inflight = True
             self._query_timer.start(int(timeout_s * 1000))
             return
 
     def _finish_query(self, payload: str | None, reason: str) -> None:
         self._query_timer.stop()
+        self._query_inflight = False
         _tag, _cmd, on_reply, _t = self._queries.popleft()
         try:
             on_reply(payload, reason)
@@ -260,6 +267,7 @@ class KeyenceClient(QObject):
 
     def _flush_queries(self, reason: str) -> None:
         self._query_timer.stop()
+        self._query_inflight = False
         pending, self._queries = list(self._queries), deque()
         for _tag, _cmd, on_reply, _t in pending:
             on_reply(None, reason)
@@ -334,6 +342,10 @@ class KeyenceClient(QObject):
                 self._finish_query(",".join(parts[2:]), "")
                 return
             self.response_received.emit(text)
+            return
+        # 튜닝 완료 통지 (FTUNE → "Focus Tuning SUCCEEDED/FAILED", TUNE → "Tuning SUCCEEDED,tms,code") — 프레임이 아님
+        if line.startswith(TUNING_RESULT_PREFIXES):
+            self.tuning_result.emit(line.strip())
             return
         # result
         if not self.is_reading():
