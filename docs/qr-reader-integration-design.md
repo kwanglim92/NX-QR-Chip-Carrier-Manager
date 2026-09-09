@@ -147,9 +147,9 @@
 | 단계 | 내용 | 산출물 | 하드웨어 |
 |---|---|---|---|
 | **A. 프로토콜 확인** | 실제 리더기 LAN 접속, 격자 번호·X,Y·NG 출력 설정 후 원문 캡처(§10 목록) | `tests/fixtures/qr_reader/*.txt`, 리더기 설정 시트 | 필요 |
-| **B. 코어** | `payload_parser` + `slot_assigner` + 테스트 | `src/core/qr_reader/` | 불필요 |
-| **C. 통신** | `keyence_client`(QTcpSocket) + 설정 + 상태 표시, 가짜 TCP 서버로 검증 | `scripts/fake_keyence_server.py`, QTcpServer 인프로세스 테스트 | 불필요 |
-| **D. UI 통합** | 카세트 스캔 트리거, 검토 다이얼로그, 일괄 적용(ATX 탭·Pass Pool) | 앱 기능 | 불필요 |
+| **B. 코어** | `payload_parser` + `slot_assigner` + 테스트 — **완료 2026-09-09** | `src/core/qr_reader/` | 불필요 |
+| **C. 통신** | `keyence_client`(QTcpSocket) + 설정 + 상태 표시, 가짜 TCP 서버로 검증 — **완료 2026-09-09** | `scripts/fake_keyence_server.py`, QTcpServer 인프로세스 테스트 | 불필요 |
+| **D. UI 통합** | 카세트 스캔 트리거, 검토 다이얼로그, 일괄 적용(ATX 탭·Pass Pool) — **완료 2026-09-09** (실 폴더 + 실기기 E2E 는 E단계) | 앱 기능 | 불필요 |
 | **E. 현장 검증(지그)** | 만석·빈 칸·카세트 통째 비움·회전 오프셋·중복 시나리오, 사용자 가이드 | 릴리스 2.4.0 | 필요 |
 | **F. MTC 부착 전환** | 리더기 격자 재정의 + 앱 override 표(필요 시)만 변경 | 설정 시트 갱신 | 필요 |
 
@@ -211,9 +211,9 @@
 | **R2** | `slot_assigner`: 공식 + override 표, 로드된 세트 탐색, 예외 분류(§5) `AssignPlan` | `src/core/qr_reader/slot_assigner.py`, `tests/test_qr_reader_assigner.py` | R1 (완료) |
 | **R3** | `KeyenceClient` (QTcpSocket, LON→지연→LOFF, 프레이밍, 재접속, 타임아웃, `send_command`) + 가짜 서버 + 인프로세스 테스트 17건 | `src/core/qr_reader/keyence_client.py`, `scripts/fake_keyence_server.py`, `tests/test_qr_reader_client.py` | R1 (완료) |
 | **R4** | 설정 키(`app_settings.qr_reader`) + 리더기 설정 다이얼로그(연결 테스트·테스트 판독) + 하단 바 상태 칩·카세트 스캔(F10) + `QRReaderMixin` | `src/core/qr_reader/settings.py`, `src/ui/dialogs/qr_reader_settings_dialog.py`, `src/ui/controllers/qr_reader_mixin.py`, `ui_builder_mixin.py`, `main_window.py` | R3 (완료) |
-| **R5** | 검토 다이얼로그(6카세트 격자, 필터, 오프셋 경고) | `src/ui/dialogs/batch_read_review_dialog.py` | R2 |
-| **R6** | `QRMatchMixin._on_batch_read` + 카세트 스캔 트리거(ATX 탭·Pass Pool) + 일괄 적용 | `qr_match_mixin.py`, `pass_pool_mixin.py` | R2, R4, R5 |
-| **R7** | 문서: PRD F-21(가칭) + user-guide + CHANGELOG | `docs/` | R6 |
+| **R5** | 검토 다이얼로그(Port 패널·요약 칩·범례·차단 규칙·충돌 덮어쓰기·이상 칸 필터, 오프셋 경고는 X,Y OFF 계약으로 제외) | `src/ui/dialogs/batch_read_review_dialog.py`, `tests/test_batch_read_review_dialog.py` | R2 (완료) |
+| **R6** | `QRReaderMixin._review_frame/_apply_batch` — 프레임 → `build_plan`(탭 순서 `set_for_port`, 설정 override) → 검토 → 일괄 적용(그리드·탭 라벨·진행률·Pass Pool 갱신, 폴더별 DB 저장). 기존 `qr_match_mixin`/`pass_pool_mixin` 은 수정하지 않음 | `src/ui/controllers/qr_reader_mixin.py`, `tests/test_qr_reader_batch_apply.py` | R2, R4, R5 (완료) |
+| **R7** | 문서: PRD F-21 + user-guide §6.6·§6.5 + CHANGELOG | `docs/PRD.md`, `docs/PRD.html`, `docs/user-guide.html`, `CHANGELOG.md` | R6 (완료) |
 
 ### R1~R3 검토에서 R5/R6 로 이월한 항목 (2026-09-09 code-reviewer)
 - `AssignItem` 에 ATX 번호·폴더 식별(PO)이 없고 EXCLUDED/NO_RECORD 는 `target=None` → R5 검토 다이얼로그가 "ATX1 Port1 Slot2" 라벨을 그리려면 `set_index` 로 세트를 역참조하거나 항목에 라벨 필드를 추가해야 함.
@@ -223,11 +223,11 @@
 ### 검수 게이트
 - [x] R1~R3 테스트 전부 그린(80건) + 기존 `tests/` 회귀 없음(197 passed), 테스트의 실제 네트워크 접속 0건 (2026-09-09)
 - [x] 가짜 서버(인프로세스 QTcpServer)로 72코드·NG·3분할 프레임·ER 23·개수 불일치·타임아웃·재접속 통과
-- [ ] 검토 화면에서 "레코드 없음 + 코드 있음" 칸이 있으면 적용 버튼 비활성 확인
-- [ ] 키보드 입력 폴백이 기존과 동일하게 동작
+- [x] 검토 화면에서 "레코드 없음 + 코드 있음" 칸이 있으면 적용 버튼 비활성 확인 (테스트 `test_no_record_blocks_apply`)
+- [x] 키보드 입력 폴백이 기존과 동일하게 동작 (`qr_match_mixin`/`pass_pool_mixin` 무수정, 회귀 그린)
 
 ---
 
 ## 변경 이력
-- **0.2 (2026-09-09)**: A단계 필드 확인 반영. R1·R2·R3·R4 완료 표시(§11), 카세트 스캔 단축키 F10. SR-X300W 프로토콜 확정(§3.1~3.3: 72고정+`ERROR`, `,`/`:`/CR, 9004 단일, LON→LOFF 레벨 트리거, Navigator 오류 23). Phase 2 셀 대응 공식 고정·출력 포맷 확정(§2). UI 목업 승인 반영(§4). §9 미결 정리, §10 체크리스트 갱신.
+- **0.2 (2026-09-09)**: A단계 필드 확인 반영. R1~R7 완료 표시(§6, §11), 카세트 스캔 단축키 F10. SR-X300W 프로토콜 확정(§3.1~3.3: 72고정+`ERROR`, `,`/`:`/CR, 9004 단일, LON→LOFF 레벨 트리거, Navigator 오류 23). Phase 2 셀 대응 공식 고정·출력 포맷 확정(§2). UI 목업 승인 반영(§4). §9 미결 정리, §10 체크리스트 갱신.
 - **0.1 (2026-09-08)**: 최초 작성. 통신 LAN/TCP 클라이언트, 리더기 격자 번호 + X,Y 출력, 셀 번호 규약, 결과 폴더 = 최종 물리 위치, 최대 72코드, 지그 → MTC 전환 방침 확정.

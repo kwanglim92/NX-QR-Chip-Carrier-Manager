@@ -3,12 +3,18 @@
 ## [Unreleased]
 
 ### Added
+- **키엔스 SR-X300W 다중 QR 리더기 연동 — 카세트 스캔 (F-21)**: 하단 바 `● Reader` 상태 칩 + `카세트 스캔`(F10). LAN/TCP 9004 레벨 트리거(LON → 판독 시간 → LOFF)로 최대 72칸을 한 번에 판독해 로드된 ATX 폴더 탭 전체에 일괄 매칭
+- **리더기 설정 다이얼로그**: IP·포트·자동 접속·LON/LOFF·판독 시간·기대 코드 수·NG 문자열·셀→Port/Slot 재정의 표, `연결 테스트`·`테스트 판독` (`app_settings.qr_reader`)
+- **카세트 판독 검토 다이얼로그**: 셀별 적용/NG/동일/중복/충돌/레코드 없음/제외 분류, 레코드 없음 시 적용 차단, 충돌 칸 우클릭 덮어쓰기, 이상 칸만 보기
+- `src/core/qr_reader/` (파서·슬롯 대응·QTcpSocket 클라이언트·설정, 순수 함수 + 시그널), `scripts/capture_keyence.py`(원문 캡처), `scripts/fake_keyence_server.py`(fixture 재생 가짜 리더기), 실제 캡처 fixture `tests/fixtures/qr_reader/`
+- 테스트 +130건(qr_reader 파서·대응·클라이언트·설정·다이얼로그·믹스인, 실제 네트워크 무접촉)
 - **Update(서버 수정) 업로드**: Upload 드롭다운에 `Update CSV (서버 수정)` / `Update CSV + Images (서버 수정)` 추가 — 서버 폼의 `update` 버튼으로 전송, 실행 전 덮어쓰기 확인 다이얼로그
 - `csv_exporter.upload_image_files()` — 업로드 이미지 전송명을 CSV+Images 반출과 동일 규격(`{QR ID}.png`, 충돌 시 `_1`)으로 생성
 - `ServerUploader.is_session_alive()` — 업로드 페이지를 리다이렉트 없이 GET 해 서버 세션 유효성 확인
 - `tests/test_server_uploader.py` (26건, Fake Session — 실제 네트워크 무접촉) + `upload_image_files` 테스트 3건
 
 ### Changed
+- accent 버튼 비활성(`:disabled`) 스타일 추가 — 비활성인데 활성처럼 보이던 문제
 - **TLS 인증서 검증 활성화**: `verify=False`·`urllib3` 경고 억제 제거 (서버 인증서 유효 확인)
 - 로그인 성공 판정 강화: `sessionid` 쿠키 **및** 응답이 로그인 폼이 아님
 - 업로드 전 세션 유효성 확인, GET/POST 응답이 로그인/`?next=` 리다이렉트면 실패 처리 → UI 상태 Disconnected 로 동기화

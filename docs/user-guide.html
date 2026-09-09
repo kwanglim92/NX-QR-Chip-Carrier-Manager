@@ -928,7 +928,62 @@ ATX Mode는 장비가 이미 생성한 `summary_*.csv` 파일을 로트 단위�
   <tr><td>슬롯 수가 예상과 다름</td><td>summary 파일 누락 또는 장비 설정 차이</td><td>폴더 내 파일 개수와 장비 결과를 비교</td></tr>
   <tr><td>QR 중복 경고</td><td>같은 QR을 다른 슬롯에 이미 입력</td><td>History/카드 상태를 확인하고 실제 QR을 다시 스캔</td></tr>
   <tr><td>Export 탭에 ATX 데이터가 안 보임</td><td>ATX Import 전이거나 다른 탭 확인 중</td><td>CSV Export에서 ATX 탭을 선택</td></tr>
+  <tr><td>카세트 스캔 버튼이 비활성</td><td>리더기 미연결(전송 방식이 LAN 이 아니거나 자동 접속 꺼짐, IP 오류, Navigator 연결 중)</td><td>● Reader 칩 클릭 → 연결 테스트, Navigator 연결 해제</td></tr>
+  <tr><td>카세트 스캔 후 "레코드 없음"으로 적용 차단</td><td>읽힌 코드의 슬롯에 MTC 결과가 없음(카세트 위치 오류·불량 포트 카세트·폴더 미로드)</td><td>카세트 배치와 로드된 폴더를 확인하고 재판독</td></tr>
+  <tr><td>같은 칸이 계속 NG</td><td>조명·초점 조건으로 리더기가 못 읽음</td><td>판독 시간을 늘리거나 리더기 조명을 조정, 남은 칸은 키보드 스캐너로 입력</td></tr>
 </table>
+
+<h3>6.6 카세트 스캔 (키엔스 리더기로 72칸 한 번에 QR 매칭)</h3>
+<div class="standard">
+키엔스 SR-X300W 코드 리더기가 LAN으로 연결된 작업대에서는 캐리어 카세트(최대 6개 × 12슬롯)를 한 번에 판독해 로드된 모든 ATX 폴더 탭에 QR을 일괄 매칭할 수 있습니다. 하단 QR 입력창(키보드 스캐너)은 그대로 남아 있어 미판독 칸을 개별 보완할 때 사용합니다.
+</div>
+
+<div class="warning">
+<strong>리더기 설정 프로그램(AutoID Network Navigator)이 리더기에 연결되어 있으면 앱이 리더기를 쓸 수 없습니다.</strong> 앱에서 "Navigator 에서 연결 해제 필요" 로그가 보이면 Navigator 에서 리더기를 <strong>연결 해제</strong>(또는 종료)한 뒤 다시 시도하세요.
+</div>
+
+<ol class="steps">
+  <li>
+    <strong>리더기 설정</strong>
+    <p>하단 바 우측의 <strong>● Reader …</strong> 칩을 클릭해 리더기 설정을 엽니다. IP 주소(예 <code>192.168.100.2</code>)와 포트(<code>9004</code>)를 확인하고 <strong>연결 테스트</strong>로 리더기 응답을 확인합니다. <strong>앱 시작 시 자동 접속</strong>을 켜고 <strong>저장</strong>하면 이후에는 자동으로 연결됩니다.</p>
+    <p>판독 시간(기본 6초)은 리더기가 전 칸을 읽을 때까지 기다리는 시간입니다. 조명 조건에 따라 미판독이 잦으면 늘려 보세요. <strong>테스트 판독</strong>으로 현재 스테이지의 판독 수와 NG 칸을 미리 볼 수 있습니다.</p>
+  </li>
+  <li>
+    <strong>상태 칩 확인</strong>
+    <p>칩이 <strong>연결됨</strong>(초록)이면 <strong>카세트 스캔</strong> 버튼이 활성화됩니다. 재접속 중(주황)이면 케이블·IP·Navigator 연결 상태를 확인합니다.</p>
+  </li>
+  <li>
+    <strong>ATX 폴더 로드</strong>
+    <p>판독할 카세트에 해당하는 ATX 결과 폴더들을 탭으로 로드합니다. 카세트 1 = Port 1 순서로 스테이지 격자에 놓습니다. 폴더가 로드되지 않은 포트는 검토 화면에서 자동 제외됩니다.</p>
+  </li>
+  <li>
+    <strong>카세트 스캔 (F10)</strong>
+    <p><strong>카세트 스캔</strong> 버튼 또는 <kbd>F10</kbd>을 누르면 리더기가 판독을 시작하고, 판독 시간이 지나면 결과가 검토 화면으로 열립니다.</p>
+  </li>
+  <li>
+    <strong>검토 화면에서 확인</strong>
+    <p>포트별 패널에 셀마다 상태가 표시됩니다.</p>
+    <table>
+      <tr><th>상태</th><th>의미</th><th>처리</th></tr>
+      <tr><td>적용(초록)</td><td>레코드가 있고 충돌·중복이 없는 코드</td><td>적용 버튼으로 일괄 매칭</td></tr>
+      <tr><td>NG(회색)</td><td>미판독 칸</td><td>적용 후 키보드 스캐너로 개별 입력</td></tr>
+      <tr><td>동일(청록)</td><td>이미 같은 QR이 매칭된 슬롯</td><td>변경 없음</td></tr>
+      <tr><td>중복(주황)</td><td>같은 코드가 화각 안 다른 칸이나 로드된 다른 슬롯에 있음</td><td>적용에서 제외. 실물 캐리어를 확인</td></tr>
+      <tr><td>충돌(빨강)</td><td>슬롯에 다른 QR이 이미 있음</td><td>기본 제외. 교체하려면 칸을 우클릭 → <strong>덮어쓰기</strong></td></tr>
+      <tr><td>레코드 없음(빨강)</td><td>코드는 읽혔지만 그 슬롯의 MTC 결과가 없음</td><td><strong>적용 전체가 차단</strong>됩니다. 카세트 위치·폴더 로드 상태를 확인하고 <strong>재판독</strong></td></tr>
+      <tr><td>제외(흐림)</td><td>폴더가 로드되지 않은 포트</td><td>자동 제외</td></tr>
+    </table>
+    <p><strong>이상 칸만 보기</strong>를 켜면 적용·동일·제외 칸을 숨기고 확인이 필요한 칸만 남깁니다.</p>
+  </li>
+  <li>
+    <strong>적용</strong>
+    <p><strong>적용 (n)</strong>을 누르면 n개 슬롯에 QR이 한 번에 매칭되고, 폴더 탭의 매칭 수·진행률·Pass Pool이 갱신되며 폴더별로 DB에 자동 저장됩니다. 남은 NG 칸은 카드를 선택하고 키보드 스캐너로 입력합니다.</p>
+  </li>
+</ol>
+
+<div class="tip">
+리더기 없이 동작을 확인하려면 <code>python scripts\fake_keyence_server.py</code>(포트 9004)를 띄우고 리더기 설정의 IP를 <code>127.0.0.1</code>로 지정하세요. 실제 캡처 원문(72칸, 2칸 미판독)이 재생됩니다.
+</div>
 </section>
 
 <section id="s7">
