@@ -15,7 +15,7 @@ REM
 REM 실행 주의:
 REM   OK:       dist\McQrManager\McQrManager.exe
 REM   DO NOT:   build\McQrManager\McQrManager.exe
-REM             build\ 는 PyInstaller 중간 작업 폴더라 python311.dll 등
+REM             build\ 는 PyInstaller 중간 작업 폴더라 python3xx.dll 등
 REM             런타임 DLL 이 없어 직접 실행하면 LoadLibrary 오류가 납니다.
 
 setlocal EnableDelayedExpansion
@@ -99,10 +99,12 @@ if not exist "dist\McQrManager\McQrManager.exe" (
     exit /b 1
 )
 
-if exist "dist\McQrManager\python311.dll" (
+REM Python 버전에 따라 python311.dll/python312.dll 등으로 이름이 달라짐
+dir /b "dist\McQrManager\python*.dll" >nul 2>&1
+if not errorlevel 1 (
     echo   [OK] Python runtime bundled.
 ) else (
-    echo   [ERROR] dist\McQrManager\python311.dll not found.
+    echo   [ERROR] dist\McQrManager\python*.dll not found.
     echo           Do not run build\McQrManager\McQrManager.exe.
     echo           Check build_log.txt and PyInstaller collection output.
     echo.

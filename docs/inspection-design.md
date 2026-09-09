@@ -2,8 +2,8 @@
 
 | 항목 | 내용 |
 |---|---|
-| **작성일** | 2026-09-09 |
-| **상태** | 구현 완료(브랜치 `feat/inspection`), 현장 검증 대기 |
+| **작성일** | 2026-09-09 (2.4.0 반영 2026-09-10) |
+| **상태** | 구현 완료(2.4.0), 실앱 화면·fixture 확인 완료, 현장 검증 대기 |
 | **관련** | [`PRD.md`](./PRD.md) F-22, [`HANDOFF_phase2.md`](./HANDOFF_phase2.md), 스크린샷 `assets/user-guide/inspection-mode.png` |
 
 ## 1. 배경과 목표
@@ -168,4 +168,4 @@ Port 는 `slot_mapper.slot_to_grid`(Slot 1 좌하단) 규칙. 셀 배경 = 등�
 - 다중 런 폴더 합산(스크린샷 "and 0 more") — 남은 칩을 다음 런과 모아 12M 채우기
 - 어깨(shoulder) 전용 검출, 임계 자동 캘리브레이션(정상 분포 기반)
 - Vision 파손 판정의 실제 파손 샘플 검증(현재 합성 이미지 테스트만)
-- 사용자 가이드 PDF 재생성(`DOCUMENTATION_WORKFLOW.md`)
+- 사용자 가이드 PDF 재생성 완료(2026-09-10, `docs/MC_QR_Manager_User_Guide_v2.4.0.pdf`)

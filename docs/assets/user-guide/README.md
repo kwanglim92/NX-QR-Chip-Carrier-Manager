@@ -1,37 +1,11 @@
 # User Guide Screenshot Assets
 
-This folder stores PNG screenshots referenced by `docs/user-guide.html`.
+`docs/user-guide.html`에서 사용하는 실제 화면 캡처를 보관하는 폴더입니다. 2.4.0 가이드는 현재 앱의 Inspection 화면을 기준으로 작성했습니다.
 
-## Naming Rule
+| 파일 | 내용 | 확인일 |
+|------|------|--------|
+| `inspection-mode.png` | 85개 슬롯의 등급 결과, 선택 슬롯 상세, Reference Cantilever, Grouping, Sweep 판정 차트 | 2026-09-10 |
 
-Use `fig-section-number-description.png`.
+가이드에서 사용하지 않는 과거 캡처는 기존 릴리스 자료의 호환을 위해 보관할 수 있습니다. 새 캡처는 PNG 형식으로 저장하고, 운영 데이터 대신 샘플 또는 테스트 fixture를 사용하세요.
 
-## Required Screenshots
-
-| File | Capture Target |
-|------|----------------|
-| `fig-01-01-main-window.png` | Main window with ATX Mode / Manual Mode / CSV Export / History tabs |
-| `fig-04-01-installer-file.png` | Windows Explorer selecting `McQrManager-Setup-x.y.z.exe` |
-| `fig-04-02-smartscreen-warning.png` | Windows SmartScreen warning with `More info` / `Run anyway` path |
-| `fig-04-03-first-run.png` | First app launch with top tabs and production date selector |
-| `fig-05-01-common-input-status.png` | QR input, progress indicator, and Log area |
-| `fig-06-01-atx-mode-start.png` | ATX Mode start screen with folder/import controls |
-| `fig-06-02-atx-slot-cards.png` | ATX imported slot cards with first card selected |
-| `fig-06-03-atx-slot-edit-dialog.png` | ATX card context menu and slot edit dialog |
-| `fig-07-01-manual-capture-menu.png` | Manual Mode with Probe Type tab selected and Capture menu visible |
-| `fig-07-02-region-capture-overlay.png` | Region Capture overlay dragging the Sweep numeric area |
-| `fig-08-01-calibrate-ocr-button.png` | Calibrate OCR button outside History tab |
-| `fig-08-02-roi-calibrator.png` | ROI Calibrator with Frequency/Q ROI boxes aligned |
-| `fig-09-01-csv-export-tabs.png` | CSV Export with ATX/Manual tabs and Save/Upload controls |
-| `fig-10-01-history-records.png` | History Records filters, table, and Load Record button |
-| `fig-11-01-history-statistics.png` | History Statistics KPI, Period Summary, and charts |
-
-## Capture Standard
-
-- Format: PNG
-- Display scale: use the production-standard Windows scale, preferably 100% if possible
-- App window: use the same size across screenshots
-- Data: use sample PO/QR values only; do not capture sensitive production/customer data
-- Markup: add callout boxes only when a button or menu position must be emphasized
-
-After replacing placeholders with real screenshots, keep this README as the screenshot inventory.
+HTML을 이동할 때는 이 폴더도 함께 이동해야 상대 경로가 유지됩니다. 배포용 PDF에는 HTML의 이미지가 포함되어야 합니다.

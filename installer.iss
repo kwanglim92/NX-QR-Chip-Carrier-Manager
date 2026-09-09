@@ -20,9 +20,8 @@
 #error "dist\McQrManager\McQrManager.exe not found. Run build.bat before compiling installer.iss."
 #endif
 
-#ifnexist "dist\McQrManager\python311.dll"
-#error "dist\McQrManager\python311.dll not found. Do not package build\McQrManager; run build.bat and package dist\McQrManager."
-#endif
+; Python runtime DLL 이름은 빌드에 사용한 Python 버전에 따라 달라진다
+; (python311.dll, python312.dll 등). build.bat가 dist 전체를 먼저 검증한다.
 
 #ifnexist "dist\McQrManager\third_party\tesseract\tesseract.exe"
 #error "Portable Tesseract is missing from dist\McQrManager\third_party\tesseract. Check PyInstaller build output."

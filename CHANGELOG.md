@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [2.4.0] - 2026-09-10
+
 ### Added
 - **MTC Inspection 모드 (F-22)**: 툴바 `Inspection` — MTC 런 폴더(`20260909` 등)를 열어 슬롯별 등급을 **산업용/연구용/재검사/불량 사다리**로 자동 판정. 결과표(등급색)·등급 필터·Fail Item 판정식(`2.91 - 1 < 0.46 < 2.91 + 1`)·Vision/FreqSweep/ZoomOut 이미지·Reference Cantilever·Info, 우클릭 등급 수동 변경/파손 표시/기준 지정/폴더 열기, `Save` 로 검사 리포트 CSV
 - **sweep 곡선 형상 자동 판정**: 줌인/ZoomOut txt 수치로 피크 수·Lorentzian R²·비대칭·부피크를 0~100 점수화(템플릿 항목 `Sweep Shape`), 판정 차트에 측정 곡선·피크·피팅·근거 오버레이(Zoom In/Out)
@@ -30,6 +32,7 @@
 - `tests/test_server_uploader.py` (26건, Fake Session — 실제 네트워크 무접촉) + `upload_image_files` 테스트 3건
 
 ### Changed
+- 사용자 가이드를 2.4.0 실앱 화면과 Inspection·다중 QR 리더기 흐름 기준으로 전면 교체하고 배포용 PDF를 갱신
 - accent 버튼 비활성(`:disabled`) 스타일 추가 — 비활성인데 활성처럼 보이던 문제
 - **TLS 인증서 검증 활성화**: `verify=False`·`urllib3` 경고 억제 제거 (서버 인증서 유효 확인)
 - 로그인 성공 판정 강화: `sessionid` 쿠키 **및** 응답이 로그인 폼이 아님

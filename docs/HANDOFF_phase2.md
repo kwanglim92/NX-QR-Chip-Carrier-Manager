@@ -2,8 +2,8 @@
 
 | 항목 | 내용 |
 |---|---|
-| **작성일** | 2026-09-09 (갱신: 2026-09-09 필드 세션 후) |
-| **기준 커밋** | `main` (이 문서 커밋 포함) |
+| **작성일** | 2026-09-10 (2.4.0 릴리스 반영) |
+| **기준 커밋** | `main` (`v2.4.0`) |
 | **용도** | 다른 PC(필드 노트북)에서 Claude Code 새 세션을 열어 Phase 2를 이어갈 때, 아래 §4 프롬프트를 그대로 붙여 넣는다 |
 | **선행 문서** | [`qr-reader-integration-design.md`](./qr-reader-integration-design.md), [`central-db-aggregation-design.md`](./central-db-aggregation-design.md)(보류), [`PRD.md`](./PRD.md) |
 
@@ -14,12 +14,12 @@
 | 항목 | 상태 | 비고 |
 |---|---|---|
 | **2-A 서버 업로드 연동** (probe-info.parksystems.com) | **완료 (main 92db21f)** | TLS 검증 활성, 세션 만료 감지·재로그인, Update(서버 수정) 메뉴, 이미지 전송명 `{QR ID}.png`, Fake Session 테스트 26건. **운영 DB이므로 실서버 업로드 검증은 수행하지 않음** — 서버의 이미지↔QR 매핑 규칙·Probe Type 명칭 매칭은 미확인(PRD §7) |
-| **2-B 다중 QR 리더기 연동** (키엔스 SR-X300W, LAN) | **A단계 ①·R1~R7 완료 (B·C·D단계 종료)** | 프로토콜 확정(설계 §3), 만석 fixture, `src/core/qr_reader/`, 리더기 설정(목록 사이드바 페이지, 자동 접속 기본 켜짐)·판독 검토 다이얼로그(실물 배치), **판독 미리보기 창(RD 영역 실좌표를 실물 보트 배치 2×3 카세트로 회전 표시, [적용] 즉시 저장)**, 리더기 값 읽기(RB/RP), `boat_layout.py`, `QRReaderMixin`(다중 QR 스캔 → 즉시 적용, 판독 검토 버튼), **리더기 튜닝 페이지(노출·게인·조명 WB+SAVE, 오토 포커스 FTUNE — 실기기 검증)**, PRD F-21·가이드 §6.6·CHANGELOG. 테스트 175건. 클라이언트 실기기 판독 검증, 실앱 기동 확인. **다음 = E단계 현장 검증(지그): 실제 ATX 폴더 + 실기기로 스캔→검토→적용 E2E, 조명 튜닝(셀 13·14), 시나리오 ②~⑤ 캡처, 설정 시트 확정** → 2.4.0 릴리스(2-A 와 함께). UI 목업: [Keyence Cassette Scan UI](https://claude.ai/code/artifact/868c790f-eef6-4937-ae54-5cbbb723f208) |
-| **2-C MTC Inspection** (등급 사다리 판정·sweep/Vision 자동 판정·로트 생성) | **구현 완료 (feat/inspection, PR)** | 설계 [`inspection-design.md`](./inspection-design.md), PRD F-22. 실런 `data\20260909` 85슬롯 = 산업용 46/연구용 16/재검사 8/불량 15. **다음 = 현장 검증**: 실제 파손 팁 샘플로 Vision 판정 확인, 등급 임계 튜닝, 로트 생성 → ATX 태깅 E2E, 다중 런 폴더 합산은 후속 |
+| **2-B 다중 QR 리더기 연동** (키엔스 SR-X300W, LAN) | **A단계 ①·R1~R7 완료 (B·C·D단계 종료)** | 프로토콜 확정(설계 §3), 만석 fixture, `src/core/qr_reader/`, 리더기 설정(목록 사이드바 페이지, 자동 접속 기본 켜짐)·판독 검토 다이얼로그(실물 배치), **판독 미리보기 창(RD 영역 실좌표를 실물 보트 배치 2×3 카세트로 회전 표시, [적용] 즉시 저장)**, 리더기 값 읽기(RB/RP), `boat_layout.py`, `QRReaderMixin`(다중 QR 스캔 → 즉시 적용, 판독 검토 버튼), **리더기 튜닝 페이지(노출·게인·조명 WB+SAVE, 오토 포커스 FTUNE — 실기기 검증)**, PRD F-21·가이드·CHANGELOG. 테스트 175건. 실앱 기동 확인. **남은 작업 = E단계 현장 검증(지그): 실제 ATX 폴더 + 실기기로 스캔→검토→적용 E2E, 조명 튜닝(셀 13·14), 시나리오 ②~⑤ 캡처**. UI 목업: [Keyence Cassette Scan UI](https://claude.ai/code/artifact/868c790f-eef6-4937-ae54-5cbbb723f208) |
+| **2-C MTC Inspection** (등급 사다리 판정·sweep/Vision 자동 판정·로트 생성) | **구현 완료 (2.4.0)** | 설계 [`inspection-design.md`](./inspection-design.md), PRD F-22. 실런 `data\20260909` 85슬롯 = 산업용 46/연구용 16/재검사 8/불량 15. 실앱 Inspection 화면과 fixture 판정 확인 완료(2026-09-10). **남은 작업 = 현장 검증**: 실제 파손 팁 샘플로 Vision 판정 확인, 등급 임계 튜닝, 로트 생성 → ATX 태깅 E2E, 다중 런 폴더 합산은 후속 |
 | 중앙 DB 취합 | 보류 | 설계 v0.2 문서만 커밋 |
-| 릴리스 2.4.0 | 미수행 | `VERSION`=2.3.0, CHANGELOG `[Unreleased]` 누적 중 |
+| 릴리스 2.4.0 | **완료 (2026-09-10)** | `VERSION`·앱 버전·`CHANGELOG` 갱신, 사용자 가이드 HTML/PDF 전면 교체, PyInstaller 실행 파일 빌드, `main` 푸시 및 `v2.4.0` 태그 생성 |
 
-테스트: `pytest -q --ignore=tests/test_server_uploader.py` → 3.14: 345 passed / 15 skipped, 3.12: 337 passed / 16 skipped (2026-09-09, feat/inspection 기준; 3.12 는 `requests` 가 없어 Inspection 메인 윈도우 통합 테스트 skip — `requests`·`pytesseract`·`pytest-qt` 미설치라 업로더 테스트 제외, Tesseract 없음). `%LOCALAPPDATA%` 를 임시 경로로 리다이렉트하고 실행할 것(실 DB 보호).
+테스트: `pytest -q --ignore=tests/test_build_artifacts.py` → **388 passed / 6 skipped** (Python 3.12.10, 2026-09-10; `%LOCALAPPDATA%` 임시 경로 사용). PyInstaller 산출물 구조 검사는 **5 passed**. 저장소에는 배포 환경별 Tesseract 바이너리를 포함하지 않으므로, `tests/test_build_artifacts.py` 의 Tesseract 필수 검사는 바이너리 준비 후 실행한다. `%LOCALAPPDATA%` 를 임시 경로로 리다이렉트하고 실행할 것(실 DB 보호).
 
 > **필드 노트북 주의**: `python` 명령은 Windows Python 관리자 셈이라 `LOCALAPPDATA` 를 바꾸면 새 Python 을 내려받는다. 반드시 절대 경로 인터프리터를 쓸 것:
 > `LOCALAPPDATA=<임시경로> C:\Users\Levi.Beak\AppData\Local\Python\pythoncore-3.12-64\python.exe -m pytest -q`
@@ -86,4 +86,4 @@ python scripts\capture_keyence.py --host 192.168.100.2 --port 9004 --send "LON\r
 
 ## 6. 이후 단계 (A 완료 후)
 
-~~R1~R7~~ 전부 완료(2026-09-09). 남은 것은 **E단계 현장 검증**: ~~(1) 실제 ATX 결과 폴더를 로드한 상태에서 실기기 다중 QR 스캔 → 즉시 적용(+판독 검토) E2E~~ (**완료 2026-09-09** — P2601001 12슬롯, 72/72 판독·12 즉시 적용 확인), (2) 조명·노출 튜닝 — 이제 앱 설정 창 '리더기 튜닝' 페이지에서 노출·게인·조명·오토 포커스 조정 가능(2026-09-09), 현장 조건별 최적값은 운영하며 확정, (3) 시나리오 ②~⑤ 캡처(`scripts/capture_keyence.py`)와 fixture 추가, ~~(4) 리더기 설정 시트 확정~~ (**완료 2026-09-09** — `docs/reader-settings-sheet.md`), (5) 사용자 가이드 §6.6 스크린샷·PDF 재생성(`docs/DOCUMENTATION_WORKFLOW.md`). 그 뒤 2.4.0 릴리스(`VERSION`, CHANGELOG 정리, PyInstaller 빌드 — 빌드본은 `requests` 등 포함). → R5 검토 다이얼로그(목업 기준) → R6 카세트 스캔 통합 → R7 문서. 세부는 설계 문서 §11. 참고: 원격 브랜치 `feat/multi-qr-check`(2026-08-18, 미병합)에 SR-X300W 선행 구현(`srx_client.py`, `fake_srx_server.py`)이 있으나 프레임에 셀 상태 분류가 없어 참고용으로만 쓴다. E단계(지그 현장 검증) 후 2.4.0 릴리스에 2-A와 함께 묶는다.
+~~R1~R7~~ 전부 완료(2026-09-09). 남은 것은 **E단계 현장 검증**: ~~(1) 실제 ATX 결과 폴더를 로드한 상태에서 실기기 다중 QR 스캔 → 즉시 적용(+판독 검토) E2E~~ (**완료 2026-09-09** — P2601001 12슬롯, 72/72 판독·12 즉시 적용 확인), (2) 조명·노출 튜닝 — 앱 설정 창 '리더기 튜닝' 페이지에서 노출·게인·조명·오토 포커스 조정 가능(2026-09-09), 현장 조건별 최적값은 운영하며 확정, (3) 시나리오 ②~⑤ 캡처(`scripts/capture_keyence.py`)와 fixture 추가, ~~(4) 리더기 설정 시트 확정~~ (**완료 2026-09-09** — `docs/reader-settings-sheet.md`), ~~(5) 사용자 가이드 §6.6 스크린샷·PDF 재생성~~ (**완료 2026-09-10** — `docs/user-guide.html`, `docs/MC_QR_Manager_User_Guide_v2.4.0.pdf`). 2.4.0 릴리스는 완료했으며, 현장 검증 결과에 따라 후속 패치한다. 세부는 설계 문서 §11. 참고: 원격 브랜치 `feat/multi-qr-check`(2026-08-18, 미병합)에 SR-X300W 선행 구현(`srx_client.py`, `fake_srx_server.py`)이 있으나 프레임에 셀 상태 분류가 없어 참고용으로만 쓴다.

@@ -189,7 +189,7 @@ iscc installer.iss
 # 산출물:
 #   dist\McQrManager\McQrManager.exe            (onedir 바이너리)
 #   Output\McQrManager-Setup-&lt;버전&gt;.exe          (설치 파일)</code></pre>
-<p><code>installer.iss</code> 는 컴파일 전 필수 산출물(<code>McQrManager.exe</code>, <code>python311.dll</code>, <code>third_party\tesseract\tesseract.exe</code>)을 검사해 중간 산출물 오배포를 방지합니다.</p>
+<p><code>installer.iss</code> 는 컴파일 전 필수 산출물(<code>McQrManager.exe</code>, Python 런타임 DLL, <code>third_party\tesseract\tesseract.exe</code>)을 검사해 중간 산출물 오배포를 방지합니다.</p>
 <h3 id="52-appid-guid">5.2 AppId GUID</h3>
 <pre><code>MC 2.x:    {{2991A86F-058F-4349-9F44-1116B5C4F102}   ← 현재
 NX 1.0.0:  {{A8F2D4E5-B612-4B19-8C3E-7F5D9A0E4B21}   ← 구버전(별도 제품, 공존 가능)</code></pre>

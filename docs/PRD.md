@@ -373,7 +373,7 @@ iscc installer.iss
 #   Output\McQrManager-Setup-<버전>.exe          (설치 파일)
 ```
 
-`installer.iss` 는 컴파일 전 필수 산출물(`McQrManager.exe`, `python311.dll`, `third_party\tesseract\tesseract.exe`)을 검사해 중간 산출물 오배포를 방지합니다.
+`installer.iss` 는 컴파일 전 필수 산출물(`McQrManager.exe`, Python 런타임 DLL, `third_party\tesseract\tesseract.exe`)을 검사해 중간 산출물 오배포를 방지합니다.
 
 ### 5.2 AppId GUID
 
