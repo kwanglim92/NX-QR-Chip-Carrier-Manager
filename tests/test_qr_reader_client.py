@@ -35,13 +35,14 @@ class FakeReader(QTcpServer):
     """레벨 트리거를 흉내 내는 최소 서버. LON 대기 → LOFF 시 프레임 전송."""
 
     def __init__(self, frame: bytes = FULL_FRAME, fragment: bool = False, er23: bool = False,
-                 immediate: bool = False, silent: bool = False):
+                 immediate: bool = False, silent: bool = False, late_ms: int = 0):
         super().__init__()
         self.frame = frame
         self.fragment = fragment
         self.er23 = er23
         self.immediate = immediate
         self.silent = silent
+        self.late_ms = late_ms   # LOFF 뒤 이 시간이 지나서 프레임 전송(지연 도착 재현)
         self.received: list[str] = []
         self.clients: list[QTcpSocket] = []
         self._buf: dict[QTcpSocket, bytes] = {}
@@ -75,7 +76,10 @@ class FakeReader(QTcpServer):
             elif cmd == "LOFF":
                 if self._armed[s]:
                     self._armed[s] = False
-                    self._send(s)
+                    if self.late_ms:
+                        QTimer.singleShot(self.late_ms, lambda s=s: self._send(s))
+                    else:
+                        self._send(s)
             elif cmd == "KEYENCE":
                 s.write(b"OK,KEYENCE,FAKE-SR-X300,1.73,7.244\r")
             else:
@@ -246,3 +250,85 @@ def test_explicit_close_does_not_reconnect(server):
     client.close()
     assert not wait_until(lambda: "reconnecting" in log["states"], 500)
     assert client.state is ReaderState.DISCONNECTED
+
+
+# ─── 검토(C1~C4, m5, m6) 재현 ───
+
+def test_unrelated_er_during_read_keeps_reading_and_sends_loff(server):
+    client, log = make_client(server, read_seconds=0.3)
+    client.open()
+    assert wait_until(client.is_connected)
+    client.trigger()
+    client.send_command("BOGUS")           # 리더기: ER,BOGUS,00
+    assert wait_until(lambda: ("BOGUS", "00") in log["errors"])
+    assert client.state is ReaderState.READING
+    assert wait_until(lambda: len(log["frames"]) == 1)
+    assert server.received == ["LON", "BOGUS", "LOFF"]
+    client.close()
+
+
+def test_close_during_read_sends_loff(server):
+    client, log = make_client(server, read_seconds=5.0)
+    client.open()
+    assert wait_until(client.is_connected)
+    client.trigger()
+    assert wait_until(lambda: server.received == ["LON"])
+    client.close()
+    assert wait_until(lambda: server.received == ["LON", "LOFF"])
+    assert client.state is ReaderState.DISCONNECTED
+
+
+def test_double_open_is_noop(server):
+    client, log = make_client(server)
+    client.open()
+    client.open()
+    assert wait_until(client.is_connected)
+    assert wait_until(lambda: len(log["states"]) >= 2, 300) or True
+    assert log["states"] == ["connecting", "connected"]
+    assert log["comm"] == []
+    client.close()
+
+
+def test_late_frame_after_timeout_is_rejected_not_delivered(qapp):
+    server = FakeReader(late_ms=500)
+    client, log = make_client(server, read_seconds=0.1, result_timeout_s=0.1)
+    client.open()
+    assert wait_until(client.is_connected)
+    client.trigger()
+    assert wait_until(lambda: "판독 결과 타임아웃" in log["comm"])
+    assert wait_until(lambda: len(log["rejected"]) == 1, 2000)
+    assert "트리거 없이" in log["rejected"][0]
+    assert log["frames"] == []
+    client.close()
+    server.close()
+
+
+def test_connect_timeout_reports_and_schedules_reconnect(server, monkeypatch):
+    client, log = make_client(server, connect_timeout_s=0.1)
+    monkeypatch.setattr(client._socket, "connectToHost", lambda *a, **k: None)  # 응답 없는 호스트 흉내
+    client.open()
+    assert wait_until(lambda: any("접속 타임아웃" in m for m in log["comm"]))
+    assert client.state is ReaderState.RECONNECTING
+    assert wait_until(lambda: sum("접속 타임아웃" in m for m in log["comm"]) >= 2, 2000)  # 재시도 체인 유지
+    client.close()
+
+
+def test_retry_chain_survives_refused_connections_with_backoff(qapp):
+    probe = FakeReader()
+    port = probe.serverPort()
+    probe.close()                                   # 포트만 알아내고 닫음 → 접속 불가(Windows 루프백은 거부 대신 대기)
+    client, log = make_client(probe, reconnect_s=0.1, connect_timeout_s=0.3)
+    client.configure(port=port)
+    client.open()
+    assert wait_until(lambda: log["states"].count("reconnecting") >= 1)
+    assert wait_until(lambda: len(log["comm"]) >= 3, 4000)   # 실패가 반복돼도 체인이 죽지 않음
+    assert client._reconnect_delay_s > 0.1                    # 백오프 증가
+    server = FakeReader()
+    server.close()                                            # 임의 포트 해제 후 원래 포트로 재리스닝
+    assert server.listen(QHostAddress.SpecialAddress.LocalHost, port)
+    assert wait_until(client.is_connected, 4000)
+    assert client._reconnect_delay_s == 0.1                   # 접속 성공 시 초기화
+    client.trigger()
+    assert wait_until(lambda: len(log["frames"]) == 1)
+    client.close()
+    server.close()

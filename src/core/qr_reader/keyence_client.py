@@ -5,12 +5,19 @@
 트리거 시퀀스(레벨 방식):
     trigger() → ``LON<CR>`` 전송 → ``read_seconds`` 후 ``LOFF<CR>`` 전송 → 결과 프레임 대기
     (전 코드가 일찍 판독되어 프레임이 먼저 오면 LOFF 를 즉시 보내고 판독을 끝낸다)
+    판독 중 close() 또는 트리거 명령 거부(``ER,LON,…``)가 아닌 사유로 판독을 접을 때도 LOFF 를 보내
+    리더기가 LON 상태로 남지 않게 한다.
 
 수신 처리:
     버퍼 → ``split_frames`` → ``classify_line`` →
-      result → ``parse_frame`` → ``frame_received(ParsedFrame)`` / 형식 오류 → ``frame_rejected(str)``
-      ER,…   → ``command_error(cmd, code)`` (판독 중이면 판독 중단)
+      result → 판독 중일 때만 ``parse_frame`` → ``frame_received(ParsedFrame)`` / 형식 오류 → ``frame_rejected(str)``
+               판독 중이 아닐 때(타임아웃 이후 지연 도착, 리더기 버튼 트리거 등) → ``frame_rejected``
+      ER,…   → ``command_error(cmd, code)`` (트리거 명령이 거부된 경우에만 판독 중단)
       OK,…   → ``response_received(str)``
+
+연결:
+    접속 시도에는 ``connect_timeout_s`` 가 걸리고, 끊기거나 실패하면 ``reconnect_s`` 부터 2배씩
+    ``reconnect_max_s`` 까지 늘어나는 간격으로 재접속한다(접속 성공 시 초기화). close() 는 재접속하지 않는다.
 """
 from __future__ import annotations
 
@@ -45,7 +52,7 @@ class ReaderState(str, Enum):
 class KeyenceClient(QObject):
     state_changed = Signal(str)          # ReaderState.value
     frame_received = Signal(object)      # ParsedFrame
-    frame_rejected = Signal(str)         # FrameError 사유
+    frame_rejected = Signal(str)         # FrameError 사유 / 트리거 없이 도착한 프레임
     command_error = Signal(str, str)     # (cmd, code)  예: ("LON", "23")
     response_received = Signal(str)      # "OK,..." 줄
     comm_error = Signal(str)             # 소켓 오류·타임아웃 메시지
@@ -56,22 +63,29 @@ class KeyenceClient(QObject):
         self._port = 9004
         self._read_seconds = 6.0
         self._result_timeout_s = 10.0
+        self._connect_timeout_s = 5.0
         self._expected_count = DEFAULT_EXPECTED_COUNT
         self._ng_token = DEFAULT_NG_TOKEN
         self._trigger_cmd = "LON"
         self._stop_cmd = "LOFF"
         self._reconnect_s = 3.0
+        self._reconnect_max_s = 30.0
         self._auto_reconnect = True
 
         self._state = ReaderState.DISCONNECTED
         self._buffer = b""
         self._explicit_close = False
+        self._reconnect_delay_s = self._reconnect_s
 
         self._socket = QTcpSocket(self)
         self._socket.connected.connect(self._on_connected)
         self._socket.disconnected.connect(self._on_disconnected)
         self._socket.errorOccurred.connect(self._on_socket_error)
         self._socket.readyRead.connect(self._on_ready_read)
+
+        self._connect_timer = QTimer(self)
+        self._connect_timer.setSingleShot(True)
+        self._connect_timer.timeout.connect(self._on_connect_timeout)
 
         self._loff_timer = QTimer(self)
         self._loff_timer.setSingleShot(True)
@@ -93,11 +107,13 @@ class KeyenceClient(QObject):
         port: int | None = None,
         read_seconds: float | None = None,
         result_timeout_s: float | None = None,
+        connect_timeout_s: float | None = None,
         expected_count: int | None = None,
         ng_token: str | None = None,
         trigger_cmd: str | None = None,
         stop_cmd: str | None = None,
         reconnect_s: float | None = None,
+        reconnect_max_s: float | None = None,
         auto_reconnect: bool | None = None,
     ) -> None:
         if host is not None:
@@ -108,6 +124,8 @@ class KeyenceClient(QObject):
             self._read_seconds = float(read_seconds)
         if result_timeout_s is not None:
             self._result_timeout_s = float(result_timeout_s)
+        if connect_timeout_s is not None:
+            self._connect_timeout_s = float(connect_timeout_s)
         if expected_count is not None:
             self._expected_count = int(expected_count)
         if ng_token is not None:
@@ -118,6 +136,9 @@ class KeyenceClient(QObject):
             self._stop_cmd = stop_cmd
         if reconnect_s is not None:
             self._reconnect_s = float(reconnect_s)
+            self._reconnect_delay_s = self._reconnect_s
+        if reconnect_max_s is not None:
+            self._reconnect_max_s = float(reconnect_max_s)
         if auto_reconnect is not None:
             self._auto_reconnect = bool(auto_reconnect)
 
@@ -142,30 +163,53 @@ class KeyenceClient(QObject):
     # ─── 연결 ───
 
     def open(self) -> None:
+        """접속 시작. 이미 접속 중/접속됨이면 아무것도 하지 않는다."""
         self._explicit_close = False
         self._reconnect_timer.stop()
-        if self.is_connected():
+        if self._socket.state() != QAbstractSocket.SocketState.UnconnectedState:
             return
+        self._reconnect_delay_s = self._reconnect_s
         self._set_state(ReaderState.CONNECTING)
-        self._socket.connectToHost(self._host, self._port)
+        self._start_connect()
 
     def close(self) -> None:
+        """명시적 종료. 판독 중이면 LOFF 를 먼저 보내 리더기를 LON 상태로 두지 않는다. 재접속 안 함."""
         self._explicit_close = True
         self._reconnect_timer.stop()
-        self._cancel_read()
+        self._connect_timer.stop()
+        if self.is_reading() and self.is_connected():
+            self._cancel_read()
+            self._send_stop()
+            self._socket.flush()
+            self._socket.waitForBytesWritten(300)
+        else:
+            self._cancel_read()
         if self._socket.state() != QAbstractSocket.SocketState.UnconnectedState:
             self._socket.abort()
         self._buffer = b""
         self._set_state(ReaderState.DISCONNECTED)
 
+    def _start_connect(self) -> None:
+        self._connect_timer.start(int(self._connect_timeout_s * 1000))
+        self._socket.connectToHost(self._host, self._port)
+
+    def _on_connect_timeout(self) -> None:
+        if self._explicit_close or self.is_connected():
+            return
+        self._socket.abort()
+        self.comm_error.emit(f"접속 타임아웃 ({self._host}:{self._port}, {self._connect_timeout_s:g}s)")
+        self._schedule_reconnect()
+
     # ─── 명령 ───
 
     def send_command(self, cmd: str) -> bool:
-        """``cmd`` + CR 전송. 연결 안 됐으면 comm_error 후 False."""
+        """``cmd`` + CR 전송. 연결 안 됐거나 쓰기 실패면 comm_error 후 False."""
         if not self.is_connected():
             self.comm_error.emit("리더기가 연결되지 않았습니다")
             return False
-        self._socket.write(cmd.encode("ascii") + FRAME_TERMINATOR)
+        if self._socket.write(cmd.encode("ascii") + FRAME_TERMINATOR) < 0:
+            self.comm_error.emit(f"전송 실패: {self._socket.errorString()}")
+            return False
         return True
 
     def trigger(self) -> bool:
@@ -189,7 +233,7 @@ class KeyenceClient(QObject):
         self._result_timer.stop()
 
     def _finish_read(self) -> None:
-        """결과(또는 오류) 수신으로 판독 종료. LOFF 가 아직이면 즉시 보낸다."""
+        """결과 수신으로 판독 종료. LOFF 가 아직이면 즉시 보낸다."""
         if self._loff_timer.isActive():
             self._loff_timer.stop()
             self._send_stop()
@@ -198,6 +242,7 @@ class KeyenceClient(QObject):
             self._set_state(ReaderState.CONNECTED)
 
     def _on_result_timeout(self) -> None:
+        self._cancel_read()
         if self._state is ReaderState.READING:
             self._set_state(ReaderState.CONNECTED)
         self.comm_error.emit("판독 결과 타임아웃")
@@ -221,8 +266,8 @@ class KeyenceClient(QObject):
             parts = line.strip().split(",")
             cmd = parts[1] if len(parts) > 1 else ""
             code = parts[2] if len(parts) > 2 else ""
-            if self.is_reading():
-                # 트리거 자체가 거부됨(예: Navigator 연결 중 23) — LOFF 를 보낼 이유가 없다
+            if self.is_reading() and cmd == self._trigger_cmd:
+                # 트리거 자체가 거부됨(예: Navigator 연결 중 23) — 리더기는 LON 상태가 아니므로 LOFF 불필요
                 self._cancel_read()
                 self._set_state(ReaderState.CONNECTED)
             self.command_error.emit(cmd, code)
@@ -231,9 +276,10 @@ class KeyenceClient(QObject):
             self.response_received.emit(line.strip())
             return
         # result
-        was_reading = self.is_reading()
-        if was_reading:
-            self._finish_read()
+        if not self.is_reading():
+            self.frame_rejected.emit("트리거 없이(또는 타임아웃 이후) 도착한 프레임 — 무시")
+            return
+        self._finish_read()
         try:
             frame = parse_frame(line, expected_count=self._expected_count, ng_token=self._ng_token)
         except FrameError as e:
@@ -244,7 +290,9 @@ class KeyenceClient(QObject):
     # ─── 소켓 이벤트 ───
 
     def _on_connected(self) -> None:
+        self._connect_timer.stop()
         self._buffer = b""
+        self._reconnect_delay_s = self._reconnect_s
         self._socket.setSocketOption(QAbstractSocket.SocketOption.KeepAliveOption, 1)
         self._set_state(ReaderState.CONNECTED)
 
@@ -255,11 +303,14 @@ class KeyenceClient(QObject):
             return
         self._schedule_reconnect()
 
-    def _on_socket_error(self, _err: QAbstractSocket.SocketError) -> None:
+    def _on_socket_error(self, err: QAbstractSocket.SocketError) -> None:
         if self._explicit_close:
             return
+        if err == QAbstractSocket.SocketError.RemoteHostClosedError:
+            return  # disconnected 시그널이 처리
         self.comm_error.emit(self._socket.errorString())
         if not self.is_connected():
+            self._connect_timer.stop()
             self._cancel_read()
             self._schedule_reconnect()
 
@@ -270,13 +321,14 @@ class KeyenceClient(QObject):
         if self._reconnect_timer.isActive():
             return
         self._set_state(ReaderState.RECONNECTING)
-        self._reconnect_timer.start(int(self._reconnect_s * 1000))
+        self._reconnect_timer.start(int(self._reconnect_delay_s * 1000))
+        self._reconnect_delay_s = min(self._reconnect_delay_s * 2, self._reconnect_max_s)
 
     def _attempt_reconnect(self) -> None:
         if self._explicit_close or self.is_connected():
             return
         self._socket.abort()
-        self._socket.connectToHost(self._host, self._port)
+        self._start_connect()
 
     def _set_state(self, state: ReaderState) -> None:
         if state is self._state:

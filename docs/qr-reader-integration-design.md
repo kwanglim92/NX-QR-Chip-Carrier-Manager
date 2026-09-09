@@ -209,7 +209,7 @@
 |---|---|---|---|
 | **R1** | `CellRead`/`ParsedFrame` + `payload_parser` (§3.1 고정 형식, `classify_line`, `split_frames`) | `src/core/qr_reader/payload_parser.py`, `tests/test_qr_reader_parser.py` | A① (완료) |
 | **R2** | `slot_assigner`: 공식 + override 표, 로드된 세트 탐색, 예외 분류(§5) `AssignPlan` | `src/core/qr_reader/slot_assigner.py`, `tests/test_qr_reader_assigner.py` | R1 (완료) |
-| **R3** | `KeyenceClient` (QTcpSocket, LON→지연→LOFF, 프레이밍, 재접속, 타임아웃, `send_command`) + 가짜 서버 + 인프로세스 테스트 11건 | `src/core/qr_reader/keyence_client.py`, `scripts/fake_keyence_server.py`, `tests/test_qr_reader_client.py` | R1 (완료) |
+| **R3** | `KeyenceClient` (QTcpSocket, LON→지연→LOFF, 프레이밍, 재접속, 타임아웃, `send_command`) + 가짜 서버 + 인프로세스 테스트 17건 | `src/core/qr_reader/keyence_client.py`, `scripts/fake_keyence_server.py`, `tests/test_qr_reader_client.py` | R1 (완료) |
 | **R4** | 설정 키 + 리더기 설정 다이얼로그 + 상태 표시 | `src/core/qr_reader/settings.py`, `src/ui/dialogs/qr_reader_settings_dialog.py`, `ui_builder_mixin.py` | R3 |
 | **R5** | 검토 다이얼로그(6카세트 격자, 필터, 오프셋 경고) | `src/ui/dialogs/batch_read_review_dialog.py` | R2 |
 | **R6** | `QRMatchMixin._on_batch_read` + 카세트 스캔 트리거(ATX 탭·Pass Pool) + 일괄 적용 | `qr_match_mixin.py`, `pass_pool_mixin.py` | R2, R4, R5 |
@@ -221,7 +221,7 @@
 - 같은 ATX+Port 폴더가 2개 로드된 경우 R6 는 탭 순서(①②③…)로 `set_for_port` 를 구성해 `build_plan` 에 넘긴다.
 
 ### 검수 게이트
-- [x] R1~R3 테스트 전부 그린(58건) + 기존 `tests/` 회귀 없음(174 passed), 테스트의 실제 네트워크 접속 0건 (2026-09-09)
+- [x] R1~R3 테스트 전부 그린(80건) + 기존 `tests/` 회귀 없음(197 passed), 테스트의 실제 네트워크 접속 0건 (2026-09-09)
 - [x] 가짜 서버(인프로세스 QTcpServer)로 72코드·NG·3분할 프레임·ER 23·개수 불일치·타임아웃·재접속 통과
 - [ ] 검토 화면에서 "레코드 없음 + 코드 있음" 칸이 있으면 적용 버튼 비활성 확인
 - [ ] 키보드 입력 폴백이 기존과 동일하게 동작
