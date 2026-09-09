@@ -328,7 +328,7 @@ class ChipCarrierManagerApp(
 4. **수동 override** — 우클릭 `등급 수동 변경` / `파손 표시` / `자동 판정으로 되돌리기`; 재판정·기준 변경 후에도 유지, 표에 `*` 표시.
 5. **리포트** — `Save` → `Inspection_{run}.csv`(전 슬롯 등급·Error·원시값·오프셋·sweep 점수·vision 요약).
 6. **Grouping → ATX** — 내보낸 슬롯은 Error 열 `→ {UnitNo}` 표시 + 다음 Grouping 대상에서 제외, 다음 Unit No 자동 증가.
-8. **레이아웃 보기** — 비모달 창에 ATX 2×2 · Port 좌우 · Slot 4×3 실물 배치로 등급 색 표시, 색 기준 콤보(등급/Sweep/Frequency/Q), 표 선택·필터와 양방향 동기화, 셀 클릭/우클릭/더블클릭은 표와 동일.
+8. **레이아웃 보기** — 비모달 창에 ATX 2×2 · Port2 위/Port1 아래 · Slot 4×3 실물 배치로 등급 색 표시, 색 기준 콤보(등급/Sweep/Frequency/Q), 표 선택·필터와 양방향 동기화, 셀 클릭/우클릭/더블클릭은 표와 동일.
 7. **Sweep Explorer** — 판정 차트 더블클릭 → pyqtgraph 비모달 창(ZoomOut/줌인 2단, 크로스헤어, 공진 세로선 3종, 피크 표·클릭 확대, 기준 오버레이, 선택 따라가기). 이미지 더블클릭 → 원본 크기 창. 읽기 전용.
 
 **설계 노트**: 형상 판정은 이미지가 아닌 **수치(txt)** 기반 — sweep 이미지에 이미 Lorentzian 피팅이 그려져 있으므로 같은 모델을 수치로 재현해 R² 로 판정한다. Thermal Tune 은 런 폴더에 데이터가 없어 제외. 다중 런 폴더 합산은 후속.

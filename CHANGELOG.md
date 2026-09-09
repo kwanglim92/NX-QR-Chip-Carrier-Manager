@@ -8,7 +8,7 @@
 - **Vision 팁 파손 자동 판정**: pickUp 이미지 실루엣 길이/면적을 기준 슬롯 대비 비율로 판정(해상도 무관), 파손은 불량 강제 + 수동 override
 - **등급 사다리 템플릿**: Tip ID 별 `Threshold` 폼(등급 탭 × 항목 11종, um/pixel), `New...`(복사)·삭제·Save — Save 시 산업용 Frequency/Q 를 History 의 Spec Limits 에 동기화(`app_settings.inspection_templates`)
 - **Grouping → 로트 생성**: 등급·Unit No·Batch·12M/10M/5M 수량·Remain·OK/INVALID, `Run` 으로 `{UnitNo}_{qty}M_{Tip}` 로트 폴더(Summary.csv + FreqSweep/Vision 복사, 기존 ATX 형식) 생성 후 **ATX 모드 탭으로 자동 오픈**(DB 저장), Unit No 자동 +1, 내보낸 슬롯은 표에 `→ Unit No` 표시
-- **레이아웃 보기** (결과표 옆 버튼, 비모달 창): ATX 2×2(1 좌상·2 우상·3 좌하·4 우하) · Port 좌우 · Slot 4열×3행(ATX Mode 그리드 규칙)에 등급 색을 채워 표시, 색 기준 콤보(등급 / Sweep 점수 / Frequency / Q), 기준 캔틸레버 굵은 테두리·로트 배지·수동 지정 표시, 클릭/우클릭/더블클릭은 결과표와 동일, 표 선택·등급 필터와 양방향 동기화
+- **레이아웃 보기** (결과표 옆 버튼, 비모달 창): ATX 2×2(1 좌상·2 우상·3 좌하·4 우하) · Port2 위/Port1 아래 · Slot 4열×3행(ATX Mode 그리드 규칙)에 등급 색을 채워 표시, 색 기준 콤보(등급 / Sweep 점수 / Frequency / Q), 기준 캔틸레버 굵은 테두리·로트 배지·수동 지정 표시, 클릭/우클릭/더블클릭은 결과표와 동일, 표 선택·등급 필터와 양방향 동기화
 - **Sweep Explorer** (판정 차트 더블클릭, pyqtgraph): ZoomOut/줌인 상하 2단 인터랙티브 창 — 휠 확대·드래그 이동·크로스헤어 좌표, 공진 세로선 3종(MTC Frequency·측정 피크·Lorentzian f0), 검출 피크 표(주파수·진폭·prominence·FWHM·Q 추정, 행 클릭 → 확대), 기준 슬롯 오버레이, 메인 표 선택 따라가기, 여러 창 동시. 이미지 뷰어 더블클릭 → 원본 크기 확대 창. `pyqtgraph` 의존성 추가
 - `src/core/inspection/`(파서·형상·Vision·기준·템플릿·사다리·로트, 순수 함수) + 실런 발췌 fixture `tests/fixtures/mtc/20260909` + 테스트 59건
 - 설계 문서 `docs/inspection-design.md`, PRD F-22, 사용자 가이드 §6.7

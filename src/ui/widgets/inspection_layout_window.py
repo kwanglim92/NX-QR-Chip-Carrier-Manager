@@ -1,9 +1,9 @@
-"""Inspection 레이아웃 보기 — MTC 실물 배치(ATX 2×2 · Port 좌우 · Slot 4열×3행)로 등급을 한눈에.
+"""Inspection 레이아웃 보기 — MTC 실물 배치(ATX 2×2 · Port 상하 · Slot 4열×3행)로 등급을 한눈에.
 
 배치
 ----
 - ATX1 좌상 · ATX2 우상 · ATX3 좌하 · ATX4 우하
-- ATX 안: Port1 왼쪽, Port2 오른쪽. 각 Port 는 ATX Mode 슬롯 그리드와 같은 규칙
+- ATX 안: Port2 위, Port1 아래(상하 배치). 각 Port 는 ATX Mode 슬롯 그리드와 같은 규칙
   (``slot_mapper.slot_to_grid``: 아래 행 1~4, 중간 5~8, 위 9~12 — Slot 1 = 좌하단)
 - 셀: 배경 = 색 기준(등급 / Sweep 점수 / Frequency / Q), 글자 = 슬롯 번호. 빈 슬롯 = 점선 회색.
   기준 캔틸레버 = 굵은 테두리, 로트로 내보낸 슬롯 = ``→`` 배지, 수동 지정 = ``*``
@@ -140,7 +140,7 @@ class InspectionLayoutWindow(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent, Qt.Window)
         self.setWindowTitle("Inspection 레이아웃 보기")
-        self.resize(1000, 720)
+        self.resize(760, 900)
         self.cells: dict[str, LayoutCell] = {}   # code → cell
         self._selected: str | None = None
         self._build()
@@ -171,9 +171,9 @@ class InspectionLayoutWindow(QWidget):
 
     def _build_atx(self, atx: int) -> QGroupBox:
         box = QGroupBox(f"ATX {atx}")
-        hl = QHBoxLayout(box)
-        hl.setSpacing(12)
-        for port in PORTS:
+        hl = QVBoxLayout(box)
+        hl.setSpacing(8)
+        for port in reversed(PORTS):   # Port2 위, Port1 아래
             pw = QWidget()
             pl = QVBoxLayout(pw)
             pl.setContentsMargins(0, 0, 0, 0)
