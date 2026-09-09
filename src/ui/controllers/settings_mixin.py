@@ -25,6 +25,9 @@ TIP_CATALOG_KEY = "manual_tip_catalog"
 # 품질 규격(Spec) 한계 — app_settings 독립 키 (probe_type → freq/q min·max)
 SPEC_LIMITS_KEY = "spec_limits"
 
+# Inspection 등급 사다리 템플릿 — app_settings 독립 키 ({tip_id: template})
+INSPECTION_TEMPLATES_KEY = "inspection_templates"
+
 
 class SettingsMixin:
     def _init_settings(self):
@@ -170,3 +173,14 @@ class SettingsMixin:
             if has_bound:
                 cleaned[name] = entry
         return cleaned
+
+    # ─── Inspection 템플릿 ───
+
+    def _load_inspection_templates(self) -> dict:
+        """저장된 검사 템플릿 ``{tip_id: template}`` (정규화). 없으면 {}."""
+        from src.core.inspection.templates import normalize_templates
+        return normalize_templates(load_setting(self._db_conn, INSPECTION_TEMPLATES_KEY, {}))
+
+    def _save_inspection_templates(self, templates: dict) -> None:
+        from src.core.inspection.templates import normalize_templates
+        save_setting(self._db_conn, INSPECTION_TEMPLATES_KEY, normalize_templates(templates))

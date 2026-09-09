@@ -23,6 +23,7 @@ from src.ui.widgets.manual_grid_widget import ManualGridWidget
 from src.ui.widgets.history_table import HistoryTable
 from src.ui.widgets.slot_detail_table import SlotDetailTable
 from src.ui.widgets.stats_dashboard import StatsDashboard
+from src.ui.widgets.inspection_page import InspectionPage
 
 
 class UIBuilderMixin:
@@ -104,6 +105,7 @@ class UIBuilderMixin:
         self._build_manual_page()
         self._build_export_page()
         self._build_history_page()
+        self._build_inspection_page()
 
         # 하단: QR 입력 + 진행 상태
         self._build_bottom_bar(main_layout)
@@ -137,6 +139,11 @@ class UIBuilderMixin:
         self.btn_history_mode = QPushButton("History")
         self.btn_history_mode.clicked.connect(lambda: self._switch_mode("history"))
         toolbar_layout.addWidget(self.btn_history_mode)
+
+        self.btn_inspection_mode = QPushButton("Inspection")
+        self.btn_inspection_mode.setToolTip("MTC 런 폴더를 열어 등급(산업용/연구용/재검사/불량)을 판정하고 로트 폴더를 만듭니다")
+        self.btn_inspection_mode.clicked.connect(lambda: self._switch_mode("inspection"))
+        toolbar_layout.addWidget(self.btn_inspection_mode)
 
         # 생산일자 — 모드 버튼 바로 우측
         toolbar_layout.addSpacing(20)
@@ -898,6 +905,11 @@ class UIBuilderMixin:
 
         self.stack.addWidget(page)  # index 3
 
+    # ─── Inspection 페이지 (MTC 등급 판정) ───
+    def _build_inspection_page(self):
+        self.inspection_page = InspectionPage()
+        self.stack.addWidget(self.inspection_page)  # index 4
+
     # ─── 하단 바: QR 입력 + 진행률 ───
     def _build_bottom_bar(self, parent_layout):
         self._bottom_bar = QWidget()
@@ -940,12 +952,13 @@ class UIBuilderMixin:
 
     # ─── 모드 전환 ───
     def _switch_mode(self, mode: str):
-        modes = {"atx": 0, "manual": 1, "export": 2, "history": 3}
+        modes = {"atx": 0, "manual": 1, "export": 2, "history": 3, "inspection": 4}
         idx = modes.get(mode, 0)
         self.stack.setCurrentIndex(idx)
 
         for btn, m in [(self.btn_atx_mode, "atx"), (self.btn_manual_mode, "manual"),
-                       (self.btn_export_mode, "export"), (self.btn_history_mode, "history")]:
+                       (self.btn_export_mode, "export"), (self.btn_history_mode, "history"),
+                       (self.btn_inspection_mode, "inspection")]:
             btn.setProperty("accent", "true" if m == mode else "false")
             btn.style().polish(btn)
 
@@ -955,7 +968,7 @@ class UIBuilderMixin:
 
         # QR 바는 ATX/Manual 모드에서만 표시
         self._bottom_bar.setVisible(mode in ("atx", "manual"))
-        self.btn_calibrate_global.setVisible(mode != "history")
+        self.btn_calibrate_global.setVisible(mode not in ("history", "inspection"))
 
         if mode == "export":
             if hasattr(self, "export_tabs"):

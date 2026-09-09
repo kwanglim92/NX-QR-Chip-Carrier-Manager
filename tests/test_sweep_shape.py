@@ -12,6 +12,7 @@ from src.core.inspection.sweep_shape import (
     analyze_sweep,
     find_peaks,
     half_width_asymmetry,
+    lorentzian_curve,
     lorentzian_fit,
     read_sweep_txt,
     side_peak_ratio,
@@ -51,11 +52,14 @@ def test_find_peaks_single_and_double():
 
 def test_lorentzian_fit_recovers_synthetic():
     freqs, amps = _lorentz_curve(gamma=0.3)
-    r2, gamma = lorentzian_fit(freqs, amps)
+    r2, gamma, params = lorentzian_fit(freqs, amps)
     assert r2 > 0.995
     assert 0.2 < gamma < 0.45
-    assert lorentzian_fit([1, 2], [1, 2]) == (None, None)
-    assert lorentzian_fit([1, 2, 3, 4, 5], [1, 1, 1, 1, 1]) == (None, None)
+    assert params["f0"] == pytest.approx(280.0, abs=0.02) and params["a0"] == pytest.approx(10.0, abs=0.6)
+    curve = lorentzian_curve(freqs, params)
+    assert len(curve) == 100 and max(curve) == pytest.approx(10.0, abs=0.6)
+    assert lorentzian_fit([1, 2], [1, 2]) == (None, None, None)
+    assert lorentzian_fit([1, 2, 3, 4, 5], [1, 1, 1, 1, 1]) == (None, None, None)
 
 
 def test_half_width_asymmetry_symmetric_and_skewed():

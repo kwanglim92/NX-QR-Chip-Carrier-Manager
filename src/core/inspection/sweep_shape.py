@@ -47,6 +47,7 @@ class SweepShape:
     peak_amp: float | None = None
     fit_r2: float | None = None
     fit_gamma: float | None = None
+    fit_params: dict | None = None        # {f0, a0, base, gamma} — 차트 오버레이용
     asymmetry: float | None = None
     side_peak_ratio: float | None = None
     side_peak_freq: float | None = None
@@ -128,24 +129,31 @@ def find_peaks(amps: list[float], min_rel: float = PEAK_MIN_REL,
     return peaks
 
 
-def lorentzian_fit(freqs: list[float], amps: list[float]) -> tuple[float | None, float | None]:
-    """(R², γ) — ``A(f) = b + (A0-b) / (1 + ((f-f0)/γ)²)`` 를 격자 탐색으로 맞춘다.
+def lorentzian_curve(freqs, params: dict) -> list[float]:
+    """``fit_params`` 로 모델 곡선 재생성(차트 오버레이)."""
+    f = np.asarray(freqs, dtype=float)
+    x = (f - params["f0"]) / params["gamma"]
+    return (params["base"] + (params["a0"] - params["base"]) / (1.0 + x * x)).tolist()
+
+
+def lorentzian_fit(freqs: list[float], amps: list[float]) -> tuple[float | None, float | None, dict | None]:
+    """(R², γ, params) — ``A(f) = b + (A0-b) / (1 + ((f-f0)/γ)²)`` 를 격자 탐색으로 맞춘다.
 
     f0 = 피크 ±3 샘플, b ∈ {0, min/2, min}, A0 = 피크 × {0.95, 1, 1.05}, γ = 로그 격자 49단계.
-    점이 5개 미만이거나 진폭이 평탄하면 (None, None).
+    점이 5개 미만이거나 진폭이 평탄하면 (None, None, None).
     """
     n = len(freqs)
     if n < 5:
-        return None, None
+        return None, None, None
     f = np.asarray(freqs, dtype=float)
     a = np.asarray(amps, dtype=float)
     i0 = int(a.argmax())
     a_min = float(a.min())
     if a[i0] - a_min <= 0:
-        return None, None
+        return None, None, None
     span = float(abs(f[-1] - f[0]))
     if span <= 0:
-        return None, None
+        return None, None, None
     ss_tot = float(((a - a.mean()) ** 2).sum()) or 1e-12
 
     f0s = f[max(0, i0 - 3): i0 + 4]
@@ -163,7 +171,9 @@ def lorentzian_fit(freqs: list[float], amps: list[float]) -> tuple[float | None,
     ss_res = ((a[None, None, None, None, :] - model) ** 2).sum(axis=-1)
     idx = np.unravel_index(int(ss_res.argmin()), ss_res.shape)
     r2 = 1.0 - float(ss_res[idx]) / ss_tot
-    return r2, float(gammas[idx[3]])
+    params = {"f0": float(f0s[idx[0]]), "base": float(bases[idx[1]]),
+              "a0": float(a0s[idx[2]]), "gamma": float(gammas[idx[3]])}
+    return r2, params["gamma"], params
 
 
 def half_width_asymmetry(freqs: list[float], amps: list[float]) -> float | None:
@@ -221,7 +231,7 @@ def analyze_sweep(sweep_txt: str | Path | None, zoom_txt: str | Path | None) -> 
     shape.peak_freq, shape.peak_amp = freqs[i0], amps[i0]
     shape.peak_indices = find_peaks(amps)
     shape.n_peaks = max(1, len(shape.peak_indices))
-    shape.fit_r2, shape.fit_gamma = lorentzian_fit(freqs, amps)
+    shape.fit_r2, shape.fit_gamma, shape.fit_params = lorentzian_fit(freqs, amps)
     shape.asymmetry = half_width_asymmetry(freqs, amps)
 
     zf, za = read_sweep_txt(zoom_txt)

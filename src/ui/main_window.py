@@ -14,6 +14,7 @@ from src.ui.controllers.history_mixin import HistoryMixin
 from src.ui.controllers.settings_mixin import SettingsMixin
 from src.ui.controllers.pass_pool_mixin import PassPoolMixin
 from src.ui.controllers.qr_reader_mixin import QRReaderMixin
+from src.ui.controllers.inspection_mixin import InspectionMixin
 
 
 class ChipCarrierManagerApp(
@@ -27,6 +28,7 @@ class ChipCarrierManagerApp(
     SettingsMixin,
     PassPoolMixin,
     QRReaderMixin,
+    InspectionMixin,
     QMainWindow,
 ):
     def __init__(self):
@@ -41,6 +43,7 @@ class ChipCarrierManagerApp(
         self._init_history_state()
         self._init_pool_state()
         self._init_qr_reader()
+        self._init_inspection_state()
         self._restore_window_geometry()
         self._apply_settings_to_ui()
 
@@ -106,6 +109,7 @@ class ChipCarrierManagerApp(
         self._save_settings()
         # 리더기: 판독 중이면 LOFF 를 보내고 소켓을 닫는다 (재접속 없음)
         self._shutdown_qr_reader()
+        self._shutdown_inspection()
         # 종료 중 늦게 끝난 OCR 콜백이 닫힌 DB 연결에 쓰는 것을 방지:
         # 풀을 비우고 대기한 뒤, 남은 배치를 무효화한다(batch None 가드 활용).
         pool = getattr(self, "_ocr_pool", None)
