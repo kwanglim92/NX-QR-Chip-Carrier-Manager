@@ -283,25 +283,25 @@ class ChipCarrierManagerApp(
 
 **설계 노트**: `stats_dashboard` 의 SPC 차트는 원래 `spec_upper/spec_lower` 파라미터를 가졌으나 `load_stats` 가 인자 없이 호출해 **죽은 코드**였음 → F-20 에서 정식 배선. `load_stats` 의 신규 인자(`yield_result`, `spec_lines`)는 키워드 기본값이라 **하위호환**.
 
-### ★ F-21 키엔스 다중 QR 리더기 연동 — 카세트 스캔 (신규, Phase 2-B)
+### ★ F-21 키엔스 다중 QR 리더기 연동 — 다중 QR 스캔 (신규, Phase 2-B)
 
 > MTC 환경에서 캐리어 카세트(최대 6개 × 12슬롯 = 72칸)를 키엔스 SR-X300W 코드 리더기로 **한 번에 판독**해, 로드된 ATX 폴더 탭 전체에 QR을 일괄 매칭한다. 키보드(HID) 스캐너 입력창은 단일 슬롯 정정·폴백으로 유지. 설계 문서: [`qr-reader-integration-design.md`](./qr-reader-integration-design.md).
 
 | 항목 | 내용 |
 |------|------|
-| 진입 | 하단 QR 입력 바 우측 `● Reader …` 상태 칩(클릭 → 리더기 설정) + `카세트 스캔` 버튼(**F10**, 연결 시에만 활성) |
+| 진입 | 하단 바 [QR 입력] 옆 `다중 QR 스캔` 버튼(**F10**, 연결 시에만 활성) + `판독 검토` 버튼(스캔 후 활성). 상태 바(Theme 왼쪽)의 `● Reader …` 칩(클릭 → 리더기 설정) |
 | 통신 | LAN/TCP 9004 단일 소켓, 앱이 클라이언트. 레벨 트리거 `LON` → 판독 시간(기본 6s) → `LOFF` 에서 결과 프레임 확정. AutoID Network Navigator 가 연결돼 있으면 리더기가 모든 명령을 `ER,<cmd>,23` 으로 거부 |
 | 프레임 | `code×72` 를 `,` 로, 끝에 `:NNNNms`, 종단 `CR`. 미판독 `ERROR`. 셀 번호 = 인덱스, `port=(cell−1)÷12+1`, `slot=(cell−1)%12+1` (카세트 1 = Port 1) |
-| 저장 | `app_settings.qr_reader` (IP·포트·LON/LOFF·판독 시간·기대 코드 수·NG 문자열·셀 재정의 표) |
-| 구성 파일 | `core/qr_reader/{payload_parser,slot_assigner,keyence_client,settings}.py`, `ui/dialogs/qr_reader_settings_dialog.py`, `ui/dialogs/batch_read_review_dialog.py`, `ui/controllers/qr_reader_mixin.py`, `scripts/capture_keyence.py`, `scripts/fake_keyence_server.py` |
+| 저장 | `app_settings.qr_reader` (IP·포트·자동 접속·LON/LOFF·판독 시간·기대 코드 수·NG 문자열·셀 재정의 표·미리보기 회전) |
+| 구성 파일 | `core/qr_reader/{payload_parser,slot_assigner,keyence_client,settings,boat_layout}.py`, `ui/dialogs/qr_reader_settings_dialog.py`, `ui/dialogs/frame_preview_dialog.py`, `ui/dialogs/batch_read_review_dialog.py`, `ui/controllers/qr_reader_mixin.py`, `scripts/capture_keyence.py`, `scripts/fake_keyence_server.py` |
 
 **기능**
 1. **리더기 설정** — 전송 방식(LAN, Serial/Keyboard 는 폴백 자리), IP·포트, 자동 접속, 트리거/종료 명령, 판독 시간, 기대 코드 수, NG 문자열, 셀→Port/Slot 재정의 표(범위·대상 중복 검증). `연결 테스트`(`KEYENCE` 응답)·`테스트 판독`(판독 n/N·NG·스캔타임)은 임시 클라이언트로 수행.
 2. **상시 연결·상태 칩** — 앱 시작 시 자동 접속(기본 켜짐, 설정에서 해제 가능), 끊기면 3s→30s 백오프 재접속, 접속 타임아웃 5s. 상태: 미연결/접속 중/연결됨/판독 중/재접속 중.
-3. **카세트 스캔 → 검토 → 일괄 적용** — 프레임을 로드된 ATX 폴더(탭 순서 ①②③…)에 대응해 셀별 상태를 분류: 적용 / NG(미판독) / 동일 / 중복(프레임 내·로드된 슬롯) / 충돌(기존 다른 QR) / 레코드 없음 / 제외(폴더 미로드). **레코드 없음이 1칸이라도 있으면 적용 차단**(MTC 결과와 실물 불일치 신호). 충돌 칸은 검토 화면에서 우클릭 덮어쓰기 선택 시에만 교체. `적용` 은 슬롯 QR 갱신 → 그리드·탭 라벨·진행률·Pass Pool 갱신 → 폴더별 DB 자동 저장(기존 단일 QR 경로와 동일 규칙).
+3. **다중 QR 스캔 → 즉시 적용, 판독 검토는 별도** — 프레임을 로드된 ATX 폴더(탭 순서 ①②③…)에 대응해 셀별 상태를 분류: 적용 / NG(미판독) / 동일 / 중복(프레임 내·로드된 슬롯) / 충돌(기존 다른 QR) / 레코드 없음 / 제외(폴더 미로드). **적용 칸은 검토 창 없이 바로 현재 창에 QR 입력**(슬롯 QR 갱신 → 그리드·탭 라벨·진행률·Pass Pool 갱신 → 폴더별 DB 자동 저장, 기존 단일 QR 경로와 동일 규칙), 나머지는 로그 요약. 레코드 없음은 그 칸만 미적용(차단 아님). `판독 검토` 버튼은 마지막 스캔을 **실물 배치**(보트 2열×3행, 카세트 4열×3행 — 판독 미리보기와 같은 `boat_layout`)로 펼쳐 보여 주고, 충돌 칸 우클릭 덮어쓰기 등을 `적용` 으로 반영.
 4. **하드웨어 없는 검증** — `tests/fixtures/qr_reader/*.raw` 실제 캡처 원문을 파서·대응·클라이언트 테스트 입력으로 사용, `scripts/fake_keyence_server.py` 로 앱 전체를 리더기 없이 시험.
 
-**예외 규칙(설계 §5)**: NG 셀은 빈 슬롯 유지 후 키보드 스캔으로 보완 · 레코드 없음 + 코드 있음 → 적용 차단 · 같은 코드 2개(화각 내 어디든) → 양쪽 모두 적용 제외 · 폴더 미로드 포트 → 자동 제외 · 같은 Port 폴더가 2개면 탭 앞쪽 사용(경고 로그) · 개수 불일치·비ASCII 프레임 폐기.
+**예외 규칙(설계 §5)**: NG 셀은 빈 슬롯 유지 후 키보드 스캔으로 보완 · 레코드 없음 + 코드 있음 → 그 칸만 미적용 + 경고 · 같은 코드 2개(화각 내 어디든) → 양쪽 모두 적용 제외 · 폴더 미로드 포트 → 자동 제외 · 같은 Port 폴더가 2개면 탭 앞쪽 사용(경고 로그) · 개수 불일치·비ASCII 프레임 폐기.
 
 **설계 노트**: 셀 번호와 MTC 물리 슬롯 방향의 대응은 Phase 2 에서 공식으로 고정하고, 지그 → MTC 직접 부착 전환 시 리더기 격자 재번호(또는 재정의 표)로 흡수한다. 좌표(X,Y)·서치 영역 번호 출력은 OFF 로 계약(필요 시 옵션).
 
