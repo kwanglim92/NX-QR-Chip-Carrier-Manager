@@ -30,9 +30,14 @@ class QRInputWidget(QWidget):
         layout.addWidget(self._input)
 
         self._status = QLabel("")
-        self._status.setFixedWidth(200)
+        self._status.setMinimumWidth(200)
         self._status.setStyleSheet(f"color: {FG2}; font-size: 12px;")
         layout.addWidget(self._status)
+
+    def detach_status(self) -> QLabel:
+        """상태 라벨을 이 위젯의 레이아웃에서 떼어 돌려준다 — 하단 바가 버튼 뒤에 따로 배치할 때 사용."""
+        self.layout().removeWidget(self._status)
+        return self._status
 
     def _on_submit(self):
         text = self._input.text().strip()

@@ -928,7 +928,8 @@ class UIBuilderMixin:
         self.btn_read_review.setEnabled(False)
         self.btn_read_review.clicked.connect(self._open_read_review)
         bottom_layout.addWidget(self.btn_read_review)
-        bottom_layout.addStretch(1)
+        # QR 입력 결과 라벨("ATX1 Port1 Slot9 ← 123456")은 버튼 뒤에 두어 버튼이 입력창 바로 옆에 붙게 한다
+        bottom_layout.addWidget(self.qr_input.detach_status(), 1)
 
         self.progress_bar = QProgressBar()
         self.progress_bar.setFixedWidth(200)
