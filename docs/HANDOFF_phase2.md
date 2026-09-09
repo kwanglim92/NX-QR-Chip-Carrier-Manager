@@ -14,11 +14,11 @@
 | 항목 | 상태 | 비고 |
 |---|---|---|
 | **2-A 서버 업로드 연동** (probe-info.parksystems.com) | **완료 (main 92db21f)** | TLS 검증 활성, 세션 만료 감지·재로그인, Update(서버 수정) 메뉴, 이미지 전송명 `{QR ID}.png`, Fake Session 테스트 26건. **운영 DB이므로 실서버 업로드 검증은 수행하지 않음** — 서버의 이미지↔QR 매핑 규칙·Probe Type 명칭 매칭은 미확인(PRD §7) |
-| **2-B 다중 QR 리더기 연동** (키엔스 SR-X300W, LAN) | **A단계 ①·R1·R2 완료, 설계 v0.2, UI 목업 승인** | 프로토콜 확정(설계 §3), 만석 fixture 캡처, `src/core/qr_reader/{payload_parser,slot_assigner}.py` + 테스트 47건. **다음 = A단계 ②~⑤ 시나리오 캡처 → R3(QTcpSocket 클라이언트 + fake 서버)**. UI 목업: [Keyence Cassette Scan UI](https://claude.ai/code/artifact/868c790f-eef6-4937-ae54-5cbbb723f208) |
+| **2-B 다중 QR 리더기 연동** (키엔스 SR-X300W, LAN) | **A단계 ①·R1·R2·R3 완료, 설계 v0.2, UI 목업 승인** | 프로토콜 확정(설계 §3), 만석 fixture 캡처, `src/core/qr_reader/{payload_parser,slot_assigner,keyence_client}.py` + 테스트 58건, `scripts/fake_keyence_server.py`. 클라이언트 실기기 1회 판독 검증. **다음 = A단계 ②~⑤ 시나리오 캡처 → R4(설정 키·리더기 설정 다이얼로그·상태 칩) → R5(검토 다이얼로그)**. UI 목업: [Keyence Cassette Scan UI](https://claude.ai/code/artifact/868c790f-eef6-4937-ae54-5cbbb723f208) |
 | 중앙 DB 취합 | 보류 | 설계 v0.2 문서만 커밋 |
 | 릴리스 2.4.0 | 미수행 | `VERSION`=2.3.0, CHANGELOG `[Unreleased]` 누적 중 |
 
-테스트: `pytest -q --ignore=tests/test_server_uploader.py` → 163 passed / 15 skipped (2026-09-09, 필드 노트북 시스템 Python 3.12 기준 — `requests`·`pytesseract`·`pytest-qt` 미설치라 업로더 테스트 제외, Tesseract 없음). `%LOCALAPPDATA%` 를 임시 경로로 리다이렉트하고 실행할 것(실 DB 보호).
+테스트: `pytest -q --ignore=tests/test_server_uploader.py` → 174 passed / 15 skipped (2026-09-09, 필드 노트북 시스템 Python 3.12 기준 — `requests`·`pytesseract`·`pytest-qt` 미설치라 업로더 테스트 제외, Tesseract 없음). `%LOCALAPPDATA%` 를 임시 경로로 리다이렉트하고 실행할 것(실 DB 보호).
 
 > **필드 노트북 주의**: `python` 명령은 Windows Python 관리자 셈이라 `LOCALAPPDATA` 를 바꾸면 새 Python 을 내려받는다. 반드시 절대 경로 인터프리터를 쓸 것:
 > `LOCALAPPDATA=<임시경로> C:\Users\Levi.Beak\AppData\Local\Python\pythoncore-3.12-64\python.exe -m pytest -q`
@@ -84,4 +84,4 @@ python scripts\capture_keyence.py --host 192.168.100.2 --port 9004 --send "LON\r
 
 ## 6. 이후 단계 (A 완료 후)
 
-~~R1 파서 → R2 슬롯 대응~~(완료) → **R3 TCP 클라이언트**(QTcpSocket, `split_frames`/`classify_line` 재사용, LON→지연→LOFF 시퀀스, `scripts/fake_keyence_server.py`) → R4 설정/상태 표시 → R5 검토 다이얼로그(목업 기준) → R6 카세트 스캔 통합 → R7 문서. 세부는 설계 문서 §11. 참고: 원격 브랜치 `feat/multi-qr-check`(2026-08-18, 미병합)에 SR-X300W 선행 구현(`srx_client.py`, `fake_srx_server.py`)이 있으나 프레임에 셀 상태 분류가 없어 참고용으로만 쓴다. E단계(지그 현장 검증) 후 2.4.0 릴리스에 2-A와 함께 묶는다.
+~~R1 파서 → R2 슬롯 대응 → R3 TCP 클라이언트~~(완료, `KeyenceClient` 시그널: state_changed/frame_received/frame_rejected/command_error/response_received/comm_error) → **R4 설정/상태 표시**(`app_settings.qr_reader` 키, 목업의 리더기 설정 다이얼로그, 하단 바 상태 칩 + 카세트 스캔 버튼) → R5 검토 다이얼로그(목업 기준) → R6 카세트 스캔 통합 → R7 문서. 세부는 설계 문서 §11. 참고: 원격 브랜치 `feat/multi-qr-check`(2026-08-18, 미병합)에 SR-X300W 선행 구현(`srx_client.py`, `fake_srx_server.py`)이 있으나 프레임에 셀 상태 분류가 없어 참고용으로만 쓴다. E단계(지그 현장 검증) 후 2.4.0 릴리스에 2-A와 함께 묶는다.

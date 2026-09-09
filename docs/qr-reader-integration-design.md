@@ -7,7 +7,7 @@
 | **기준 앱 버전** | 2.3.0 + 업로드 보안 강화(`main` 92db21f 이후) |
 | **대상 릴리스** | 2.4.0 (Phase 2 추가 목표) |
 | **대상 독자** | 개발 / 제조 엔지니어 / 설비 담당 |
-| **상태** | **A단계 진행 중** — 프로토콜 확정(§3), 만석 샘플 캡처 완료, 시나리오 ②~⑤ 캡처 대기. UI 목업 승인(§4) |
+| **상태** | **A단계 ① + B·C단계 코어 완료** — 프로토콜 확정(§3), R1·R2·R3 구현·테스트 완료(실기기 1회 판독 검증). 시나리오 ②~⑤ 캡처 대기. UI 목업 승인(§4) |
 | **관련 문서** | [`PRD.md`](./PRD.md) F-14B·F-17A, [`central-db-aggregation-design.md`](./central-db-aggregation-design.md)(보류) |
 
 > **이 문서의 목적**
@@ -182,7 +182,7 @@
 | ~~명령·포트~~ | **확정**: §3.2 (9004 단일, LON/LOFF 레벨 트리거, Keep Alive 리더기 측 ON) | — |
 | **화각 내 카세트 배치** | 지그: 2행×3열 카세트, 카세트당 3열×4행(확인). 카세트 물리 방향 ↔ MTC 슬롯 번호 대응은 미확정 → 리더기 격자 재번호로 흡수 | F단계 |
 | **조명 미판독** | 만석 캡처에서 셀 13·14 가 캐리어 있음에도 `ERROR`(편광 조명). 조명·노출 튜닝 또는 재판독 정책 | E단계 |
-| **LOFF 지연 값** | 6초로 캡처 성공. 전 코드 판독 시 LOFF 전에 출력되는지, 최적 지연은 시나리오 캡처에서 확인 | A단계(②~⑤) |
+| **LOFF 지연 값** | 6초로 캡처 성공(클라이언트 실기기 검증 6005ms). 전 코드 판독 시 LOFF 전에 출력되는지는 미확인 — 클라이언트는 조기 결과 수신 시 LOFF 를 즉시 보내도록 구현. 최적 지연은 시나리오 캡처에서 확인 | A단계(②~⑤) |
 | **스캔 시점** | 지그(현재) → MTC 직접 부착(향후). MTC 부착 시 어느 공정 시점에 트리거할지 | F단계 |
 | **부분 카세트** | 마지막 pass 카세트가 12 미만일 때 빈 칸 처리(NG 로 자연 처리 예상) | E단계 |
 
@@ -208,21 +208,21 @@
 | ID | 작업 | 대상 파일 | 선행 |
 |---|---|---|---|
 | **R1** | `CellRead`/`ParsedFrame` + `payload_parser` (§3.1 고정 형식, `classify_line`, `split_frames`) | `src/core/qr_reader/payload_parser.py`, `tests/test_qr_reader_parser.py` | A① (완료) |
-| **R2** | `slot_assigner`: 공식 + override 표, 로드된 세트 탐색, 예외 분류(§5) | `src/core/qr_reader/slot_assigner.py`, `tests/test_qr_reader_assigner.py` | R1 |
-| **R3** | `keyence_client` (QTcpSocket, 프레이밍, 재접속, 트리거, 타임아웃) + 가짜 서버 + 인프로세스 테스트 | `src/core/qr_reader/keyence_client.py`, `scripts/fake_keyence_server.py`, `tests/test_qr_reader_client.py` | R1 |
+| **R2** | `slot_assigner`: 공식 + override 표, 로드된 세트 탐색, 예외 분류(§5) `AssignPlan` | `src/core/qr_reader/slot_assigner.py`, `tests/test_qr_reader_assigner.py` | R1 (완료) |
+| **R3** | `KeyenceClient` (QTcpSocket, LON→지연→LOFF, 프레이밍, 재접속, 타임아웃, `send_command`) + 가짜 서버 + 인프로세스 테스트 11건 | `src/core/qr_reader/keyence_client.py`, `scripts/fake_keyence_server.py`, `tests/test_qr_reader_client.py` | R1 (완료) |
 | **R4** | 설정 키 + 리더기 설정 다이얼로그 + 상태 표시 | `src/core/qr_reader/settings.py`, `src/ui/dialogs/qr_reader_settings_dialog.py`, `ui_builder_mixin.py` | R3 |
 | **R5** | 검토 다이얼로그(6카세트 격자, 필터, 오프셋 경고) | `src/ui/dialogs/batch_read_review_dialog.py` | R2 |
 | **R6** | `QRMatchMixin._on_batch_read` + 카세트 스캔 트리거(ATX 탭·Pass Pool) + 일괄 적용 | `qr_match_mixin.py`, `pass_pool_mixin.py` | R2, R4, R5 |
 | **R7** | 문서: PRD F-21(가칭) + user-guide + CHANGELOG | `docs/` | R6 |
 
 ### 검수 게이트
-- [ ] R1~R3 테스트 전부 그린 + 기존 `tests/` 회귀 없음, 실제 네트워크 접속 0건
-- [ ] 가짜 서버로 72코드·NG·잘린 프레임·재접속 시나리오 통과
+- [x] R1~R3 테스트 전부 그린(58건) + 기존 `tests/` 회귀 없음(174 passed), 테스트의 실제 네트워크 접속 0건 (2026-09-09)
+- [x] 가짜 서버(인프로세스 QTcpServer)로 72코드·NG·3분할 프레임·ER 23·개수 불일치·타임아웃·재접속 통과
 - [ ] 검토 화면에서 "레코드 없음 + 코드 있음" 칸이 있으면 적용 버튼 비활성 확인
 - [ ] 키보드 입력 폴백이 기존과 동일하게 동작
 
 ---
 
 ## 변경 이력
-- **0.2 (2026-09-09)**: A단계 필드 확인 반영. SR-X300W 프로토콜 확정(§3.1~3.3: 72고정+`ERROR`, `,`/`:`/CR, 9004 단일, LON→LOFF 레벨 트리거, Navigator 오류 23). Phase 2 셀 대응 공식 고정·출력 포맷 확정(§2). UI 목업 승인 반영(§4). §9 미결 정리, §10 체크리스트 갱신.
+- **0.2 (2026-09-09)**: A단계 필드 확인 반영. R1·R2·R3 완료 표시(§11). SR-X300W 프로토콜 확정(§3.1~3.3: 72고정+`ERROR`, `,`/`:`/CR, 9004 단일, LON→LOFF 레벨 트리거, Navigator 오류 23). Phase 2 셀 대응 공식 고정·출력 포맷 확정(§2). UI 목업 승인 반영(§4). §9 미결 정리, §10 체크리스트 갱신.
 - **0.1 (2026-09-08)**: 최초 작성. 통신 LAN/TCP 클라이언트, 리더기 격자 번호 + X,Y 출력, 셀 번호 규약, 결과 폴더 = 최종 물리 위치, 최대 72코드, 지그 → MTC 전환 방침 확정.
