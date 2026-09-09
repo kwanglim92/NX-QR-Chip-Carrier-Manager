@@ -58,12 +58,12 @@ def test_color_modes_and_selection(qapp, graded):
     w = InspectionLayoutWindow()
     w.mode_combo.setCurrentIndex(1)                 # Sweep 점수
     w.update_view(run, verdicts, ref.code, {}, None)
-    assert w.cells["1101"].lbl.text().startswith("1\n")
+    assert w.cells["1101"].lbl.text().startswith("1101\n")
     assert "Sweep" in w.legend.text()
     w.mode_combo.setCurrentIndex(2)                 # Frequency
     w.update_view(run, verdicts, ref.code, {}, None)
     assert "Frequency" in w.legend.text()
-    assert w.cells["1111"].lbl.text() == "11\n-"    # sweep 없음
+    assert w.cells["1111"].lbl.text() == "1111\n-"  # sweep 없음
     # 선택 표시
     w.select("3212")
     assert w.cells["3212"]._selected

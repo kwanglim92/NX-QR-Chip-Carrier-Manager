@@ -227,14 +227,14 @@ class InspectionLayoutWindow(QWidget):
             elif mode == "sweep":
                 score = v.metrics.get("sweep_shape")
                 bg = gradient_color(score / 100.0) if score is not None else QColor(BG3)
-                text = f"{s.slot}\n{score:.0f}" if score is not None else f"{s.slot}\n-"
+                text = f"{code}\n{score:.0f}" if score is not None else f"{code}\n-"
             else:
                 val = getattr(s, mode)
                 if val is None or lo is None or hi is None or hi == lo:
                     bg = QColor(BG3)
                 else:
                     bg = gradient_color((val - lo) / (hi - lo))
-                text = f"{s.slot}\n{val:.0f}" if val is not None else f"{s.slot}\n-"
+                text = f"{code}\n{val:.0f}" if val is not None else f"{code}\n-"
             badge = ""
             if code in grouped:
                 badge = f"→ {grouped[code]}"
