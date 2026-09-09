@@ -129,6 +129,40 @@ def find_peaks(amps: list[float], min_rel: float = PEAK_MIN_REL,
     return peaks
 
 
+def peak_details(freqs: list[float], amps: list[float]) -> list[dict]:
+    """검출 피크별 상세 — 탐색 창(Sweep Explorer)용.
+
+    반환 항목: ``index, freq, amp, prominence, fwhm, q_est`` (fwhm/q_est 는 반높이(피크 −
+    prominence/2) 교차점을 창 안에서 못 찾으면 None). 진폭·주파수는 원본값, 피크 검출과
+    폭 계산은 평활 곡선 기준.
+    """
+    if len(freqs) < 3 or len(freqs) != len(amps):
+        return []
+    sm = _smooth(amps)
+    out: list[dict] = []
+    for i in find_peaks(amps):
+        prom = _prominence(sm, i)
+        level = sm[i] - prom / 2.0
+        edges: list[float | None] = []
+        for step in (-1, 1):
+            j = i
+            while 0 <= j + step < len(sm) and sm[j + step] > level:
+                j += step
+            if not (0 <= j + step < len(sm)):
+                edges.append(None)
+                continue
+            f1, a1, f2, a2 = freqs[j], sm[j], freqs[j + step], sm[j + step]
+            t = (a1 - level) / (a1 - a2) if a1 != a2 else 0.0
+            edges.append(f1 + (f2 - f1) * t)
+        fwhm = None
+        if edges[0] is not None and edges[1] is not None:
+            fwhm = abs(edges[1] - edges[0])
+        q_est = (freqs[i] / fwhm) if fwhm and fwhm > 0 else None
+        out.append({"index": i, "freq": freqs[i], "amp": amps[i], "prominence": prom,
+                    "fwhm": fwhm, "q_est": q_est})
+    return out
+
+
 def lorentzian_curve(freqs, params: dict) -> list[float]:
     """``fit_params`` 로 모델 곡선 재생성(차트 오버레이)."""
     f = np.asarray(freqs, dtype=float)

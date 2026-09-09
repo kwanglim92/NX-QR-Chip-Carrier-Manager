@@ -10,6 +10,7 @@ import matplotlib
 matplotlib.use("QtAgg")
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg  # noqa: E402
 from matplotlib.figure import Figure  # noqa: E402
+from PySide6.QtCore import Signal  # noqa: E402
 from PySide6.QtWidgets import QSizePolicy, QVBoxLayout, QWidget  # noqa: E402
 
 from src.core.inspection.sweep_shape import SweepShape, lorentzian_curve  # noqa: E402
@@ -17,6 +18,8 @@ from src.ui.theme import ACCENT, BG, BG3, FG, FG2, ORANGE, RED, TEAL  # noqa: E4
 
 
 class SweepVerdictChart(QWidget):
+    double_clicked = Signal()   # 차트 더블클릭 → Sweep Explorer 창
+
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setMinimumHeight(180)
@@ -28,7 +31,12 @@ class SweepVerdictChart(QWidget):
         lay.setContentsMargins(0, 0, 0, 0)
         lay.addWidget(self._canvas)
         self._ax = self._fig.add_subplot(111)
+        self._canvas.mpl_connect("button_press_event", self._on_press)
         self.clear()
+
+    def _on_press(self, event):
+        if getattr(event, "dblclick", False) and event.button == 1:
+            self.double_clicked.emit()
 
     def _style(self, ax):
         ax.set_facecolor(BG)

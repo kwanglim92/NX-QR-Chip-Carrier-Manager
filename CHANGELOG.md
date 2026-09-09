@@ -8,6 +8,7 @@
 - **Vision 팁 파손 자동 판정**: pickUp 이미지 실루엣 길이/면적을 기준 슬롯 대비 비율로 판정(해상도 무관), 파손은 불량 강제 + 수동 override
 - **등급 사다리 템플릿**: Tip ID 별 `Threshold` 폼(등급 탭 × 항목 11종, um/pixel), `New...`(복사)·삭제·Save — Save 시 산업용 Frequency/Q 를 History 의 Spec Limits 에 동기화(`app_settings.inspection_templates`)
 - **Grouping → 로트 생성**: 등급·Unit No·Batch·12M/10M/5M 수량·Remain·OK/INVALID, `Run` 으로 `{UnitNo}_{qty}M_{Tip}` 로트 폴더(Summary.csv + FreqSweep/Vision 복사, 기존 ATX 형식) 생성 후 **ATX 모드 탭으로 자동 오픈**(DB 저장), Unit No 자동 +1, 내보낸 슬롯은 표에 `→ Unit No` 표시
+- **Sweep Explorer** (판정 차트 더블클릭, pyqtgraph): ZoomOut/줌인 상하 2단 인터랙티브 창 — 휠 확대·드래그 이동·크로스헤어 좌표, 공진 세로선 3종(MTC Frequency·측정 피크·Lorentzian f0), 검출 피크 표(주파수·진폭·prominence·FWHM·Q 추정, 행 클릭 → 확대), 기준 슬롯 오버레이, 메인 표 선택 따라가기, 여러 창 동시. 이미지 뷰어 더블클릭 → 원본 크기 확대 창. `pyqtgraph` 의존성 추가
 - `src/core/inspection/`(파서·형상·Vision·기준·템플릿·사다리·로트, 순수 함수) + 실런 발췌 fixture `tests/fixtures/mtc/20260909` + 테스트 59건
 - 설계 문서 `docs/inspection-design.md`, PRD F-22, 사용자 가이드 §6.7
 - **키엔스 SR-X300W 다중 QR 리더기 연동 — 다중 QR 스캔 (F-21)**: 하단 바 QR 입력 옆 `다중 QR 스캔`(F10) + `판독 검토`, 상태 바(Theme 왼쪽) `● Reader` 상태 칩. LAN/TCP 9004 레벨 트리거(LON → 판독 시간 → LOFF)로 최대 72칸을 한 번에 판독해 **레코드가 있는 칸은 즉시 현재 창에 QR 입력**(검토 창 없이), 나머지는 로그 요약

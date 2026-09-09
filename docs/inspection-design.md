@@ -123,7 +123,9 @@ pickUp PNG(그레이)에서 ① 어두운 픽셀 비율 ≥ 50% 인 마지막 �
 src/core/inspection/   mtc_parser · sweep_shape · vision_check · reference · templates · grading · lot_builder
 src/ui/controllers/inspection_mixin.py      상태·이벤트 + InspectionWorker(QThread)
 src/ui/widgets/inspection_page.py           3열 레이아웃(뷰 전용)
-src/ui/widgets/sweep_verdict_chart.py       matplotlib 판정 차트
+src/ui/widgets/sweep_verdict_chart.py       matplotlib 판정 차트 (더블클릭 → Explorer)
+src/ui/widgets/sweep_explorer_window.py     pyqtgraph 인터랙티브 창(크로스헤어·피크 표·공진 세로선·기준 오버레이)
+src/ui/dialogs/image_popup_dialog.py        이미지 더블클릭 확대 창
 src/ui/dialogs/inspection_template_dialog.py  템플릿 New
 tests/fixtures/mtc/20260909/                실런 7슬롯 발췌(PNG 800×600 축소)
 tests/test_mtc_parser · test_sweep_shape · test_vision_check · test_inspection_grading · test_lot_builder · test_inspection_mixin
@@ -131,6 +133,12 @@ tests/test_mtc_parser · test_sweep_shape · test_vision_check · test_inspectio
 
 설정 키: `app_settings.inspection_templates`({tip_id: template}), `inspection_last_tip`, `inspection_lot_dir`.
 템플릿 Save 시 산업용 Frequency/Q 가 `spec_limits[tip_id]` 에 반영되어 History 수율·Pass Pool 과 기준이 같아진다.
+
+### 8.1 Sweep Explorer (읽기 전용)
+
+판정 차트 더블클릭 → 비모달 창(여러 개 동시). 위 ZoomOut·아래 줌인, 크로스헤어는 최근접 데이터 점에 스냅해
+주파수·진폭 표시. 공진 세로선 = MTC Frequency(주황) · 측정 최대 피크(빨강) · Lorentzian f0(청록).
+피크 표는 `sweep_shape.peak_details`(prominence, 반높이 FWHM, Q 추정 = f/FWHM). 판정 값은 바꾸지 않는다.
 
 ## 9. 후속 (미구현)
 

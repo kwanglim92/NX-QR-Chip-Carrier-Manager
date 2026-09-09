@@ -87,6 +87,7 @@ class InspectionMixin:
         self._insp_show_zoom = False
         self._insp_grouped: dict[str, str] = {}
         self._insp_overrides: dict[str, tuple[str | None, bool | None]] = {}
+        self._insp_explorers: list = []   # 열려 있는 Sweep Explorer 창들(비모달)
 
         self._insp_templates = self._load_inspection_templates()
         if not self._insp_templates:
@@ -122,6 +123,7 @@ class InspectionMixin:
         p.btn_zoom_out.clicked.connect(lambda: self._insp_set_zoom(True))
         for viewer in (p.vision_viewer, p.sweep_viewer, p.zoom_viewer):
             viewer.double_clicked.connect(self._insp_popup_image)
+        p.chart.double_clicked.connect(self._insp_open_explorer)
 
         p.grp_path_edit.setText(lot_dir or "")
         p.set_template_names(sorted(self._insp_templates), self._insp_current_tip)
@@ -134,6 +136,8 @@ class InspectionMixin:
         w = self._insp_worker
         if w is not None and w.isRunning():
             w.wait(3000)
+        for win in list(self._insp_explorers):
+            win.close()
 
     # ─── 템플릿 ───
 
@@ -407,6 +411,7 @@ class InspectionMixin:
         self._insp_update_formula()
         # 차트
         self._insp_draw_chart(v)
+        self._insp_sync_explorers(v)
 
     def _insp_update_formula(self):
         p = self.inspection_page
@@ -432,6 +437,29 @@ class InspectionMixin:
         path = s.zoom_txt if self._insp_show_zoom else s.sweep_txt
         freqs, amps = read_sweep_txt(path)
         self.inspection_page.chart.show(v.sweep, freqs, amps, s.set_point, zoomed_out=self._insp_show_zoom)
+
+    def _insp_open_explorer(self):
+        """sweep 판정 차트 더블클릭 → 비모달 Sweep Explorer 창(pyqtgraph)."""
+        v = self._insp_verdict(self._insp_selected)
+        if v is None or self._insp_run is None:
+            return
+        try:
+            from src.ui.widgets.sweep_explorer_window import SweepExplorerWindow
+        except ImportError as e:
+            self.logger.error(f"Sweep Explorer 를 열 수 없습니다 (pyqtgraph 필요): {e}")
+            return
+        win = SweepExplorerWindow(self)
+        win.closed.connect(lambda w: self._insp_explorers.remove(w) if w in self._insp_explorers else None)
+        self._insp_explorers.append(win)
+        win.show_slot(v, self._insp_run, self._insp_ref)
+        win.show()
+        win.raise_()
+
+    def _insp_sync_explorers(self, v):
+        """메인 표 선택이 바뀌면 '따라가기' 가 켜진 Explorer 창을 갱신."""
+        for win in self._insp_explorers:
+            if win.chk_follow.isChecked() and win.slot_code != v.code:
+                win.show_slot(v, self._insp_run, self._insp_ref)
 
     def _insp_popup_image(self, path: str):
         """이미지 뷰어 더블클릭 → 원본 크기(화면 90% 이내) 확대 창."""

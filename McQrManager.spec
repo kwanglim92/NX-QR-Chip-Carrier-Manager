@@ -45,6 +45,8 @@ hiddenimports = [
     "PIL.ImageFont",
     "PySide6.QtWebEngineCore",
     "PySide6.QtWebEngineWidgets",
+    # F-22 Sweep Explorer (pyqtgraph 는 자체 hook 이 있으나 명시)
+    "pyqtgraph",
     # PySide6는 자체 hook 이 있어 별도 지정 불필요
 ]
 

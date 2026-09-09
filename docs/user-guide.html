@@ -1005,6 +1005,7 @@ MTC 설비가 남긴 런 폴더(예 <code>20260909</code>: PSPD/FreqSweep/Vision
   <li>
     <strong>이상 슬롯 확인</strong>
     <p>행을 선택하면 가운데에 Vision 이미지(<strong>putBack</strong> 버튼으로 풋백 이미지 전환)와 Info 값, 오른쪽에 FreqSweep·ZoomOut 이미지와 <strong>Sweep 판정 차트</strong>가 나옵니다. 차트에는 측정 곡선(실선)·Lorentzian 피팅(점선)·피크(▽)·Set Point(빨간 선)와 함께 형상 점수와 감점 근거(예 <code>fit R2 0.89, side peak 1.24× @288kHz</code>)가 표시됩니다. <strong>Zoom Out</strong> 을 누르면 200~400 kHz 광대역에서 부피크 위치를 확인할 수 있습니다. <strong>Fail Item(s)</strong> 콤보에서 산업용 기준 실패 항목을 고르면 판정식(<code>2.91 - 1 &lt; 0.46 &lt; 2.91 + 1</code>)이 보입니다. Error 열의 <code>No Sweep</code> 은 줌인 sweep 이 없는 슬롯, <code>Broken</code> 은 Vision 에서 팁 파손으로 판정된 슬롯입니다.</p>
+    <p><strong>차트를 더블클릭</strong>하면 <strong>Sweep Explorer</strong> 창이 따로 열립니다. 위쪽은 광대역(ZoomOut), 아래쪽은 줌인 곡선이며 마우스를 올리면 가장 가까운 점의 주파수·진폭이 표시되고 휠로 확대, 드래그로 이동, <strong>Reset zoom</strong> 으로 복귀합니다. 세로 점선은 MTC 가 기록한 Frequency(주황), 측정 최대 피크(빨강), Lorentzian 피팅 f0(청록)이며 서로 어긋나면 공진 판정을 의심할 수 있습니다. 오른쪽 <strong>검출 피크</strong> 표에서 행을 클릭하면 그 피크로 확대되고, <strong>기준 슬롯 오버레이</strong>를 켜면 기준 캔틸레버 곡선이 보라색으로 겹쳐집니다. <strong>선택 슬롯 따라가기</strong>가 켜져 있으면 메인 표에서 다른 슬롯을 고를 때 창이 함께 바뀌고, 끄면 그 슬롯에 고정되어 여러 창을 나란히 비교할 수 있습니다. 이미지(Vision·FreqSweep·ZoomOut)도 더블클릭하면 원본 크기 창으로 열립니다.</p>
   </li>
   <li>
     <strong>수동 조정</strong>

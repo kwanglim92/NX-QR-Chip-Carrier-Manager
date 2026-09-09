@@ -14,6 +14,7 @@ from src.core.inspection.sweep_shape import (
     half_width_asymmetry,
     lorentzian_curve,
     lorentzian_fit,
+    peak_details,
     read_sweep_txt,
     side_peak_ratio,
 )
@@ -126,3 +127,19 @@ def test_analyze_low_q_noisy_slot(run):
     s = run.find(1, 1, 2)   # Q 141, 다중 피크 잡음
     sh = analyze_sweep(s.sweep_txt, s.zoom_txt)
     assert sh.n_peaks >= 2 and sh.score < 30
+
+
+def test_peak_details_synthetic_and_real(run):
+    freqs, amps = _lorentz_curve(gamma=0.3)          # Lorentz: FWHM = 2γ = 0.6, Q ≈ 280/0.6
+    det = peak_details(freqs, amps)
+    assert len(det) == 1
+    d = det[0]
+    assert d["freq"] == pytest.approx(280.0, abs=0.02) and d["amp"] == pytest.approx(10.0, abs=0.1)
+    assert d["fwhm"] == pytest.approx(0.6, rel=0.15)
+    assert d["q_est"] == pytest.approx(280 / 0.6, rel=0.15)
+    assert d["prominence"] > 7.5      # 평활 곡선 기준(정점이 살짝 깎임)
+    # 실런 잡음 슬롯: 피크 여러 개, index 정렬
+    s = run.find(1, 1, 2)
+    det = peak_details(*read_sweep_txt(s.sweep_txt))
+    assert len(det) >= 2 and [x["index"] for x in det] == sorted(x["index"] for x in det)
+    assert peak_details([], []) == [] and peak_details([1, 2], [1]) == []
