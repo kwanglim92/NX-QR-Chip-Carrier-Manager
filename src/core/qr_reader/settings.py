@@ -29,7 +29,10 @@ DEFAULT_QR_READER_SETTINGS: dict[str, Any] = {
     "trigger_cmd": "LON",
     "stop_cmd": "LOFF",
     "cell_override": {},            # {cell(int): [port, slot]}
+    "preview_rotation": 270,        # 판독 미리보기 회전(°, 시계 방향): 리더기 화상(가로, 카세트 3×2)을 실물 보트(세로, 2×3)처럼. 현장 확인 2026-09-09
 }
+
+PREVIEW_ROTATIONS = (0, 90, 180, 270)
 
 _RANGES = {
     "port": (1, 65535),
@@ -71,6 +74,12 @@ def normalize_qr_reader_settings(raw: dict | None) -> dict[str, Any]:
         out[key] = val or out[key]
     if out["ng_token"] in ("OK", "ER") or out["ng_token"].startswith(("OK,", "ER,")):
         out["ng_token"] = DEFAULT_NG_TOKEN
+
+    try:
+        rot = int(raw.get("preview_rotation", out["preview_rotation"]))
+    except (TypeError, ValueError):
+        rot = out["preview_rotation"]
+    out["preview_rotation"] = rot if rot in PREVIEW_ROTATIONS else DEFAULT_QR_READER_SETTINGS["preview_rotation"]
 
     override_raw = raw.get("cell_override") or {}
     if isinstance(override_raw, dict):

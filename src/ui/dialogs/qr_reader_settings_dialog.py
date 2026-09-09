@@ -1,7 +1,7 @@
 """리더기 설정 다이얼로그 (설계 §4, 승인 목업 "리더기 설정").
 
-좌측 **TOC 사이드바**(사용자 가이드 HTML 의 ``nav#toc`` 와 같은 구성) + 우측 **본문**(스크롤) 구조.
-사이드바 항목을 클릭하면 해당 섹션으로 스크롤하고, 본문을 스크롤하면 현재 섹션이 사이드바에 강조된다.
+좌측 **목록 사이드바** + 우측 **선택한 섹션만 단독 표시**(``QStackedWidget``) 구조.
+사이드바 항목을 고르면 우측에 그 섹션 페이지만 보인다(스크롤 없음). 검증 오류는 해당 섹션 페이지로 이동한다.
 
 섹션: ① 연결(전송 방식·IP·포트·자동 접속, [연결 테스트]) ② 판독(LON·LOFF·판독 시간·기대 코드 수·NG 문자열,
 [테스트 판독][판독 미리보기]) ③ 셀 → Port·Slot 재정의 표 ④ 리더기 현재 값(읽기 전용 RB/RP, [리더기 값 읽기]).
@@ -12,7 +12,7 @@
 """
 from __future__ import annotations
 
-from PySide6.QtCore import Qt, QTimer
+from PySide6.QtCore import Qt, QTimer, Signal
 from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
@@ -29,8 +29,8 @@ from PySide6.QtWidgets import (
     QListWidgetItem,
     QMessageBox,
     QPushButton,
-    QScrollArea,
     QSpinBox,
+    QStackedWidget,
     QTableWidget,
     QTableWidgetItem,
     QVBoxLayout,
@@ -43,6 +43,7 @@ from src.core.qr_reader.slot_assigner import SLOTS_PER_PORT
 from src.ui.theme import ACCENT, BG2, BG3, FG, FG2, GREEN, RED, TEAL
 
 _TRANSPORT_LABELS = [("lan", "LAN (TCP)"), ("serial", "Serial (USB 가상 COM)"), ("keyboard", "Keyboard (폴백)")]
+_ROTATION_LABELS = [(0, "리더기 화상 그대로 (가로)"), (90, "시계 방향 90° (세로)"), (180, "180°"), (270, "반시계 방향 90° (세로, 기본)")]
 _TEST_TIMEOUT_MS = 20_000
 
 # TOC 사이드바 항목: (키, 제목, 한 줄 설명) — 본문 섹션 순서와 동일
@@ -141,11 +142,13 @@ class _SectionNav(QListWidget):
 
 
 class QRReaderSettingsDialog(QDialog):
+    rotation_applied = Signal(int)   # 미리보기 창 [적용] → 호출자가 즉시 저장
+
     def __init__(self, settings: dict, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.setWindowTitle("리더기 설정")
         self.setModal(True)
-        self.resize(920, 680)
+        self.resize(900, 600)
         s = normalize_qr_reader_settings(settings)
         self._base = s   # 폼에 노출하지 않는 키(result_timeout_s, connect_timeout_s)는 저장 시 그대로 유지
         self._test_client: KeyenceClient | None = None
@@ -154,38 +157,41 @@ class QRReaderSettingsDialog(QDialog):
         self._test_timer.timeout.connect(lambda: self._end_test("응답 없음 (타임아웃)", RED))
         self._last_frame = None
         self._preview = None
-        self._syncing_nav = False
 
         outer = QVBoxLayout(self)
         outer.setContentsMargins(0, 0, 0, 0)
         outer.setSpacing(0)
 
-        # ── 좌: TOC 사이드바 / 우: 본문(스크롤) ──
+        # ── 좌: 목록 사이드바 / 우: 선택한 섹션 페이지만 표시 ──
         body = QHBoxLayout()
         body.setContentsMargins(0, 0, 0, 0)
         body.setSpacing(0)
         self.nav = _SectionNav()
         body.addWidget(self.nav)
 
-        self.scroll = QScrollArea()
-        self.scroll.setWidgetResizable(True)
-        self.scroll.setFrameShape(QFrame.NoFrame)
-        content = QWidget()
-        content_layout = QVBoxLayout(content)
-        content_layout.setContentsMargins(20, 16, 20, 16)
-        content_layout.setSpacing(18)
-        self.sections: dict[str, QWidget] = {}
-        content_layout.addWidget(self._build_conn_section(s))
-        content_layout.addWidget(self._build_read_section(s))
-        content_layout.addWidget(self._build_map_section(s))
-        content_layout.addWidget(self._build_params_section())
-        content_layout.addStretch(1)
-        self.scroll.setWidget(content)
-        body.addWidget(self.scroll, 1)
+        self.stack = QStackedWidget()
+        self.sections: dict[str, QWidget] = {}   # key → 섹션 QGroupBox
+        self.pages: dict[str, QWidget] = {}      # key → 스택 페이지
+        for key, box in (
+            ("conn", self._build_conn_section(s)),
+            ("read", self._build_read_section(s)),
+            ("map", self._build_map_section(s)),
+            ("params", self._build_params_section()),
+        ):
+            page = QWidget()
+            page_layout = QVBoxLayout(page)
+            page_layout.setContentsMargins(20, 16, 20, 16)
+            if key == "map":
+                page_layout.addWidget(box, 1)          # 재정의 표가 남는 높이를 차지
+            else:
+                page_layout.addWidget(box)
+                page_layout.addStretch(1)
+            self.pages[key] = page
+            self.stack.addWidget(page)
+        body.addWidget(self.stack, 1)
         outer.addLayout(body, 1)
 
         self.nav.currentRowChanged.connect(self._on_nav_changed)
-        self.scroll.verticalScrollBar().valueChanged.connect(self._sync_nav_to_scroll)
         self.nav.setCurrentRow(0)
 
         # ── 푸터: 상태 + 취소/저장 ──
@@ -296,6 +302,17 @@ class QRReaderSettingsDialog(QDialog):
         cnt_row.addWidget(_hint("개수 불일치 시 프레임 폐기"))
         cnt_row.addStretch()
         form.addRow("기대 코드 수", cnt_row)
+
+        rot_row = QHBoxLayout()
+        self.rotation_combo = QComboBox()
+        for deg, label in _ROTATION_LABELS:
+            self.rotation_combo.addItem(label, deg)
+        self.rotation_combo.setCurrentIndex([d for d, _ in _ROTATION_LABELS].index(s["preview_rotation"]))
+        self.rotation_combo.setFixedWidth(220)
+        rot_row.addWidget(self.rotation_combo)
+        rot_row.addWidget(_hint("리더기 화상은 보트가 눕혀져(카세트 3×2) 보이므로 실물(2×3)처럼 세워서 표시"))
+        rot_row.addStretch()
+        form.addRow("미리보기 회전", rot_row)
         layout.addLayout(form)
 
         actions = QHBoxLayout()
@@ -356,49 +373,19 @@ class QRReaderSettingsDialog(QDialog):
         layout.addLayout(actions)
         return box
 
-    # ─── 사이드바 ↔ 본문 스크롤 동기화 ───
+    # ─── 사이드바 → 페이지 전환 ───
 
     def _on_nav_changed(self, row: int) -> None:
-        if self._syncing_nav or row < 0:
-            return
-        target = self.sections[_SECTION_KEYS[row]]
-        bar = self.scroll.verticalScrollBar()
-        self._syncing_nav = True
-        try:
-            bar.setValue(min(max(target.y() - 8, 0), bar.maximum()))
-        finally:
-            self._syncing_nav = False
+        if row >= 0:
+            self.stack.setCurrentIndex(row)
 
     def current_section(self) -> str:
-        """본문 스크롤 위치 기준 현재 섹션 키 (끝까지 내리면 마지막 섹션)."""
-        bar = self.scroll.verticalScrollBar()
-        if bar.maximum() > 0 and bar.value() >= bar.maximum():
-            return _SECTION_KEYS[-1]
-        top = bar.value() + 40
-        current = _SECTION_KEYS[0]
-        for key in _SECTION_KEYS:
-            if self.sections[key].y() <= top:
-                current = key
-        return current
-
-    def _sync_nav_to_scroll(self, _value: int) -> None:
-        if self._syncing_nav:
-            return
-        row = _SECTION_KEYS.index(self.current_section())
-        if self.nav.currentRow() != row:
-            self._syncing_nav = True
-            try:
-                self.nav.setCurrentRow(row)
-            finally:
-                self._syncing_nav = False
+        """우측에 표시 중인 섹션 키."""
+        return _SECTION_KEYS[self.stack.currentIndex()]
 
     def go_to(self, key: str) -> None:
         """섹션 키로 이동 (검증 오류 안내·테스트용)."""
-        row = _SECTION_KEYS.index(key)
-        if self.nav.currentRow() == row:
-            self._on_nav_changed(row)
-        else:
-            self.nav.setCurrentRow(row)
+        self.nav.setCurrentRow(_SECTION_KEYS.index(key))
 
     # ─── override 표 ───
 
@@ -463,6 +450,7 @@ class QRReaderSettingsDialog(QDialog):
             "trigger_cmd": trigger,
             "stop_cmd": stop,
             "cell_override": override,
+            "preview_rotation": self.rotation_combo.currentData(),
         })
 
     def result_settings(self) -> dict:
@@ -590,7 +578,19 @@ class QRReaderSettingsDialog(QDialog):
         if self._preview is not None:
             self._preview.close()
         self._preview = FramePreviewDialog(settings, frame, self)
+        # 미리보기 창에서 회전을 바꾸면 폼에도 반영해 저장 시 함께 남기고, [적용] 이면 호출자에게 즉시 저장을 요청
+        self._preview.rotation_changed.connect(self._set_rotation_combo)
+        self._preview.rotation_applied.connect(self._on_rotation_applied)
         self._preview.show()
+
+    def _set_rotation_combo(self, deg: int) -> None:
+        self.rotation_combo.setCurrentIndex([d for d, _ in _ROTATION_LABELS].index(deg))
+
+    def _on_rotation_applied(self, deg: int) -> None:
+        self._set_rotation_combo(deg)
+        self._base = dict(self._base, preview_rotation=deg)
+        self._set_status(f"미리보기 회전 {deg}° 적용됨", GREEN)
+        self.rotation_applied.emit(deg)
 
     @staticmethod
     def _once_connected(client: KeyenceClient, action) -> None:

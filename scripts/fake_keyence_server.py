@@ -29,14 +29,15 @@ FAKE_PARAMS = {
 
 
 def region_payload(n: int) -> str:
-    """RD,nnn 응답 — 규약 배치(카세트 2행×3열, 카세트당 3열×4행)의 영역 좌표. 1~72 외는 미정의."""
+    """RD,nnn 응답 — 개략 배치의 영역 좌표 (``src/core/qr_reader/boat_layout.schematic_regions`` 와 같은 공식:
+    화상 기준 카세트 3열×2행, 카세트당 3열×4행, 현장 번호 순서 2026-09-09). 1~72 외는 미정의."""
     if not 1 <= n <= 72:
         return "0" * 16
     cas, i = (n - 1) // 12, (n - 1) % 12
     cell_w, cell_h, gap = 146, 129, 3
     cas_w, cas_h = 3 * (cell_w + gap) + 60, 4 * (cell_h + gap) + 40
-    x0 = 351 + (cas % 3) * cas_w + (i % 3) * (cell_w + gap)
-    y0 = 48 + (cas // 3) * cas_h + (i // 3) * (cell_h + gap)
+    x0 = 351 + (2 - (cas // 2) % 3) * cas_w + (i // 4) * (cell_w + gap)
+    y0 = 48 + (cas % 2) * cas_h + (i % 4) * (cell_h + gap)
     return f"{x0:04d}{y0:04d}{x0 + cell_w:04d}{y0 + cell_h:04d}"
 
 

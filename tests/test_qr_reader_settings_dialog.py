@@ -150,22 +150,43 @@ def test_test_is_refused_when_form_invalid(qapp, monkeypatch):
 
 # ─── TOC 사이드바 ↔ 본문 스크롤 ───
 
-def test_sidebar_lists_sections_and_scrolls_to_them(qapp):
+def test_sidebar_selects_single_page(qapp):
     dlg = QRReaderSettingsDialog({})
     dlg.show()
     qapp.processEvents()
     assert dlg.nav.count() == len(SECTIONS) == 4
     assert dlg.nav.title(0).startswith("1.  연결") and dlg.nav.title(3).startswith("4.  리더기 현재 값")
     assert dlg.nav.currentRow() == 0 and dlg.current_section() == "conn"
+    assert dlg.stack.currentWidget() is dlg.pages["conn"] and dlg.pages["params"].isVisible() is False
 
-    dlg.go_to("params")
+    dlg.go_to("params")                              # 목록 선택 → 그 섹션만 우측에 단독 표시
     qapp.processEvents()
-    assert dlg.scroll.verticalScrollBar().value() > 0
     assert dlg.current_section() == "params" and dlg.nav.currentRow() == 3
+    assert dlg.stack.currentWidget() is dlg.pages["params"]
+    assert dlg.pages["params"].isVisible() and not dlg.pages["conn"].isVisible()
 
-    dlg.scroll.verticalScrollBar().setValue(0)      # 본문을 직접 스크롤하면 사이드바가 따라온다
-    qapp.processEvents()
-    assert dlg.nav.currentRow() == 0
+    dlg.nav.setCurrentRow(1)
+    assert dlg.stack.currentWidget() is dlg.pages["read"] and dlg.current_section() == "read"
+    dlg.close()
+
+
+def test_preview_rotation_round_trip_and_sync_from_preview(qapp):
+    dlg = QRReaderSettingsDialog({"preview_rotation": 270})
+    assert dlg.rotation_combo.currentData() == 270 and dlg.result_settings()["preview_rotation"] == 270
+    dlg.rotation_combo.setCurrentIndex(0)
+    assert dlg.result_settings()["preview_rotation"] == 0
+
+    dlg._open_preview(None)                          # 미리보기에서 회전하면 폼 콤보에 반영
+    dlg._preview._rotate()
+    assert dlg._preview.rotation == 90 and dlg.rotation_combo.currentData() == 90
+
+    applied = []
+    dlg.rotation_applied.connect(applied.append)      # 미리보기 [적용] → 호출자에게 즉시 저장 요청
+    dlg._preview._rotate()
+    dlg._preview.btn_apply.click()
+    assert applied == [180] and dlg.rotation_combo.currentData() == 180 and "180° 적용됨" in dlg.status_label.text()
+    assert dlg.result_settings()["preview_rotation"] == 180
+    dlg._preview.close()
     dlg.close()
 
 
