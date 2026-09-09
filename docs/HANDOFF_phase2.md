@@ -14,11 +14,11 @@
 | 항목 | 상태 | 비고 |
 |---|---|---|
 | **2-A 서버 업로드 연동** (probe-info.parksystems.com) | **완료 (main 92db21f)** | TLS 검증 활성, 세션 만료 감지·재로그인, Update(서버 수정) 메뉴, 이미지 전송명 `{QR ID}.png`, Fake Session 테스트 26건. **운영 DB이므로 실서버 업로드 검증은 수행하지 않음** — 서버의 이미지↔QR 매핑 규칙·Probe Type 명칭 매칭은 미확인(PRD §7) |
-| **2-B 다중 QR 리더기 연동** (키엔스 SR-X300W, LAN) | **A단계 ①·R1·R2·R3 완료, 설계 v0.2, UI 목업 승인** | 프로토콜 확정(설계 §3), 만석 fixture 캡처, `src/core/qr_reader/{payload_parser,slot_assigner,keyence_client}.py` + 테스트 80건, `scripts/fake_keyence_server.py`. 클라이언트 실기기 1회 판독 검증. **다음 = A단계 ②~⑤ 시나리오 캡처 → R4(설정 키·리더기 설정 다이얼로그·상태 칩) → R5(검토 다이얼로그)**. UI 목업: [Keyence Cassette Scan UI](https://claude.ai/code/artifact/868c790f-eef6-4937-ae54-5cbbb723f208) |
+| **2-B 다중 QR 리더기 연동** (키엔스 SR-X300W, LAN) | **A단계 ①·R1~R4 완료, 설계 v0.2, UI 목업 승인** | 프로토콜 확정(설계 §3), 만석 fixture, `src/core/qr_reader/{payload_parser,slot_assigner,keyence_client,settings}.py`, `src/ui/dialogs/qr_reader_settings_dialog.py`, `src/ui/controllers/qr_reader_mixin.py`, 하단 바 상태 칩·카세트 스캔(F10). 테스트 108건. 클라이언트 실기기 판독 검증, 실앱 기동 확인. 시나리오 ②~⑤ 캡처는 E단계로 이월. **다음 = R5(검토 다이얼로그, 목업 기준) → R6(일괄 적용 통합) → R7(문서)**. UI 목업: [Keyence Cassette Scan UI](https://claude.ai/code/artifact/868c790f-eef6-4937-ae54-5cbbb723f208) |
 | 중앙 DB 취합 | 보류 | 설계 v0.2 문서만 커밋 |
 | 릴리스 2.4.0 | 미수행 | `VERSION`=2.3.0, CHANGELOG `[Unreleased]` 누적 중 |
 
-테스트: `pytest -q --ignore=tests/test_server_uploader.py` → 197 passed / 15 skipped (2026-09-09, 필드 노트북 시스템 Python 3.12 기준 — `requests`·`pytesseract`·`pytest-qt` 미설치라 업로더 테스트 제외, Tesseract 없음). `%LOCALAPPDATA%` 를 임시 경로로 리다이렉트하고 실행할 것(실 DB 보호).
+테스트: `pytest -q --ignore=tests/test_server_uploader.py` → 225 passed / 15 skipped (2026-09-09, 필드 노트북 시스템 Python 3.12 기준 — `requests`·`pytesseract`·`pytest-qt` 미설치라 업로더 테스트 제외, Tesseract 없음). `%LOCALAPPDATA%` 를 임시 경로로 리다이렉트하고 실행할 것(실 DB 보호).
 
 > **필드 노트북 주의**: `python` 명령은 Windows Python 관리자 셈이라 `LOCALAPPDATA` 를 바꾸면 새 Python 을 내려받는다. 반드시 절대 경로 인터프리터를 쓸 것:
 > `LOCALAPPDATA=<임시경로> C:\Users\Levi.Beak\AppData\Local\Python\pythoncore-3.12-64\python.exe -m pytest -q`
@@ -42,7 +42,8 @@
 - [x] 리더기 IP·포트·트리거 확인 — 192.168.100.2:9004, LON/LOFF (설계 §3.2)
 - [x] 노트북 192.168.100.1/24 ↔ 리더기 192.168.100.2 (핑은 막혀 있고 TCP 9004 만 열림)
 - [x] 리더기 설정 확인 — 설계 §3.3 설정 시트 (X,Y 는 OFF 로 확정)
-- [ ] Pass 카세트 실물 시나리오: [x] 만석(`20260909_132804_full`, 셀 13·14 조명 미판독) [ ] 일부 빈 칸 [ ] 카세트 1개 통째 비움 [ ] 회전 오프셋 [ ] 중복 코드
+- [x] 실앱 기동: 필드 노트북은 `pythoncore-3.14-64\python.exe main.py` (3.12 에는 requests/bs4 없음). 소스 실행 시 업데이트 확인은 동작하지 않음(frozen 전용)
+- [ ] Pass 카세트 실물 시나리오 (E단계로 이월, 2026-09-09 결정): [x] 만석(`20260909_132804_full`, 셀 13·14 조명 미판독) [ ] 일부 빈 칸 [ ] 카세트 1개 통째 비움 [ ] 회전 오프셋 [ ] 중복 코드 — 구현에는 불필요(합성 테스트로 대체), 조명 튜닝 후 현장 검증에서 수행
 
 ## 4. 새 세션 프롬프트 (그대로 붙여 넣기)
 
@@ -84,4 +85,4 @@ python scripts\capture_keyence.py --host 192.168.100.2 --port 9004 --send "LON\r
 
 ## 6. 이후 단계 (A 완료 후)
 
-~~R1 파서 → R2 슬롯 대응 → R3 TCP 클라이언트~~(완료, `KeyenceClient` 시그널: state_changed/frame_received/frame_rejected/command_error/response_received/comm_error) → **R4 설정/상태 표시**(`app_settings.qr_reader` 키, 목업의 리더기 설정 다이얼로그, 하단 바 상태 칩 + 카세트 스캔 버튼) → R5 검토 다이얼로그(목업 기준) → R6 카세트 스캔 통합 → R7 문서. 세부는 설계 문서 §11. 참고: 원격 브랜치 `feat/multi-qr-check`(2026-08-18, 미병합)에 SR-X300W 선행 구현(`srx_client.py`, `fake_srx_server.py`)이 있으나 프레임에 셀 상태 분류가 없어 참고용으로만 쓴다. E단계(지그 현장 검증) 후 2.4.0 릴리스에 2-A와 함께 묶는다.
+~~R1 파서 → R2 슬롯 대응 → R3 TCP 클라이언트 → R4 설정/상태 표시~~(완료. `QRReaderMixin._on_reader_frame` 이 `_last_frame` 에 보관하고 로그만 남김) → **R5 검토 다이얼로그**(`src/ui/dialogs/batch_read_review_dialog.py`, `build_plan` 결과를 목업대로 6패널 표시, 검토 이월 항목 §11 참고) → R6(`_on_reader_frame` 에서 `build_plan` → 검토 → 일괄 적용, ATX 탭·Pass Pool) → R5 검토 다이얼로그(목업 기준) → R6 카세트 스캔 통합 → R7 문서. 세부는 설계 문서 §11. 참고: 원격 브랜치 `feat/multi-qr-check`(2026-08-18, 미병합)에 SR-X300W 선행 구현(`srx_client.py`, `fake_srx_server.py`)이 있으나 프레임에 셀 상태 분류가 없어 참고용으로만 쓴다. E단계(지그 현장 검증) 후 2.4.0 릴리스에 2-A와 함께 묶는다.

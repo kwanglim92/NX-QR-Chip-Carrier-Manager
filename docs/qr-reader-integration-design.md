@@ -120,7 +120,7 @@
   - `settings.py`: `app_settings.qr_reader` 키 — `{transport: lan|serial|keyboard, host, data_port, cmd_port, trigger_cmd, ng_token, separators…, cell_override: {cell: [port, slot]}}`.
 - **컨트롤러**: `QRMatchMixin` 에 `_on_batch_read(reads)` 추가. 적용 시 슬롯별로 기존 `_match_qr_atx` / `_pool_on_qr_scanned` 의 중복 검사·자동 저장 의미를 그대로 유지(ATX 탭·Pass Pool 양쪽에서 호출 가능).
 - **UI** (목업 승인 2026-09-09: [Keyence Cassette Scan UI](https://claude.ai/code/artifact/868c790f-eef6-4937-ae54-5cbbb723f208))
-  - **메인 창 하단 바**: 기존 QR 입력 오른쪽에 리더기 상태 칩(● Reader 192.168.100.2 SR-X300W, 클릭 시 설정) + **"카세트 스캔"** 버튼(F9). 진행률 바는 유지.
+  - **메인 창 하단 바**: 기존 QR 입력 오른쪽에 리더기 상태 칩(● Reader 192.168.100.2, 클릭 시 설정) + **"카세트 스캔"** 버튼(**F10** — F9 는 Manual 모드 캡처 단축키와 충돌해 변경). 연결됐을 때만 활성. 진행률 바는 유지.
   - **검토 다이얼로그 "카세트 판독 검토"**: 상단 요약 칩(판독 n/72 · 적용 가능 · NG · 동일 · 중복 · 충돌 · 레코드 없음 · 제외) + "이상 칸만 보기" + 범례. 본문은 리더기 격자 순서대로 Port 1~6 패널(각 3열×4행, 셀 번호·S번호·코드·상태 배지). 폴더 미로드 포트는 "자동 제외"로 흐리게. 하단에 차단 사유와 [재판독][취소][적용 (n)]. 레코드 없음이 1칸이라도 있으면 적용 비활성, 충돌·중복 칸은 적용에서 제외(덮어쓰기는 칸 우클릭).
   - **리더기 설정 다이얼로그**: 연결(전송 방식 LAN/Serial/Keyboard, IP, 포트, 자동 재접속) · 판독(LON/LOFF, 판독 시간 s, 기대 코드 수, NG 문자열) · 셀→Port/Slot(공식 / 재정의 표) · 하단 상태(연결됨 · 모델 · FW) + [연결 테스트][테스트 판독][취소][저장].
 - **폴백**: 기존 키보드 입력창 유지(단일 정정, 리더기 장애).
@@ -210,7 +210,7 @@
 | **R1** | `CellRead`/`ParsedFrame` + `payload_parser` (§3.1 고정 형식, `classify_line`, `split_frames`) | `src/core/qr_reader/payload_parser.py`, `tests/test_qr_reader_parser.py` | A① (완료) |
 | **R2** | `slot_assigner`: 공식 + override 표, 로드된 세트 탐색, 예외 분류(§5) `AssignPlan` | `src/core/qr_reader/slot_assigner.py`, `tests/test_qr_reader_assigner.py` | R1 (완료) |
 | **R3** | `KeyenceClient` (QTcpSocket, LON→지연→LOFF, 프레이밍, 재접속, 타임아웃, `send_command`) + 가짜 서버 + 인프로세스 테스트 17건 | `src/core/qr_reader/keyence_client.py`, `scripts/fake_keyence_server.py`, `tests/test_qr_reader_client.py` | R1 (완료) |
-| **R4** | 설정 키 + 리더기 설정 다이얼로그 + 상태 표시 | `src/core/qr_reader/settings.py`, `src/ui/dialogs/qr_reader_settings_dialog.py`, `ui_builder_mixin.py` | R3 |
+| **R4** | 설정 키(`app_settings.qr_reader`) + 리더기 설정 다이얼로그(연결 테스트·테스트 판독) + 하단 바 상태 칩·카세트 스캔(F10) + `QRReaderMixin` | `src/core/qr_reader/settings.py`, `src/ui/dialogs/qr_reader_settings_dialog.py`, `src/ui/controllers/qr_reader_mixin.py`, `ui_builder_mixin.py`, `main_window.py` | R3 (완료) |
 | **R5** | 검토 다이얼로그(6카세트 격자, 필터, 오프셋 경고) | `src/ui/dialogs/batch_read_review_dialog.py` | R2 |
 | **R6** | `QRMatchMixin._on_batch_read` + 카세트 스캔 트리거(ATX 탭·Pass Pool) + 일괄 적용 | `qr_match_mixin.py`, `pass_pool_mixin.py` | R2, R4, R5 |
 | **R7** | 문서: PRD F-21(가칭) + user-guide + CHANGELOG | `docs/` | R6 |
@@ -229,5 +229,5 @@
 ---
 
 ## 변경 이력
-- **0.2 (2026-09-09)**: A단계 필드 확인 반영. R1·R2·R3 완료 표시(§11). SR-X300W 프로토콜 확정(§3.1~3.3: 72고정+`ERROR`, `,`/`:`/CR, 9004 단일, LON→LOFF 레벨 트리거, Navigator 오류 23). Phase 2 셀 대응 공식 고정·출력 포맷 확정(§2). UI 목업 승인 반영(§4). §9 미결 정리, §10 체크리스트 갱신.
+- **0.2 (2026-09-09)**: A단계 필드 확인 반영. R1·R2·R3·R4 완료 표시(§11), 카세트 스캔 단축키 F10. SR-X300W 프로토콜 확정(§3.1~3.3: 72고정+`ERROR`, `,`/`:`/CR, 9004 단일, LON→LOFF 레벨 트리거, Navigator 오류 23). Phase 2 셀 대응 공식 고정·출력 포맷 확정(§2). UI 목업 승인 반영(§4). §9 미결 정리, §10 체크리스트 갱신.
 - **0.1 (2026-09-08)**: 최초 작성. 통신 LAN/TCP 클라이언트, 리더기 격자 번호 + X,Y 출력, 셀 번호 규약, 결과 폴더 = 최종 물리 위치, 최대 72코드, 지그 → MTC 전환 방침 확정.
