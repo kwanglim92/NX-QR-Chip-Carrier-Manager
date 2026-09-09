@@ -8,7 +8,7 @@ import pytest
 from src.core.models import MeasurementSet, SlotData
 from src.core.qr_reader.payload_parser import CellRead, ParsedFrame, parse_frame
 from src.core.qr_reader.slot_assigner import AssignStatus, build_plan
-from PySide6.QtWidgets import QGroupBox
+from PySide6.QtWidgets import QGroupBox, QLabel
 
 from src.ui.dialogs.batch_read_review_dialog import BatchReadReviewDialog
 
@@ -59,13 +59,38 @@ def test_ng_and_excluded_cards_render(fixture_dialog):
     assert not dlg._cards[61].parent().isEnabled()      # 미로드 패널은 비활성(흐림)
 
 
-def test_no_record_blocks_apply(qapp):
+def test_no_record_warns_but_does_not_block(qapp):
     sets = [_set(1, "P1", slots=range(1, 12))]           # Slot 12 레코드 없음
-    plan = build_plan(_frame(["A"] * 12), sets)
+    codes = [f"C{i}" for i in range(12)]
+    plan = build_plan(_frame(codes), sets)
     dlg = BatchReadReviewDialog(plan, sets)
     assert plan.counts()[AssignStatus.NO_RECORD] == 1
-    assert not dlg.btn_apply.isEnabled()
-    assert "적용 차단" in dlg._block_label.text() and "Port 1 · S12" in dlg._block_label.text()
+    assert dlg.btn_apply.isEnabled() and dlg.btn_apply.text() == "적용 (11)"
+    assert "레코드 없음 1칸" in dlg._block_label.text() and "Port 1 · S12" in dlg._block_label.text()
+    assert len(dlg.selected_items()) == 11
+    dlg.close()
+
+
+def test_panels_and_cells_follow_boat_layout(fixture_dialog):
+    """패널은 보트 모양(2열×3행), 칸은 카세트 모양(4열×3행) — 판독 미리보기와 같은 배치(기본 270°, 개략)."""
+    dlg, *_ = fixture_dialog
+    assert dlg._panel_pos == {1: (0, 0), 2: (0, 1), 3: (1, 0), 4: (1, 1), 5: (2, 0), 6: (2, 1)}
+    assert [dlg._cell_pos[c] for c in (1, 2, 3, 4)] == [(2, 0), (2, 1), (2, 2), (2, 3)]     # 셀 1~4 = 맨 아랫줄
+    assert [dlg._cell_pos[c] for c in (9, 10, 11, 12)] == [(0, 0), (0, 1), (0, 2), (0, 3)]  # 셀 9~12 = 맨 윗줄
+    assert dlg._cell_pos[13] == (2, 0)                                                   # 카세트마다 같은 상대 위치
+    assert "회전 270°" in [w.text() for w in dlg.findChildren(QLabel) if "실물 배치" in w.text()][0]
+
+
+def test_explicit_layout_with_real_regions_and_rotation(qapp):
+    from src.core.qr_reader.boat_layout import build_layout, schematic_regions
+    sets = [_set(p, f"P{p}") for p in range(1, 7)]
+    plan = build_plan(_frame(["X"] * 72), sets)
+    layout = build_layout(schematic_regions(72), 0, None, 72)     # 리더기 화상 그대로: 카세트 3열×2행, 셀 3열×4행
+    dlg = BatchReadReviewDialog(plan, sets, layout=layout)
+    assert not layout.schematic
+    assert max(c for _r, c in dlg._panel_pos.values()) == 2 and max(r for r, _c in dlg._panel_pos.values()) == 1
+    assert max(c for _r, c in dlg._cell_pos.values()) == 2 and max(r for r, _c in dlg._cell_pos.values()) == 3
+    assert "리더기 서치 영역" in [w.text() for w in dlg.findChildren(QLabel) if "실물 배치" in w.text()][0]
     dlg.close()
 
 

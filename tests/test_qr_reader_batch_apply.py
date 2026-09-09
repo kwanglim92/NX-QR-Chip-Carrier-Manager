@@ -41,6 +41,8 @@ class _Host(QRReaderMixin, QObject):
         self.logger = _Logger()
         self.btn_reader_status = QPushButton()
         self.btn_cassette_scan = QPushButton()
+        self.btn_read_review = QPushButton()
+        self.btn_read_review.setEnabled(False)
         self._folder_tabs = [{"set": ms, "grid": _Grid(), "page": None, "folder": ""} for ms in sets]
         self.saved, self.refreshed = [], []
         self._init_qr_reader()
@@ -67,8 +69,9 @@ class _AcceptDialog:
     """검토 다이얼로그 스텁: 계획을 붙잡고 [적용] 을 누른 것처럼 동작."""
     last = None
 
-    def __init__(self, plan, sets, scan_time_ms=None, parent=None):
+    def __init__(self, plan, sets, scan_time_ms=None, layout=None, parent=None):
         self.plan = plan
+        self.layout = layout
         self.forced = set()
         _AcceptDialog.last = self
         class _Sig:
@@ -96,10 +99,14 @@ def patch_dialog(monkeypatch):
 
 
 def test_full_frame_applies_to_loaded_sets(qapp, db_conn, patch_dialog):
+    """스캔 즉시 적용 — 검토 창 없이 레코드 있는 칸에 QR 입력."""
     patch_dialog(_AcceptDialog)
+    _AcceptDialog.last = None
     sets = [_set(p, f"P{p}") for p in range(1, 6)]     # Port 6 미로드
     host = _Host(db_conn, sets)
     host._on_reader_frame(parse_frame(FULL_RAW.read_bytes()))
+    assert _AcceptDialog.last is None                   # 검토 창은 열리지 않음
+    assert host.btn_read_review.isEnabled()             # '판독 검토' 버튼 활성
 
     matched = [s for ms in sets for s in ms.slots if s.qr_id]
     assert len(matched) == 58                           # 70 판독 − Port6 12칸(제외)
@@ -110,16 +117,42 @@ def test_full_frame_applies_to_loaded_sets(qapp, db_conn, patch_dialog):
     assert sum(len(r["grid"].updated) for r in host._folder_tabs) == 58
     assert host.refreshed == ["labels", "pool", "progress"]   # 폴더 뷰 기준 진행률이 마지막
     assert any(k == "ok" and "58칸 매칭" in m for k, m in host.logger.lines)
+    assert any("적용 제외 — NG 2, 제외 12" in m for _, m in host.logger.lines)
 
 
-def test_cancel_changes_nothing(qapp, db_conn, patch_dialog):
+def test_no_record_does_not_block_auto_apply(qapp, db_conn, patch_dialog):
+    patch_dialog(_AcceptDialog)
+    sets = [_set(1, "P1", slots=range(1, 12))]          # Slot 12 레코드 없음
+    host = _Host(db_conn, sets)
+    host._on_reader_frame(_frame([f"C{i}" for i in range(12)]))
+    assert sum(1 for s in sets[0].slots if s.qr_id) == 11
+    assert any("레코드 없음 1" in m for _, m in host.logger.lines)
+
+
+def test_review_dialog_opens_from_button_with_layout(qapp, db_conn, patch_dialog):
+    patch_dialog(_AcceptDialog)
+    sets = [_set(1, "P1")]
+    host = _Host(db_conn, sets)
+    host._open_read_review()                            # 스캔 전
+    assert host.logger.lines[-1][0] == "warn" and "먼저 다중 QR 스캔" in host.logger.lines[-1][1]
+
+    host._on_reader_frame(_frame(["A", "B"]))
+    _AcceptDialog.last = None
+    host._open_read_review()
+    dlg = _AcceptDialog.last
+    assert dlg is not None and dlg.layout is not None and dlg.layout.rotation == 270 and dlg.layout.schematic
+    assert [it.status.name for it in dlg.plan.items[:2]] == ["SAME", "SAME"]   # 이미 적용된 칸은 동일로 표시
+
+
+def test_review_dialog_cancel_changes_nothing(qapp, db_conn, patch_dialog):
     patch_dialog(_RejectDialog)
     sets = [_set(1, "P1")]
     host = _Host(db_conn, sets)
-    host._on_reader_frame(_frame(["A", "B"]))
+    host._last_frame = _frame(["A", "B"])
+    host._open_read_review()
     assert all(s.qr_id is None for s in sets[0].slots)
     assert host.saved == [] and host.refreshed == []
-    assert host.logger.lines[-1][1].startswith("카세트 판독 적용 취소")
+    assert host.logger.lines[-1][1].startswith("판독 검토 닫음")
 
 
 def test_no_loaded_folder_warns(qapp, db_conn, patch_dialog):
@@ -140,7 +173,10 @@ def test_forced_conflict_overwrites_and_logs(qapp, db_conn, patch_dialog):
         orig_init(self, *a, **k)
         self.forced = {1}
     cls.__init__ = init_forced
-    host._on_reader_frame(_frame(["NEW", "B"]))
+    host._on_reader_frame(_frame(["NEW", "B"]))         # 즉시 적용: B 만, 충돌 칸은 유지
+    assert sets[0].slots[0].qr_id == "OLD" and sets[0].slots[1].qr_id == "B"
+    assert any("충돌 1" in m for _, m in host.logger.lines)
+    host._open_read_review()                            # 검토 창에서 덮어쓰기 선택 → 적용
     cls.__init__ = orig_init
     assert sets[0].slots[0].qr_id == "NEW" and sets[0].slots[1].qr_id == "B"
     assert any(k == "warn" and "덮어쓰기" in m and "OLD" in m for k, m in host.logger.lines)

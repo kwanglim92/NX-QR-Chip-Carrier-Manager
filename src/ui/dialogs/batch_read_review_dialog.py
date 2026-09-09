@@ -1,10 +1,11 @@
 """카세트 판독 검토 다이얼로그 (설계 §4·§5, 승인 목업 "카세트 판독 검토").
 
-입력: ``AssignPlan`` (R2 ``build_plan`` 결과) + 로드된 세트 목록(패널 제목의 PO 표시용) + 스캔타임.
+입력: ``AssignPlan`` (R2 ``build_plan`` 결과) + 로드된 세트 목록(패널 제목의 PO 표시용) + 스캔타임 + ``BoatLayout``.
 - 상단 요약 칩 / "이상 칸만 보기" / 범례
-- 리더기 격자 순서대로 Port 패널(각 3열 × 4행 셀), 폴더 미로드 포트는 "자동 제외"로 흐리게
+- **실물 배치**(``BoatLayout``: 판독 미리보기와 같은 계산)대로 Port 패널을 보트 모양(2열×3행)으로, 패널 안 칸을
+  카세트 모양(4열×3행)으로 놓는다. 폴더 미로드 포트는 "자동 제외"로 흐리게.
 - 충돌 칸은 우클릭 → "덮어쓰기" 토글 (계획은 불변, 다이얼로그가 강제 적용 셀 집합을 따로 보관)
-- 하단: 차단 사유 + [재판독][취소][적용 (n)]. 레코드 없음이 1칸이라도 있으면 적용 불가.
+- 하단: 요약 + [재판독][취소][적용 (n)]. 레코드 없음 칸은 경고만(차단하지 않음, 현장 결정 2026-09-09).
 
 결과: ``selected_items()`` = APPLY 항목 + 덮어쓰기로 선택된 CONFLICT 항목. 실제 적용은 호출자(R6).
 """
@@ -28,7 +29,8 @@ from PySide6.QtWidgets import (
 )
 
 from src.core.models import MeasurementSet
-from src.core.qr_reader.slot_assigner import SLOTS_PER_PORT, AssignItem, AssignPlan, AssignStatus
+from src.core.qr_reader.boat_layout import BoatLayout, build_layout
+from src.core.qr_reader.slot_assigner import AssignItem, AssignPlan, AssignStatus
 from src.core.slot_mapper import circled_number
 from src.ui.theme import BG, BG2, BG3, BG4, FG, FG2, FG3, GREEN, ORANGE, RED, TEAL, YELLOW
 
@@ -47,7 +49,8 @@ _FORCED_STYLE = (YELLOW, 2, YELLOW, "덮어씀", YELLOW)
 _DIMMED_STYLE = (BG3, 1, BG3, "", FG3)
 # "이상 칸만 보기" 에서 흐리게 처리하는(확인이 필요 없는) 상태. 숨기지 않고 흐리게 해 격자 위치를 유지한다.
 _NORMAL_STATUSES = {AssignStatus.APPLY, AssignStatus.SAME, AssignStatus.EXCLUDED}
-_COLS = 3
+_FALLBACK_PORT_COLS = 2       # 배치 정보가 없는 Port 의 패널 열 수 (실물: 2열)
+_FALLBACK_CELL_COLS = 4       # 배치 정보가 없는 셀의 카드 열 수 (실물: 4열)
 
 
 class _CellCard(QFrame):
@@ -146,15 +149,18 @@ class BatchReadReviewDialog(QDialog):
     rescan_requested = Signal()
 
     def __init__(self, plan: AssignPlan, sets: list[MeasurementSet], scan_time_ms: int | None = None,
-                 parent: QWidget | None = None) -> None:
+                 layout: BoatLayout | None = None, parent: QWidget | None = None) -> None:
         super().__init__(parent)
-        self.setWindowTitle("카세트 판독 검토 — SR-X300W")
+        self.setWindowTitle("카세트 판독 검토 — 보트 / 카세트 배치")
         self.setModal(True)
-        self.resize(1180, 790)
+        self.resize(1000, 900)
         self._plan = plan
         self._sets = sets
+        self._layout = layout if layout is not None else build_layout(None, 270, None, max((it.cell for it in plan.items), default=72))
         self._cards: dict[int, _CellCard] = {}
         self._forced: set[int] = set()
+        self._panel_pos: dict[int, tuple[int, int]] = {}
+        self._cell_pos: dict[int, tuple[int, int]] = {}
 
         outer = QVBoxLayout(self)
         outer.setContentsMargins(16, 12, 16, 12)
@@ -193,14 +199,15 @@ class BatchReadReviewDialog(QDialog):
                                    (ORANGE, "중복", True), (RED, "충돌/레코드없음", True), (YELLOW, "덮어쓰기", True)):
             bar.addWidget(self._legend(color, text, thick))
         bar.addStretch()
-        hint = QLabel("충돌 칸 우클릭 → 덮어쓰기")
+        src = "리더기 서치 영역(실좌표)" if not self._layout.schematic else "개략 배치"
+        hint = QLabel(f"실물 배치 · {src} · 회전 {self._layout.rotation}° · 충돌 칸 우클릭 → 덮어쓰기")
         hint.setStyleSheet(f"color: {FG3}; font-size: 12px;")
-        hint.setToolTip("셀 번호 = 리더기 격자 순서 · Port = (셀−1)÷12+1, Slot = (셀−1)%12+1")
+        hint.setToolTip("패널·칸 위치는 판독 미리보기와 같은 배치(보트 2열×3행, 카세트 4열×3행) · Port = (셀−1)÷12+1, Slot = (셀−1)%12+1")
         bar.addWidget(hint)
         outer.addLayout(bar)
-        self.setMinimumWidth(960)
+        self.setMinimumWidth(900)
 
-        # ── 패널 (스크롤) ──
+        # ── 패널 (스크롤) — 보트 모양대로 배치 ──
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
@@ -212,10 +219,21 @@ class BatchReadReviewDialog(QDialog):
         by_port: dict[int, list[AssignItem]] = {}
         for it in plan.items:
             by_port.setdefault(it.port, []).append(it)
-        for i, port in enumerate(sorted(by_port)):
-            grid.addWidget(self._panel(port, by_port[port]), i // _COLS, i % _COLS)
-        for c in range(_COLS):
-            grid.setColumnStretch(c, 1)          # 패널 3열을 뷰포트 폭에 균등 분배 (가로 스크롤 없음)
+        ports = sorted(by_port)
+        positions = self._layout.port_positions
+        n_cols = max(_FALLBACK_PORT_COLS, self._layout.port_cols) if positions else _FALLBACK_PORT_COLS
+        used: set[tuple[int, int]] = set()
+        for i, port in enumerate(ports):
+            pos = positions.get(port)
+            if pos is None or pos in used:
+                pos = (i // n_cols, i % n_cols)
+                while pos in used:
+                    pos = (pos[0] + 1, pos[1])
+            used.add(pos)
+            self._panel_pos[port] = pos
+            grid.addWidget(self._panel(port, by_port[port]), pos[0], pos[1])
+        for c in range(n_cols):
+            grid.setColumnStretch(c, 1)          # 패널 열을 뷰포트 폭에 균등 분배 (가로 스크롤 없음)
         grid.setRowStretch(grid.rowCount(), 1)
         scroll.setWidget(body)
         outer.addWidget(scroll, 1)
@@ -295,11 +313,22 @@ class BatchReadReviewDialog(QDialog):
         lay.addLayout(head)
         cells = QGridLayout()
         cells.setSpacing(6)
+        cell_positions = self._layout.cell_positions
+        used: set[tuple[int, int]] = set()
         for i, it in enumerate(sorted(items, key=lambda x: x.cell)):
             card = _CellCard(it)
             card.force_toggled.connect(self._toggle_force)
             self._cards[it.cell] = card
-            cells.addWidget(card, i // _COLS, i % _COLS)
+            pos = cell_positions.get(it.cell)
+            if pos is None or pos in used:
+                pos = (i // _FALLBACK_CELL_COLS, i % _FALLBACK_CELL_COLS)
+                while pos in used:
+                    pos = (pos[0] + 1, pos[1])
+            used.add(pos)
+            self._cell_pos[it.cell] = pos
+            cells.addWidget(card, pos[0], pos[1])
+        for c in range(cells.columnCount()):
+            cells.setColumnStretch(c, 1)
         lay.addLayout(cells)
         if not loaded:
             box.setEnabled(False)
@@ -327,32 +356,28 @@ class BatchReadReviewDialog(QDialog):
     def _refresh_footer(self) -> None:
         counts = self._plan.counts()
         n_apply = len(self.selected_items())
-        blocked = counts[AssignStatus.NO_RECORD] > 0
-        if blocked:
+        parts = []
+        warn = counts[AssignStatus.NO_RECORD] > 0
+        if warn:
             cells = [it for it in self._plan.items if it.status is AssignStatus.NO_RECORD]
             where = ", ".join(f"Port {it.port} · S{it.slot}" for it in cells[:4]) + ("…" if len(cells) > 4 else "")
-            self._block_label.setText(
-                f"⚠ 적용 차단 — 레코드 없음 {len(cells)}칸 ({where}). MTC 결과와 실물이 다릅니다. "
-                "카세트를 확인하거나 해당 폴더를 로드한 뒤 재판독하세요."
-            )
-            self._block_label.setStyleSheet(f"color: {RED}; font-weight: bold; font-size: 13px;")
-        else:
-            parts = []
-            if counts[AssignStatus.CONFLICT]:
-                forced = len(self._forced)
-                parts.append(f"충돌 {counts[AssignStatus.CONFLICT]}칸 중 {forced}칸 덮어쓰기 선택" if forced
-                             else f"충돌 {counts[AssignStatus.CONFLICT]}칸은 적용에서 제외됩니다 (우클릭으로 덮어쓰기)")
-            dup = counts[AssignStatus.DUP_FRAME] + counts[AssignStatus.DUP_LOADED]
-            if dup:
-                parts.append(f"중복 {dup}칸 제외")
-            if counts[AssignStatus.NG]:
-                parts.append(f"NG {counts[AssignStatus.NG]}칸은 적용 후 키보드 스캔으로 보완")
-            if n_apply == 0:
-                parts.append("적용할 칸이 없습니다")
-            self._block_label.setText(" · ".join(parts))
-            self._block_label.setStyleSheet(f"color: {FG2}; font-size: 12px;")
+            parts.append(f"⚠ 레코드 없음 {len(cells)}칸 ({where}) — MTC 결과와 실물이 다릅니다. 이 칸은 적용되지 않습니다")
+        if counts[AssignStatus.CONFLICT]:
+            forced = len(self._forced)
+            parts.append(f"충돌 {counts[AssignStatus.CONFLICT]}칸 중 {forced}칸 덮어쓰기 선택" if forced
+                         else f"충돌 {counts[AssignStatus.CONFLICT]}칸은 적용에서 제외됩니다 (우클릭으로 덮어쓰기)")
+        dup = counts[AssignStatus.DUP_FRAME] + counts[AssignStatus.DUP_LOADED]
+        if dup:
+            parts.append(f"중복 {dup}칸 제외")
+        if counts[AssignStatus.NG]:
+            parts.append(f"NG {counts[AssignStatus.NG]}칸은 키보드 스캔으로 보완")
+        if n_apply == 0:
+            parts.append("적용할 칸이 없습니다")
+        self._block_label.setText(" · ".join(parts))
+        self._block_label.setStyleSheet(
+            f"color: {RED}; font-weight: bold; font-size: 12px;" if warn else f"color: {FG2}; font-size: 12px;")
         self.btn_apply.setText(f"적용 ({n_apply})")
-        self.btn_apply.setEnabled(not blocked and n_apply > 0)
+        self.btn_apply.setEnabled(n_apply > 0)
 
     # ─── 결과 ───
 

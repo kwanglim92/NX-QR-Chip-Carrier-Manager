@@ -106,7 +106,8 @@ def test_settings_dialog_save_reapplies_client(host, db_conn, monkeypatch):
     new = {"enabled": True, "host": "127.0.0.1", "port": server.serverPort(), "read_seconds": 1.5}
 
     class _Dlg:
-        def __init__(self, *a, **k): pass
+        def __init__(self, *a, **k):
+            self.rotation_applied = type("_Sig", (), {"connect": lambda self, *_: None})()
         def exec(self): return 1          # QDialog.Accepted
         def deleteLater(self): pass
         def result_settings(self): return new
@@ -126,7 +127,8 @@ def test_saving_lan_settings_connects_even_without_autoconnect(host, db_conn, mo
     new = {"enabled": False, "host": "127.0.0.1", "port": server.serverPort()}
 
     class _Dlg:
-        def __init__(self, *a, **k): pass
+        def __init__(self, *a, **k):
+            self.rotation_applied = type("_Sig", (), {"connect": lambda self, *_: None})()
         def exec(self): return 1
         def deleteLater(self): pass
         def result_settings(self): return new
@@ -136,6 +138,29 @@ def test_saving_lan_settings_connects_even_without_autoconnect(host, db_conn, mo
     assert wait_until(host._reader.is_connected)        # 저장 = 즉시 접속
     assert load_qr_reader_settings(db_conn)["enabled"] is False   # 다음 앱 시작에는 자동 접속 안 함
     server.close()
+
+
+def test_connect_loads_reader_regions_for_review_layout(host, db_conn):
+    server = FakeReader()
+    save_qr_reader_settings(db_conn, {"enabled": True, "host": "127.0.0.1", "port": server.serverPort()})
+    host._init_qr_reader()
+    assert wait_until(lambda: len(host._reader_regions) == 72, 5000)
+    assert server.received[:2] == ["RD,001", "RD,002"]
+    layout = host._boat_layout()
+    assert not layout.schematic and layout.rotation == 270
+    assert layout.port_positions[1] == (0, 0) and layout.port_positions[2] == (0, 1) and layout.port_positions[6] == (2, 1)
+    assert any("서치 영역 72개" in m for _, m in host.logger.lines)
+    server.close()
+
+
+def test_save_preview_rotation_persists_only_rotation(host, db_conn):
+    save_qr_reader_settings(db_conn, {"enabled": False, "host": "10.0.0.7", "read_seconds": 2.5})
+    host._init_qr_reader()
+    host._save_preview_rotation(90)
+    loaded = load_qr_reader_settings(db_conn)
+    assert loaded["preview_rotation"] == 90 and loaded["host"] == "10.0.0.7" and loaded["read_seconds"] == 2.5
+    assert host._qr_reader_settings["preview_rotation"] == 90 and host._boat_layout().rotation == 90
+    assert host.logger.lines[-1][0] == "ok" and "90°" in host.logger.lines[-1][1]
 
 
 def test_shutdown_closes_reader(host, db_conn):

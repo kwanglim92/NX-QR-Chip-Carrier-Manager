@@ -45,7 +45,9 @@ class AssignStatus(str, Enum):
     EXCLUDED = "excluded"
 
 
-BLOCKING_STATUSES = frozenset({AssignStatus.NO_RECORD})
+# 적용을 막는 상태 — 없음. 레코드 없음(NO_RECORD)은 경고만 하고 나머지 칸은 적용한다 (현장 결정 2026-09-09:
+# 카세트 스캔 즉시 레코드 있는 칸만 QR 입력, 레코드 없는 칸은 로그·검토 창에서 확인).
+BLOCKING_STATUSES: frozenset[AssignStatus] = frozenset()
 
 
 class AssignError(ValueError):
@@ -70,7 +72,7 @@ class AssignPlan:
 
     @property
     def can_apply(self) -> bool:
-        """차단 상태가 없고 적용할 칸이 1개 이상일 때만 True."""
+        """적용할 칸(APPLY)이 1개 이상이면 True (레코드 없음 칸은 차단하지 않음)."""
         if any(i.status in BLOCKING_STATUSES for i in self.items):
             return False
         return any(i.status is AssignStatus.APPLY for i in self.items)

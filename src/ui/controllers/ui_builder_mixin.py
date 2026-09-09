@@ -197,6 +197,13 @@ class UIBuilderMixin:
             """
         )
         self.btn_theme_toggle.clicked.connect(self._toggle_theme)
+
+        # 키엔스 다중 QR 리더기 상태 칩 (Theme 왼쪽, 클릭 → 리더기 설정). 글자색·문구는 QRReaderMixin._update_reader_chip 이 갱신
+        self.btn_reader_status = QPushButton("● Reader 미연결")
+        self.btn_reader_status.setCursor(Qt.PointingHandCursor)
+        self.btn_reader_status.setToolTip("다중 QR 리더기 연결 상태 — 클릭하면 리더기 설정을 엽니다")
+        self.btn_reader_status.clicked.connect(self._open_qr_reader_settings)
+        self._statusbar.addPermanentWidget(self.btn_reader_status)
         self._statusbar.addPermanentWidget(self.btn_theme_toggle)
 
     def _toggle_theme(self) -> None:
@@ -897,25 +904,17 @@ class UIBuilderMixin:
         bottom_layout = QHBoxLayout(self._bottom_bar)
         bottom_layout.setContentsMargins(4, 4, 4, 4)
 
+        # [QR 입력(폭 고정)] [다중 QR 스캔 F10] [판독 검토] … [진행률]  (리더기 상태 칩은 상태 바의 Theme 왼쪽)
         self.qr_input = QRInputWidget()
         self.qr_input.qr_scanned.connect(self._on_qr_scanned)
-        bottom_layout.addWidget(self.qr_input, 1)
+        bottom_layout.addWidget(self.qr_input)
 
-        # 키엔스 리더기 상태 칩(클릭 → 설정) + 카세트 스캔 (R4, 설계 §4)
-        sep = QFrame()
-        sep.setFrameShape(QFrame.VLine)
-        sep.setStyleSheet(f"color: {BG3};")
-        bottom_layout.addWidget(sep)
-
-        self.btn_reader_status = QPushButton("● Reader 미연결")
-        self.btn_reader_status.setCursor(Qt.PointingHandCursor)
-        self.btn_reader_status.setStyleSheet(f"QPushButton {{ color: {FG2}; font-size: 12px; text-align: left; }}")
-        self.btn_reader_status.clicked.connect(self._open_qr_reader_settings)
-        bottom_layout.addWidget(self.btn_reader_status)
-
-        self.btn_cassette_scan = QPushButton("카세트 스캔  F10")
+        # 키엔스 다중 QR 리더기(SR-X300W) 일괄 판독 (R4, 설계 §4) — 구 "카세트 스캔"
+        self.btn_cassette_scan = QPushButton("다중 QR 스캔  F10")
         self.btn_cassette_scan.setProperty("accent", "true")
-        self.btn_cassette_scan.setToolTip("리더기로 화각 내 카세트 전체(최대 72칸)를 한 번에 판독합니다 (F10)")
+        self.btn_cassette_scan.setToolTip(
+            "다중 QR 리더기(SR-X300W)로 보트 전체(최대 72칸)를 한 번에 판독하고, 레코드가 있는 칸에 바로 QR 을 입력합니다 (F10)"
+        )
         self.btn_cassette_scan.setEnabled(False)
         self.btn_cassette_scan.clicked.connect(self._scan_cassette)
         bottom_layout.addWidget(self.btn_cassette_scan)
@@ -923,6 +922,13 @@ class UIBuilderMixin:
         self.shortcut_cassette_scan.activated.connect(
             lambda: self._scan_cassette() if self.btn_cassette_scan.isEnabled() else None
         )
+
+        self.btn_read_review = QPushButton("판독 검토")
+        self.btn_read_review.setToolTip("마지막 다중 QR 스캔 결과를 실물 배치(보트·카세트)대로 펼쳐 칸별 상태를 확인하고, 충돌 칸 덮어쓰기 등을 적용합니다")
+        self.btn_read_review.setEnabled(False)
+        self.btn_read_review.clicked.connect(self._open_read_review)
+        bottom_layout.addWidget(self.btn_read_review)
+        bottom_layout.addStretch(1)
 
         self.progress_bar = QProgressBar()
         self.progress_bar.setFixedWidth(200)

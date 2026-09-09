@@ -81,10 +81,10 @@ def test_ng_keeps_slot_empty_and_does_not_block():
     assert plan.can_apply
 
 
-def test_no_record_blocks_apply():
+def test_no_record_is_reported_but_does_not_block():
     plan = build_plan(_frame(["A", "B", "C"]), [_set(1, slots=range(1, 3))])  # Slot 3 레코드 없음
     assert plan.items[2].status is AssignStatus.NO_RECORD
-    assert not plan.can_apply
+    assert plan.can_apply                       # 현장 결정: 레코드 있는 칸은 그대로 적용
     assert len(plan.applicable) == 2
 
 

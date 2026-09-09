@@ -26,6 +26,7 @@ class QRInputWidget(QWidget):
             f"background: {BG2}; border: 2px solid {ACCENT}; border-radius: 6px;"
         )
         self._input.returnPressed.connect(self._on_submit)
+        self._input.setFixedWidth(360)     # 하단 바: 입력창 폭 고정 → 바로 옆에 다중 QR 스캔·판독 검토 버튼
         layout.addWidget(self._input)
 
         self._status = QLabel("")
