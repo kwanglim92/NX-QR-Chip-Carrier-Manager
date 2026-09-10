@@ -69,10 +69,11 @@ P2601001_12M_AC160/
 P2601002_12M_AC160/
 P2602074_CDT-NCHR & AD-42-AS_QR(01.09)/
 
-# ---- Tesseract 포터블 바이너리 (디렉터리 구조/README/LICENSE 만 커밋) ----
+# ---- Tesseract 포터블 바이너리 (디렉터리 구조/README/LICENSE.txt 만 커밋) ----
 third_party/tesseract/*.exe
 third_party/tesseract/*.dll
 third_party/tesseract/tessdata/
+third_party/tesseract/LICENSE
 
 # ---- PyInstaller / Inno Setup 빌드 산출물 ----
 build/
