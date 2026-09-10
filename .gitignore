@@ -94,3 +94,9 @@ debug_*.py
 
 # ---- 데모 영상(mp4) — 별도 산출물, 버전 관리 제외 ----
 *.mp4
+
+# ---- 보고서 작업 산출물(중간 보고서·미리보기·리더기 원문 매뉴얼) — 버전 관리 제외 ----
+docs/report_previews/
+docs/REPORT_NOTES.md
+docs/MC_QR_Manager_Interim_Report.docx
+docs/AS_162856_SR-X_UM_N80KO_KK_KR_2125_1.pdf
