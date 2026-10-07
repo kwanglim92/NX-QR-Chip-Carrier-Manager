@@ -151,9 +151,12 @@ class _SectionNav(QListWidget):
 
 class QRReaderSettingsDialog(QDialog):
     rotation_applied = Signal(int)   # 미리보기 창 [적용] → 호출자가 즉시 저장
+    disconnect_requested = Signal()  # [연결 해제] → 호출자가 접속을 끊고 재접속 중단('사용 안함')
+    connect_requested = Signal(dict) # [연결] → 호출자가 이 설정을 저장하고 접속(사용 재개)
 
-    def __init__(self, settings: dict, parent: QWidget | None = None) -> None:
+    def __init__(self, settings: dict, parent: QWidget | None = None, reader_in_use: bool = True) -> None:
         super().__init__(parent)
+        self._reader_in_use = reader_in_use
         self.setWindowTitle("리더기 설정")
         self.setModal(True)
         self.resize(900, 600)
@@ -217,7 +220,7 @@ class QRReaderSettingsDialog(QDialog):
         btn_cancel.clicked.connect(self.reject)
         btn_save = QPushButton("저장")
         btn_save.setProperty("accent", "true")
-        btn_save.setToolTip("설정을 저장하고 (LAN 이면) 지금 바로 리더기에 접속합니다.")
+        btn_save.setToolTip("설정을 저장합니다. 리더기 사용 중이면 새 설정으로 재접속하고, 사용 안함이면 접속하지 않습니다.")
         btn_save.clicked.connect(self._on_accept)
         footer.addWidget(btn_cancel)
         footer.addWidget(btn_save)
@@ -256,7 +259,7 @@ class QRReaderSettingsDialog(QDialog):
 
         self.enabled_check = QCheckBox("앱 시작 시 자동 접속 (기본 켜짐)")
         self.enabled_check.setChecked(s["enabled"])
-        self.enabled_check.setToolTip("켜면 앱을 실행할 때 이 리더기에 자동으로 접속하고, 끊기면 재접속합니다.\n저장 버튼은 이 설정과 무관하게 즉시 접속을 시도합니다.")
+        self.enabled_check.setToolTip("켜면 앱을 실행할 때 이 리더기에 자동으로 접속하고, 끊기면 재접속합니다.\n꺼져 있으면 앱 시작 시 '사용 안함'이며, [연결] 버튼으로 접속합니다.")
         form.addRow("자동 접속", self.enabled_check)
         layout.addLayout(form)
 
@@ -265,9 +268,41 @@ class QRReaderSettingsDialog(QDialog):
         self.btn_test_conn.setToolTip("현재 입력한 IP·포트로 접속해 KEYENCE 명령 응답(모델·펌웨어)을 확인합니다.")
         self.btn_test_conn.clicked.connect(self._test_connection)
         actions.addWidget(self.btn_test_conn)
+        self.btn_toggle_conn = QPushButton()
+        self.btn_toggle_conn.clicked.connect(self._on_toggle_conn)
+        self._refresh_toggle_button()
+        actions.addWidget(self.btn_toggle_conn)
         actions.addWidget(_hint("리더기가 AutoID Network Navigator 에 연결돼 있으면 ER,…,23 이 납니다. Navigator 에서 연결을 끊으세요.", wrap=True), 1)
         layout.addLayout(actions)
         return box
+
+    def _refresh_toggle_button(self) -> None:
+        if self._reader_in_use:
+            self.btn_toggle_conn.setText("연결 해제")
+            self.btn_toggle_conn.setToolTip(
+                "리더기 접속을 끊고 재접속을 멈춥니다. 리더기 없이 다른 기능을 쓸 때 사용.\n상태 칩은 '사용 안함'이 됩니다.")
+        else:
+            self.btn_toggle_conn.setText("연결")
+            self.btn_toggle_conn.setToolTip("현재 입력한 설정을 저장하고 리더기에 접속합니다(사용 재개).")
+
+    def _on_toggle_conn(self) -> None:
+        if self._reader_in_use:
+            self._reader_in_use = False
+            self.disconnect_requested.emit()
+            self._set_status("연결 해제됨 · 사용 안함", FG2)
+        else:
+            try:
+                settings = self._collect()
+            except _FormError as exc:
+                self._show_form_error(exc)
+                return
+            if settings["transport"] != "lan":
+                QMessageBox.information(self, "리더기 연결", "연결은 전송 방식이 LAN (TCP) 일 때만 가능합니다.")
+                return
+            self._reader_in_use = True
+            self.connect_requested.emit(settings)
+            self._set_status("접속 요청됨 — 상태 바 칩을 확인하세요", TEAL)
+        self._refresh_toggle_button()
 
     def _build_read_section(self, s: dict) -> QWidget:
         box, layout = self._section("read", "판독")
@@ -568,7 +603,7 @@ class QRReaderSettingsDialog(QDialog):
         self.status_label.setStyleSheet(f"color: {color}; font-size: 12px; font-weight: bold; background: transparent;")
 
     def _set_actions_enabled(self, enabled: bool) -> None:
-        for b in (self.btn_test_conn, self.btn_test_read, self.btn_read_params,
+        for b in (self.btn_test_conn, self.btn_toggle_conn, self.btn_test_read, self.btn_read_params,
                   self.btn_write_params, self.btn_autofocus, self.btn_test_read_tune):
             b.setEnabled(enabled)
 

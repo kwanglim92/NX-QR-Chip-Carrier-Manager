@@ -208,9 +208,54 @@ def test_form_error_jumps_to_related_section(qapp, monkeypatch):
     dlg.close()
 
 
+def test_toggle_emits_disconnect_then_connect(qapp):
+    dlg = QRReaderSettingsDialog({"host": "10.0.0.5", "port": 9004}, reader_in_use=True)
+    disconnects, connects = [], []
+    dlg.disconnect_requested.connect(lambda: disconnects.append(True))
+    dlg.connect_requested.connect(connects.append)
+    assert dlg.btn_toggle_conn.text() == "연결 해제"
+
+    dlg.btn_toggle_conn.click()
+    assert disconnects == [True] and connects == []
+    assert dlg.btn_toggle_conn.text() == "연결" and "사용 안함" in dlg.status_label.text()
+
+    dlg.host_input.setText("10.0.0.6")
+    dlg.btn_toggle_conn.click()
+    assert disconnects == [True] and len(connects) == 1
+    assert connects[0] == dlg._collect() and connects[0]["host"] == "10.0.0.6"
+    assert dlg.btn_toggle_conn.text() == "연결 해제"
+    dlg.close()
+
+
+def test_dialog_opened_while_not_in_use_shows_connect(qapp):
+    dlg = QRReaderSettingsDialog({}, reader_in_use=False)
+    assert dlg.btn_toggle_conn.text() == "연결"
+    dlg.close()
+
+
+def test_connect_refused_for_non_lan_transport_or_invalid_form(qapp, monkeypatch):
+    dlg = QRReaderSettingsDialog({"transport": "keyboard"}, reader_in_use=False)
+    connects, shown = [], []
+    dlg.connect_requested.connect(connects.append)
+    monkeypatch.setattr("src.ui.dialogs.qr_reader_settings_dialog.QMessageBox.information",
+                        lambda *a, **k: shown.append(a[2]))
+    monkeypatch.setattr("src.ui.dialogs.qr_reader_settings_dialog.QMessageBox.warning",
+                        lambda *a, **k: shown.append(a[2]))
+    dlg.btn_toggle_conn.click()
+    assert connects == [] and len(shown) == 1 and "LAN" in shown[0]
+    assert dlg.btn_toggle_conn.text() == "연결"       # 여전히 사용 안함
+
+    dlg.transport_combo.setCurrentIndex(0)             # LAN 으로 바꾸되 호스트를 비움 → 폼 오류
+    dlg.host_input.setText("")
+    dlg.btn_toggle_conn.click()
+    assert connects == [] and len(shown) == 2 and dlg.btn_toggle_conn.text() == "연결"
+    dlg.close()
+
+
 def test_action_buttons_live_in_their_sections(qapp):
     dlg = QRReaderSettingsDialog({})
     assert dlg.btn_test_conn.parent() is dlg.sections["conn"]
+    assert dlg.btn_toggle_conn.parent() is dlg.sections["conn"]
     assert dlg.btn_test_read.parent() is dlg.sections["read"] and dlg.btn_preview.parent() is dlg.sections["read"]
     assert dlg.btn_read_params.parent() is dlg.sections["params"]
     dlg.close()

@@ -40,6 +40,7 @@ class QRReaderMixin:
         self._qr_reader_settings = load_qr_reader_settings(self._db_conn)
         self._last_frame: ParsedFrame | None = None
         self._reader_regions: dict[int, tuple[int, int, int, int]] = {}   # RD 로 읽은 서치 영역(리더기 화상 좌표)
+        self._reader_in_use: bool = False   # 세션 플래그: False = '사용 안함'(접속·재접속 안 함, 칩 '사용 안함')
         self._reader = KeyenceClient(self)
         self._reader.state_changed.connect(self._on_reader_state)
         self._reader.frame_received.connect(self._on_reader_frame)
@@ -50,8 +51,10 @@ class QRReaderMixin:
         self._apply_reader_settings(connect_now=self._qr_reader_settings["enabled"])
 
     def _apply_reader_settings(self, connect_now: bool) -> None:
-        """설정을 클라이언트에 반영. LAN 이고 connect_now 면 접속, 아니면 끊긴 상태로 둔다(버튼 비활성)."""
+        """설정을 클라이언트에 반영. LAN 이고 connect_now 면 접속, 아니면 '사용 안함'으로 둔다(버튼 비활성)."""
         s = self._qr_reader_settings
+        # close() 가 state_changed(disconnected) 를 내보내 칩을 갱신하므로 플래그를 먼저 정한다
+        self._reader_in_use = bool(connect_now) and s["transport"] == "lan"
         self._reader.close()
         self._reader_regions = {}          # 리더기(호스트)가 바뀔 수 있으므로 영역 캐시 무효화
         self._reader.configure(**client_kwargs(s))
@@ -97,6 +100,9 @@ class QRReaderMixin:
         if not hasattr(self, "btn_reader_status"):
             return
         color, label = _STATE_STYLE.get(state, (FG2, state))
+        not_in_use = state == ReaderState.DISCONNECTED.value and not getattr(self, "_reader_in_use", False)
+        if not_in_use:
+            color, label = FG2, "사용 안함"
         s = self._qr_reader_settings
         self.btn_reader_status.setText(f"● Reader {s['host']}  {label}")
         # 상태 바(Theme 버튼 왼쪽)의 칩 규격: 투명 배경 · 11px · 얇은 테두리, 글자색만 상태별
@@ -106,6 +112,8 @@ class QRReaderMixin:
             f"QPushButton:hover {{ border-color: {color}; }}"
         )
         self.btn_reader_status.setToolTip(
+            "리더기 사용 안함 — 접속·재접속하지 않습니다.\n클릭해 리더기 설정 창에서 [연결]을 누르면 사용을 재개합니다."
+            if not_in_use else
             f"SR-X300W {s['host']}:{s['port']} — {label}\n클릭하면 리더기 설정을 엽니다."
         )
         if hasattr(self, "btn_cassette_scan"):
@@ -300,8 +308,10 @@ class QRReaderMixin:
     def _open_qr_reader_settings(self) -> None:
         from src.ui.dialogs.qr_reader_settings_dialog import QRReaderSettingsDialog
 
-        dlg = QRReaderSettingsDialog(self._qr_reader_settings, self)
+        dlg = QRReaderSettingsDialog(self._qr_reader_settings, self, reader_in_use=self._reader_in_use)
         dlg.rotation_applied.connect(self._save_preview_rotation)
+        dlg.disconnect_requested.connect(self._disconnect_reader)
+        dlg.connect_requested.connect(self._connect_reader)
         try:
             if dlg.exec() != QDialog.Accepted:
                 return
@@ -309,12 +319,33 @@ class QRReaderMixin:
         finally:
             dlg.deleteLater()
         self._qr_reader_settings = save_qr_reader_settings(self._db_conn, new_settings)
-        # 저장 = 이 리더기를 쓰겠다는 뜻이므로 LAN 이면 즉시 접속 (자동 접속 체크는 다음 앱 시작에만 영향)
+        # 저장: 사용 중이면 새 설정으로 재접속, '사용 안함'이면 설정만 저장 (자동 접속 체크는 다음 앱 시작에만 영향)
+        in_use = self._reader_in_use
+        self._apply_reader_settings(connect_now=in_use)
+        if not in_use:
+            suffix = " (사용 안함 — 접속하지 않음)"
+        elif self._qr_reader_settings["transport"] != "lan":
+            suffix = " (LAN 이 아니므로 접속하지 않음)"
+        else:
+            suffix = ""
+        self.logger.ok("리더기 설정이 저장되었습니다" + suffix)
+
+    def _disconnect_reader(self) -> None:
+        """설정 창 [연결 해제]: 접속을 끊고 재접속을 멈춘다 → 칩 '사용 안함'. 리더기 없이 다른 기능을 쓸 때."""
+        self._reader_in_use = False
+        self._reader.close()
+        self._update_reader_chip(self._reader.state.value)
+        self.logger.info("리더기 연결 해제 — 사용 안함 (재접속하지 않음)")
+
+    def _connect_reader(self, settings: dict) -> None:
+        """설정 창 [연결]: 현재 폼 설정을 저장하고 접속해 사용을 재개한다."""
+        self._qr_reader_settings = save_qr_reader_settings(self._db_conn, settings)
         self._apply_reader_settings(connect_now=True)
-        self.logger.ok(
-            "리더기 설정이 저장되었습니다"
-            + ("" if self._qr_reader_settings["transport"] == "lan" else " (LAN 이 아니므로 접속하지 않음)")
-        )
+        s = self._qr_reader_settings
+        if s["transport"] == "lan":
+            self.logger.info(f"리더기 연결 — {s['host']}:{s['port']}")
+        else:
+            self.logger.warn("전송 방식이 LAN 이 아니라 접속하지 않음")
 
     def _save_preview_rotation(self, deg: int) -> None:
         """미리보기 창 [적용]: 회전만 즉시 저장 (다른 설정·접속 상태는 그대로)."""
