@@ -7,6 +7,16 @@ from PySide6.QtWidgets import QWidget, QHBoxLayout, QLineEdit, QLabel
 from src.ui.theme import ACCENT, GREEN, RED, FG2, BG2, BG3
 
 
+def force_latin_input(edit: QLineEdit) -> None:
+    """QR 스캔 입력창을 영문 전용으로 고정 — 시스템 IME 가 한글이어도 바코드 문자가 한글로 조합되지 않게.
+
+    WA_InputMethodEnabled 를 끄면 Qt Windows 백엔드가 포커스 시 창의 IME 컨텍스트를 해제하므로
+    키 입력이 조합 없이 그대로 들어온다. 포커스가 다른 입력창으로 가면 IME 는 다시 켜진다.
+    """
+    edit.setAttribute(Qt.WA_InputMethodEnabled, False)
+    edit.setInputMethodHints(Qt.ImhLatinOnly | Qt.ImhNoPredictiveText)
+
+
 class QRInputWidget(QWidget):
     qr_scanned = Signal(str)  # QR ID
 
@@ -26,6 +36,7 @@ class QRInputWidget(QWidget):
             f"background: {BG2}; border: 2px solid {ACCENT}; border-radius: 6px;"
         )
         self._input.returnPressed.connect(self._on_submit)
+        force_latin_input(self._input)
         self._input.setFixedWidth(360)     # 하단 바: 입력창 폭 고정 → 바로 옆에 다중 QR 스캔·판독 검토 버튼
         layout.addWidget(self._input)
 

@@ -15,6 +15,7 @@ from PySide6.QtWidgets import (
 
 from src.core.models import SlotData, truncate_measurement_value
 from src.core.slot_mapper import format_full_label
+from src.ui.widgets.qr_input_widget import force_latin_input
 
 
 class SlotEditDialog(QDialog):
@@ -57,6 +58,7 @@ class SlotEditDialog(QDialog):
         form.addRow("Q:", self.q_input)
 
         self.qr_input = QLineEdit(slot.qr_id or "")
+        force_latin_input(self.qr_input)   # 바코드 스캔 입력: 한글 IME 상태여도 영문 고정
         form.addRow("QR ID:", self.qr_input)
 
         self.source_combo = QComboBox()

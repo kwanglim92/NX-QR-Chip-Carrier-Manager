@@ -278,7 +278,8 @@
         "src/ui/widgets/system_logger.py",
         "src/ui/widgets/csv_preview_table.py",
         "src/ui/widgets/slot_detail_table.py",
-        "src/ui/widgets/inspection_page.py"
+        "src/ui/widgets/inspection_page.py",
+        "src/ui/widgets/qr_input_widget.py"
       ]
     },
     {
