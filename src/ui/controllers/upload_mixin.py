@@ -11,6 +11,7 @@ from src.core.csv_exporter import (
     generate_csv_rows,
     upload_image_files,
 )
+from src.core.qr_code import UPLOAD_QR_VERSION, summarize_qr_versions
 from src.core.server_uploader import BASE_URL, ServerUploader, UploadResult
 from src.ui.theme import BG2, FG2, GREEN, ORANGE, TEAL
 
@@ -228,6 +229,24 @@ class UploadMixin:
         if len(rows) <= 1:
             self.logger.warn("업로드할 데이터가 없습니다 (QR ID가 매칭된 슬롯 없음)")
             return
+
+        # QR 버전 게이트 — 현재 서버는 QR 2.0 전용. 2.1 등 다른 버전이 섞이면 차단, 해독 불가는 경고만
+        counts, undecodable = summarize_qr_versions(r[0] for r in rows[1:])
+        foreign = {v: n for v, n in counts.items() if v != UPLOAD_QR_VERSION}
+        if foreign:
+            detail = ", ".join(f"QR {v}: {n}건" for v, n in sorted(foreign.items()))
+            QMessageBox.warning(
+                self,
+                "업로드 차단",
+                f"현재 서버({BASE_URL})는 QR {UPLOAD_QR_VERSION} 코드만 받습니다.\n"
+                f"다른 버전 코드가 포함되어 업로드를 중단합니다 — {detail} "
+                f"(QR {UPLOAD_QR_VERSION}: {counts.get(UPLOAD_QR_VERSION, 0)}건)\n\n"
+                "QR 2.1 서버(cantilever-info)는 추후 지원 예정입니다. 서버 설정 → 서버 주소 참고.",
+            )
+            self.logger.error(f"업로드 차단 — QR 버전 불일치: {detail}")
+            return
+        if undecodable:
+            self.logger.warn(f"QR 형식 해독 불가 {undecodable}건 (10자리 16진수 아님) — 그대로 업로드합니다")
 
         if mode == "update" and not self._confirm_update_mode(len(rows) - 1):
             self.logger.info("서버 수정(Update) 취소")
