@@ -226,19 +226,22 @@ class ChipCarrierManagerApp(
 
 | 항목 | 내용 |
 |------|------|
-| 진입 | `Save CSV` 드롭다운(CSV Only / CSV+Images / 머지) · `Upload` 드롭다운(Upload CSV / Upload CSV+Images / 머지 후 업로드 / **Update CSV / Update CSV+Images**) |
+| 진입 | `Tip 관리…`(★F-23) · `Save CSV` 드롭다운(CSV Only / CSV+Images / 머지) · `Upload` 드롭다운(Upload CSV / Upload CSV+Images / 머지 후 업로드 / **Update CSV / Update CSV+Images**) · 상태 바 `● Server` 칩 → **서버 설정 창** |
 | 탭 구조 | `ATX` / `Manual` 2탭 (활성 탭 기준 처리) |
 | CSV 컬럼 | `QR ID`, `생산일자[YYYYMMDD]`, `Frequency (KHz)`, `Drive (%)`, `Q`, `Probe Type` |
 | 미완성 데이터 정책 | `QR 있는 값만` 또는 `전체 슬롯` 선택 |
-| CSV+Images 구조 | `{folder}/{folder}_QR.csv` + `ZOOMIN/` + `ZOOMOUT/` |
+| CSV+Images 구조 | `{folder}/{folder}_QR.csv` + `ZOOMIN/` + `ZOOMOUT/` + 카세트별 `{PO}_{qty}M_{Type}.docx`(★F-23, CSV Only 도 CSV 옆에 생성) |
 | 저장 경로 보정 | 확장자 누락 시 `.csv` 자동 보정 |
-| 서버 업로드 대상 | `https://probe-info.parksystems.com` — `POST /accounts/login/` 세션 로그인 후 `POST /chip/login/probe/update/file` (multipart: `test_file` CSV 1개 + `image_files[]` 다수, submit `upload`/`update`) |
+| 서버 설정 창 | `1. 로그인`(ID·비밀번호·[로그인][로그아웃][세션 확인], 비밀번호는 시그널 직후 입력창 비움) · `2. 서버 주소`(읽기 전용) · 푸터 세션 상태 + [닫기]. 상태 칩: `미로그인 / 로그인됨 (ID) / 세션 만료 / 업로드 중`. `Upload` 메뉴에서 미로그인·만료면 이 창의 로그인 섹션이 열리고 로그인되면 자동으로 닫힘 |
+| 서버 업로드 대상 | **QR 2.0** `https://probe-info.parksystems.com` — `POST /accounts/login/` 세션 로그인 후 `POST /chip/login/probe/update/file` (multipart: `test_file` CSV 1개 + `image_files[]` 다수, submit `upload`/`update`). **QR 2.1** `https://cantilever-info.parksystems.com/chip/` 은 추후 지원(주소 표시만, 호출 없음) |
+| QR 버전 게이트 | `qr_code.decode_qr_id` — 16진수 10자리 = 40비트: Major(1~4) · 생산연도(5~10) · **Minor(11~14: 0 = 2.0, 1 = 2.1)** · Probe Type(15~22) · S/N(23~40). 업로드 전 행을 검사해 2.0 외 버전이 있으면 경고창 + 차단, 해독 불가(10자리 16진수 아님)는 경고 로그 후 진행 |
 | 업로드 이미지 전송명 | CSV+Images 반출과 동일 규격 `{QR ID}{확장자}` (충돌 시 `_1`, `_2`), `csv_exporter.upload_image_files()` |
-| 세션·보안 | TLS 검증 활성, 비밀번호 미저장(ID 만 `server_id` 설정), 업로드 전 `is_session_alive()` 확인, 로그인/`?next=` 리다이렉트·`Message` 영역 부재는 실패 처리 |
+| 세션·보안 | TLS 검증 활성, 비밀번호 미저장(ID 만 `server_id` 설정), 업로드 전 `is_session_alive()` 확인, 로그인/`?next=` 리다이렉트·`Message` 영역 부재는 실패 처리, 앱 종료 시 `_shutdown_upload()` 로그아웃 |
 
 - `Drive (%)` 는 GUI 입력 항목이 아니라 CSV/Upload 자료구조 유지용 컬럼
 - 머지 출고: 여러 시리얼(파트)을 박스 시리얼 이름의 단일 CSV+이미지 폴더로 묶음
 - **Update(서버 수정)** 는 서버의 기존 QR 데이터를 덮어쓰므로 실행 전 확인 다이얼로그를 거침. 기본 메뉴는 신규 `upload`
+- QR 2.1 로 확장할 때: `BASE_URL_QR21` 로 두 번째 `ServerUploader` 를 두고 `summarize_qr_versions` 결과로 세트를 버전별 분리해 각 서버에 올리면 됨(현재는 2.0 검증 우선)
 
 ### F-18 Export / Import 번들
 
@@ -333,6 +336,17 @@ class ChipCarrierManagerApp(
 7. **Sweep Explorer** — 판정 차트 더블클릭 → pyqtgraph 비모달 창(ZoomOut/줌인 2단, 크로스헤어, 공진 세로선 3종, 피크 표·클릭 확대, 기준 오버레이, 선택 따라가기). 이미지 더블클릭 → 원본 크기 창. 읽기 전용.
 
 **설계 노트**: 형상 판정은 이미지가 아닌 **수치(txt)** 기반 — sweep 이미지에 이미 Lorentzian 피팅이 그려져 있으므로 같은 모델을 수치로 재현해 R² 로 판정한다. Thermal Tune 은 런 폴더에 데이터가 없어 제외. 다중 런 폴더 합산은 후속.
+
+### ★ F-23 Word 체크시트 자동 생성 + Tip 프로필 (신규, 2026-10-08)
+
+| 항목 | 내용 |
+|------|------|
+| 진입 | CSV Export 상단 `Tip 관리…`(Save CSV 왼쪽) · `Save CSV` 세 메뉴(CSV Only / CSV + Images / 머지 후 저장) 모두 |
+| 생성 단위 | 세트(카세트 = ATX 폴더)마다 1개, CSV 와 같은 폴더에 `{PO}_{qty}M_{Type}.docx`. 전체(합본) 범위면 원본 폴더 세트별(`_word_sheet_sets`), 머지 Manual 은 박스 1개(N = 슬롯 수) |
+| 내용 | Unit(PO) · Type(프로필 표기명) · SEM 이미지(PNG 변환, 비율 유지해 6.35×4.87 cm 상자에 맞춤) · 스펙 표(`min_typ_max`: Technical Data \| Lever min/typ/max, `nominal_range`: Technical Data \| Nominal Value \| Specified Range) · Batch 1(L)~N(R) Frequency(KHz)/Q-Factor 가로 1행씩(N = 수량 10/12, 아니면 슬롯 수) · `4. Frequency Sweep` Pass/Fail = 모든 측정 슬롯이 `spec_limits` 범위 안이면 ■ Pass, 아니면 ■ Fail, 한계·값 없음은 □ □. 나머지 체크 항목·보증 문구는 템플릿 그대로 |
+| 템플릿 | `assets/templates/check_sheet_base.docx`(docs/word AC160TS 12M 기반, 중복 Check Item 표 제거) — `word_check_sheet.py` 가 zip 수준에서 `word/document.xml`·`word/media/image1.png` 만 바꿔 씀(check_sheet.py 와 동일 원칙, python-docx 불필요). PyInstaller `datas` 포함 |
+| Tip 프로필 | `tip_profiles.py` — `app_settings.tip_profiles` `{tip: {display_name, sem_image, spec_layout, spec_rows}}`. `Tip 관리…` 다이얼로그: 좌 목록(카탈로그 ∪ 프로필 ∪ 로드된 probe_type, 추가/삭제) · 우 표기명 · SEM 이미지(찾아보기 + 썸네일) · 양식 콤보 · 표(행 추가/삭제/위/아래). 저장 시 이미지를 `{app_data}/tip_images/{tip}.png` 로 복사. Tip 키는 ATX 폴더 probe_type 과 같아야 하며(대소문자 무시), 없으면 `Tip '…' 프로필 없음 — Word 체크시트 생략` 경고 후 CSV 만 저장 |
+| 테스트 | `test_word_check_sheet.py` 9건(12/10열·양식·마크·PNG·불변 파트·well-formed), `test_tip_profiles.py` 8건, `test_tip_profile_dialog.py` 8건, `test_export_mixin_word.py` 5건. 실제 Word(COM) 열기 확인 |
 
 ### 부가 — SystemLogger 다중 싱크
 
@@ -506,6 +520,7 @@ pytest
 | `last_production_date` | 마지막 생산일자(시작 시 리셋) |
 | `recent_folders` | 최근 ATX 폴더 5개 |
 | `manual_tip_catalog` | 관리형 Tip 이름 목록 |
+| `tip_profiles` | ★ F-23 Tip 프로필 `{tip: {display_name, sem_image, spec_layout, spec_rows[[label, v…]]}}` (Word 체크시트) |
 | `spec_limits` | ★ probe별 규격 한계 `{pt:{freq_min,freq_max,q_min,q_max}}` |
 | `inspection_templates` | ★ F-22 등급 사다리 템플릿 `{tip_id: {um_per_pixel, grades[…]}}` |
 | `inspection_last_tip` / `inspection_lot_dir` | F-22 마지막 Tip ID / 로트 출력 폴더 |
@@ -561,6 +576,7 @@ pytest
 ├─ CLAUDE.md / AGENTS.md          ← 개발 규칙
 ├─ .agent/                        ← rules.md + skills/(registry.json, SKILL.md 19종)
 ├─ assets/icons/                  ← 앱 아이콘
+├─ assets/templates/              ← Word 체크시트 기본 템플릿 check_sheet_base.docx (★F-23)
 ├─ docs/
 │   ├─ PRD.md                     ← 이 문서
 │   ├─ PRD.html                   ← 변환 산출물 (build_prd_html.py)
@@ -572,7 +588,7 @@ pytest
 ├─ src/
 │   ├─ core/  (database, models, atx_parser, csv_exporter, bundle, capture_files,
 │   │          image_parser, ocr_worker, ocr_settings, tesseract_setup, slot_mapper,
-│   │          server_uploader, quality★)
+│   │          server_uploader, quality★, qr_code★, tip_profiles★, word_check_sheet★)
 │   └─ ui/
 │       ├─ main_window.py / theme.py
 │       ├─ controllers/  (ui_builder, atx_import, manual_import, qr_match,
@@ -580,10 +596,11 @@ pytest
 │       ├─ widgets/  (manual_card, manual_grid, measurement_card, slot_grid,
 │       │             slot_detail_table, history_table, csv_preview_table,
 │       │             image_viewer, roi_canvas, screen_capture_overlay,
-│       │             qr_input, stats_dashboard, system_logger, login_dialog,
+│       │             qr_input, stats_dashboard, system_logger,
 │       │             bundle_dialogs)
 │       └─ dialogs/  (roi_calibrator, slot_edit, merge_export, add_tab,
-│                     tip_catalog, user_guide, spec_limits★)
+│                     tip_catalog, user_guide, spec_limits★,
+│                     server_settings★, tip_profile★)
 ├─ tests/                         ← pytest 117건 / 111 passed / 6 skipped
 └─ third_party/tesseract/         ← 포터블 바이너리(git 비포함)
 ```

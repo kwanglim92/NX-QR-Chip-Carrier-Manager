@@ -1,9 +1,9 @@
 {
   "version": "2.0",
-  "updated": "2026-09-09",
+  "updated": "2026-10-08",
   "project": "MC QR Code Chip Carrier Manager",
   "total_skills": 19,
-  "total_source_files": 37,
+  "total_source_files": 52,
   "skills": [
     {
       "id": "00",
@@ -157,7 +157,8 @@
       "source_files": [
         "src/core/atx_parser.py",
         "src/core/inspection/mtc_parser.py",
-        "src/core/inspection/sweep_shape.py"
+        "src/core/inspection/sweep_shape.py",
+        "src/core/qr_code.py"
       ]
     },
     {
@@ -228,7 +229,8 @@
         "src/core/csv_exporter.py",
         "src/core/bundle.py",
         "src/ui/controllers/export_mixin.py",
-        "src/core/inspection/lot_builder.py"
+        "src/core/inspection/lot_builder.py",
+        "src/core/word_check_sheet.py"
       ]
     },
     {
@@ -313,7 +315,9 @@
         "src/ui/controllers/upload_mixin.py",
         "src/ui/controllers/history_mixin.py",
         "src/ui/controllers/settings_mixin.py",
-        "src/ui/controllers/inspection_mixin.py"
+        "src/ui/controllers/inspection_mixin.py",
+        "src/ui/dialogs/server_settings_dialog.py",
+        "src/ui/dialogs/tip_profile_dialog.py"
       ]
     },
     {
@@ -363,7 +367,8 @@
         "src/core/ocr_settings.py",
         "src/ui/controllers/settings_mixin.py",
         "src/core/database.py",
-        "src/core/inspection/templates.py"
+        "src/core/inspection/templates.py",
+        "src/core/tip_profiles.py"
       ]
     },
     {
