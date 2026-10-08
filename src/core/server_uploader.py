@@ -17,7 +17,8 @@ from pathlib import Path
 import requests
 from bs4 import BeautifulSoup
 
-BASE_URL = "https://probe-info.parksystems.com"
+BASE_URL = "https://probe-info.parksystems.com"            # QR 2.0 (현재 업로드 대상)
+BASE_URL_QR21 = "https://cantilever-info.parksystems.com"  # QR 2.1 — 추후 지원(표시 전용, 호출 없음)
 LOGIN_URL = f"{BASE_URL}/accounts/login/"
 LOGOUT_URL = f"{BASE_URL}/accounts/logout/"
 UPLOAD_URL = f"{BASE_URL}/chip/login/probe/update/file"

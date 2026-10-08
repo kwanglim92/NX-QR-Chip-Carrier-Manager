@@ -1,4 +1,4 @@
-"""서버 업로드 컨트롤러 — 로그인 다이얼로그 + CSV/이미지 업로드."""
+"""서버 업로드 컨트롤러 — 상태 바 ``● Server`` 칩 + 서버 설정 다이얼로그(로그인) + CSV/이미지 업로드."""
 from __future__ import annotations
 
 import csv
@@ -11,11 +11,18 @@ from src.core.csv_exporter import (
     generate_csv_rows,
     upload_image_files,
 )
-from src.core.server_uploader import ServerUploader, UploadResult
-from src.ui.theme import FG2, GREEN
-from src.ui.widgets.login_dialog import LoginDialog
+from src.core.server_uploader import BASE_URL, ServerUploader, UploadResult
+from src.ui.theme import BG2, FG2, GREEN, ORANGE, TEAL
 
 _MODE_LABEL = {"upload": "신규 업로드", "update": "서버 수정(Update)"}
+
+# 세션 상태 → (칩 글자색, 라벨). ServerSettingsDialog.SESSION_STATES 와 동일
+_SERVER_STATE_STYLE = {
+    "logged_out": (FG2, "미로그인"),
+    "logged_in": (GREEN, "로그인됨"),
+    "expired": (ORANGE, "세션 만료"),
+    "uploading": (TEAL, "업로드 중"),
+}
 
 
 class _UploadWorker(QObject):
@@ -42,64 +49,98 @@ class UploadMixin:
         self._uploader = ServerUploader()
         self._upload_thread: QThread | None = None
         self._upload_worker: _UploadWorker | None = None
+        self._server_dialog = None   # 열려 있는 서버 설정 창(상태 갱신 전달용)
+        self._update_server_chip("logged_out")
 
-    # ─── 로그인 ───
+    # ─── 상태 칩 · 서버 설정 창 · 로그인 ───
 
-    def _do_login(self):
-        """로그인 다이얼로그 팝업."""
-        if self._uploader.logged_in:
-            self._do_logout()
+    def _update_server_chip(self, state: str) -> None:
+        """상태 바 ``● Server`` 칩 갱신 (QRReaderMixin._update_reader_chip 과 같은 스타일)."""
+        if not hasattr(self, "btn_server_status"):
             return
+        color, label = _SERVER_STATE_STYLE.get(state, (FG2, state))
+        user = self._uploader.username
+        suffix = f" ({user})" if state == "logged_in" and user else ""
+        self.btn_server_status.setText(f"● Server {label}{suffix}")
+        self.btn_server_status.setStyleSheet(
+            f"QPushButton {{ background: transparent; border: 1px solid {BG2}; border-radius: 3px; "
+            f"padding: 2px 8px; font-size: 11px; color: {color}; }}"
+            f"QPushButton:hover {{ border-color: {color}; }}"
+        )
+        self.btn_server_status.setToolTip(f"{BASE_URL} — {label}{suffix}\n클릭하면 서버 설정을 엽니다.")
+        if self._server_dialog is not None:
+            self._server_dialog.set_session_state(state, user)
 
+    def _open_server_settings(self, section: str = "login", close_on_login: bool = False) -> bool:
+        """서버 설정 창(모달). 반환값은 닫힌 뒤의 로그인 여부."""
+        from src.ui.dialogs.server_settings_dialog import ServerSettingsDialog
+
+        state = "logged_in" if self._uploader.logged_in else "logged_out"
         saved_id = self._settings.get("server_id", "") if hasattr(self, "_settings") else ""
-        dlg = LoginDialog(self, saved_id=saved_id)
-        creds = dlg.get_credentials()
-        if not creds:
-            return
+        dlg = ServerSettingsDialog(saved_id, state, self._uploader.username, self,
+                                   section=section, close_on_login=close_on_login)
+        dlg.login_requested.connect(self._on_login_requested)
+        dlg.logout_requested.connect(self._do_logout)
+        dlg.session_check_requested.connect(self._on_session_check_requested)
+        self._server_dialog = dlg
+        try:
+            dlg.exec()
+        finally:
+            self._server_dialog = None
+            dlg.deleteLater()
+        return self._uploader.logged_in
 
-        username, password = creds
-
+    def _on_login_requested(self, username: str, password: str) -> None:
         try:
             success = self._uploader.login(username, password)
-            # 비밀번호는 로그인 호출 직후 참조 해제 — 이후 로그/설정에 섞이지 않게
-            del password, creds
-            if success:
-                self._update_login_status(True)
-                # 서버 ID 설정에 저장
-                if hasattr(self, "_settings"):
-                    self._settings["server_id"] = username
-                self.logger.ok(f"서버 로그인 성공: {username}")
-            else:
-                self._update_login_status(False)
-                self.logger.error("로그인 실패: 인증 정보를 확인하세요")
         except Exception as e:
-            self._update_login_status(False)
+            self._update_server_chip("logged_out")
             self.logger.error(f"로그인 실패: {e}")
+            return
+        finally:
+            # 비밀번호는 로그인 호출 직후 참조 해제 — 이후 로그/설정에 섞이지 않게
+            del password
+        if success:
+            if hasattr(self, "_settings"):
+                self._settings["server_id"] = username
+            self.logger.ok(f"서버 로그인 성공: {username}")
+            self._update_server_chip("logged_in")
+        else:
+            self._update_server_chip("logged_out")
+            self.logger.error("로그인 실패: 인증 정보를 확인하세요")
+
+    def _on_session_check_requested(self) -> None:
+        was_logged_in = self._uploader.logged_in
+        alive = self._uploader.is_session_alive()
+        if alive:
+            self._update_server_chip("logged_in")
+            self.logger.ok("서버 세션 유효")
+        else:
+            self._update_server_chip("expired" if was_logged_in else "logged_out")
+            self.logger.warn("서버 세션 없음/만료 — 다시 로그인하세요")
 
     def _do_logout(self):
         self._uploader.logout()
-        self._update_login_status(False)
+        self._update_server_chip("logged_out")
         self.logger.info("서버 로그아웃")
 
-    def _update_login_status(self, logged_in: bool):
-        if logged_in:
-            self.lbl_server_status.setText(f"● Connected ({self._uploader.username})")
-            self.lbl_server_status.setStyleSheet(f"color: {GREEN};")
-            self.btn_server_toggle.setText("Logout")
-        else:
-            self.lbl_server_status.setText("○ Disconnected")
-            self.lbl_server_status.setStyleSheet(f"color: {FG2};")
-            self.btn_server_toggle.setText("Login")
-
     def _ensure_logged_in(self) -> bool:
-        """로그인 상태 확인. 안 됐거나 서버 세션이 만료됐으면 로그인 다이얼로그 자동 팝업."""
+        """로그인 상태 확인. 안 됐거나 서버 세션이 만료됐으면 서버 설정 창(로그인 섹션)을 띄운다."""
         if self._uploader.logged_in:
             if self._uploader.is_session_alive():
                 return True
-            self._update_login_status(False)
+            self._update_server_chip("expired")
             self.logger.warn("서버 세션 만료 — 다시 로그인하세요")
-        self._do_login()
-        return self._uploader.logged_in
+        return self._open_server_settings(section="login", close_on_login=True)
+
+    def _shutdown_upload(self) -> None:
+        """앱 종료 시 서버 세션 종료 (오류 무시)."""
+        up = getattr(self, "_uploader", None)
+        if up is not None and up.logged_in:
+            try:
+                up.logout()
+            except Exception:
+                pass
 
     # ─── 업로드 ───
 
@@ -225,6 +266,7 @@ class UploadMixin:
         self.btn_upload.setEnabled(False)
         self.upload_progress.setVisible(True)
         self.upload_progress.setRange(0, 0)  # indeterminate
+        self._update_server_chip("uploading")
 
         self._upload_thread.start()
 
@@ -242,6 +284,8 @@ class UploadMixin:
         self.btn_upload.setEnabled(True)
         self._upload_thread = None
         self._upload_worker = None
+        # 세션 만료로 실패한 경우 칩을 서버 상태와 맞춘다
+        self._update_server_chip("logged_in" if self._uploader.logged_in else "expired")
 
         mode_label = _MODE_LABEL.get(result.mode, result.mode)
         if result.success:
@@ -264,9 +308,6 @@ class UploadMixin:
         else:
             self.logger.error(f"{mode_label} 실패: {result.message}")
             self._statusbar.showMessage(f"서버 {mode_label} 실패")
-            if not self._uploader.logged_in:
-                # 세션 만료로 실패한 경우 UI 상태를 서버 상태와 맞춘다
-                self._update_login_status(False)
 
             if ms_db_id:
                 from src.core.database import update_upload_status

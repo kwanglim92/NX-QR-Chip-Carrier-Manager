@@ -71,7 +71,7 @@ class SettingsMixin:
 
     def _apply_settings_to_ui(self):
         """저장된 설정을 UI에 적용."""
-        # 서버 ID는 _settings에 보관 (로그인 다이얼로그에서 사용)
+        # 서버 ID는 _settings에 보관 (서버 설정 다이얼로그에서 사용)
 
         # 수동 모드 열 수
         cols = self._settings.get("manual_columns", 4)
