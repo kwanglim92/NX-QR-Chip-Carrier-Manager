@@ -75,6 +75,16 @@ class TestTesseractBundled:
         assert len(dlls) >= 20, f"DLL {len(dlls)}개 — UB Mannheim 번들이 불완전할 수 있음"
 
 
+class TestTemplatesBundled:
+    def test_check_sheet_template(self, dist_available):
+        """Word 체크시트 템플릿 — word_check_sheet.DEFAULT_TEMPLATE 과 같은 상대 경로에 번들."""
+        exe = dist_available / "McQrManager.exe"
+        spec = PROJECT_ROOT / "McQrManager.spec"
+        if exe.stat().st_mtime < spec.stat().st_mtime:
+            pytest.skip("dist 가 spec 변경(assets/templates 추가) 이전 빌드 — build.bat 재실행 후 검증")
+        assert (dist_available / "assets" / "templates" / "check_sheet_base.docx").exists()
+
+
 class TestFrozenPathResolution:
     """``tesseract_setup._project_root()`` 가 frozen 모드에서 가리키는 경로가
     실제 dist 구조와 일치하는지 검증."""
