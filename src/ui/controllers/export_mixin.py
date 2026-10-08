@@ -21,6 +21,14 @@ from src.core.csv_exporter import (
     export_with_images,
 )
 from src.core.models import MeasurementSet
+from src.core.quality import spec_bounds_for
+from src.core.tip_profiles import import_tip_images, load_tip_profiles, profile_for, save_tip_profiles
+from src.core.word_check_sheet import (
+    DEFAULT_TEMPLATE,
+    build_word_sheet_data,
+    word_check_sheet_name,
+    write_word_check_sheet,
+)
 
 
 _WINDOWS_FORBIDDEN_FILENAME_CHARS = '<>:"/\\|?*'
@@ -215,6 +223,52 @@ class ExportMixin:
             return CSV_EXPORT_ALL_SLOTS
         return None
 
+    # ─── Tip 프로필 + Word 체크시트 ───
+
+    def _open_tip_profiles(self):
+        """Tip 관리 다이얼로그 — 저장 시 SEM 이미지를 보관 폴더로 복사하고 프로필·카탈로그를 기록."""
+        from src.ui.dialogs.tip_profile_dialog import TipProfileDialog
+
+        loaded = [s.probe_type for s in self._atx_export_sets() if s.probe_type]
+        dlg = TipProfileDialog(self._load_tip_catalog(), load_tip_profiles(self._db_conn), loaded, self)
+        try:
+            if dlg.exec() != QDialog.Accepted:
+                return
+            profiles, catalog = dlg.result_profiles(), dlg.result_catalog()
+        finally:
+            dlg.deleteLater()
+        try:
+            profiles = import_tip_images(profiles)
+        except Exception as e:
+            self.logger.error(f"SEM 이미지 보관 실패: {e}")
+        save_tip_profiles(self._db_conn, profiles)
+        self._save_tip_catalog(catalog)
+        self.logger.ok(f"Tip 프로필 저장: {len(profiles)}개")
+
+    def _word_sheet_sets(self, ms) -> list:
+        """합본(throwaway) 이면 원본 폴더 세트들, 아니면 [ms] (_stamp_export_date 와 같은 판별)."""
+        if self._get_active_export_mode() == "atx" and ms not in self._atx_export_sets():
+            return list(self._atx_export_sets())
+        return [ms]
+
+    def _write_word_sheets(self, sets: list, out_dir: Path) -> None:
+        """세트(카세트)마다 Tip 프로필이 있으면 ``{PO}_{N}M_{Type}.docx`` 를 ``out_dir`` 에 쓴다."""
+        profiles = load_tip_profiles(self._db_conn)
+        limits = self._load_spec_limits()
+        for s in sets:
+            tip = s.probe_type or next((sl.probe_type for sl in s.slots if sl.probe_type), "")
+            prof = profile_for(profiles, tip)
+            if prof is None:
+                self.logger.warn(f"Tip '{tip}' 프로필 없음 — Word 체크시트 생략 (Tip 관리…)")
+                continue
+            data = build_word_sheet_data(s, prof, spec_bounds_for(limits, tip))
+            out = Path(out_dir) / word_check_sheet_name(s.po_number, data.n_columns, data.type_name)
+            try:
+                write_word_check_sheet(DEFAULT_TEMPLATE, out, data)
+                self.logger.ok(f"Word 체크시트 저장: {out}")
+            except Exception as e:
+                self.logger.error(f"Word 체크시트 실패 ({s.po_number}): {e}")
+
     def _has_export_rows(self, ms, policy: str) -> bool:
         if policy == CSV_EXPORT_ALL_SLOTS:
             return bool(ms.slots)
@@ -276,6 +330,8 @@ class ExportMixin:
             self._statusbar.showMessage(f"CSV 저장: {path}")
         except Exception as e:
             self.logger.error(f"CSV 저장 실패: {e}")
+            return
+        self._write_word_sheets(self._word_sheet_sets(ms), out_path.parent)
 
     def _export_csv_with_images(self):
         """CSV + ZOOMIN 폴더 (이미지를 QR ID로 리네임) 내보내기."""
@@ -324,6 +380,8 @@ class ExportMixin:
             self._statusbar.showMessage(f"내보내기 완료: {output_dir}")
         except Exception as e:
             self.logger.error(f"내보내기 실패: {e}")
+            return
+        self._write_word_sheets(self._word_sheet_sets(ms), Path(output_dir))
 
     # ─── 머지 내보내기 (여러 시리얼 → 하나의 박스) ───
 
@@ -401,6 +459,8 @@ class ExportMixin:
             self._statusbar.showMessage(f"머지 내보내기 완료: {output_dir}")
         except Exception as e:
             self.logger.error(f"머지 내보내기 실패: {e}")
+            return
+        self._write_word_sheets([merged], Path(output_dir))
 
     def _on_date_changed(self):
         date_str = self.date_edit.date().toString("yyyyMMdd")

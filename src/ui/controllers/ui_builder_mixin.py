@@ -603,6 +603,12 @@ class UIBuilderMixin:
 
         action_bar.addStretch()
 
+        # Tip 관리 — Tip 별 Type 표기명·SEM 이미지·스펙 표 (Save CSV 시 Word 체크시트에 사용)
+        self.btn_tip_profiles = QPushButton("Tip 관리…")
+        self.btn_tip_profiles.setToolTip("Tip 별 Type 표기명 · SEM 이미지 · 스펙 표 — Save CSV 시 폴더별 Word 체크시트에 들어갑니다")
+        self.btn_tip_profiles.clicked.connect(self._open_tip_profiles)
+        action_bar.addWidget(self.btn_tip_profiles)
+
         # Save CSV 드롭다운
         self.btn_save_csv = QToolButton()
         self.btn_save_csv.setText(" Save CSV ")
