@@ -245,7 +245,7 @@
           <tr><td><code>Inspection</code></td><td>MTC 런 폴더의 슬롯 등급 판정과 12M/10M/5M 로트 생성을 수행합니다.</td></tr>
           <tr><td><code>생산일자</code></td><td>현재 작업의 날짜입니다. 표시 형식은 <code>yyyyMMdd</code>이며 저장·반출 데이터에 반영됩니다.</td></tr>
           <tr><td><code>🎯 Calibrate OCR</code></td><td>Manual 이미지의 Frequency/Q OCR 영역을 해상도별로 조정합니다. 저장된 프로파일은 다음 OCR부터 사용됩니다.</td></tr>
-          <tr><td>하단 상태 바</td><td>왼쪽에 작업 로그가 표시되고, 오른쪽의 <code>Reader</code> 상태 칩은 QR 리더기 설정을 엽니다. 리더기를 쓰지 않을 때는 <code>사용 안함</code>으로 표시됩니다. <code>Theme: Dark/Light</code>는 재시작 후 적용됩니다.</td></tr>
+          <tr><td>하단 상태 바</td><td>왼쪽에 작업 로그가 표시되고, 오른쪽의 <code>Server</code> 상태 칩은 업로드 서버 설정(로그인)을, <code>Reader</code> 상태 칩은 QR 리더기 설정을 엽니다. 리더기를 쓰지 않을 때는 <code>사용 안함</code>으로 표시됩니다. <code>Theme: Dark/Light</code>는 재시작 후 적용됩니다.</td></tr>
         </tbody>
       </table>
       <h3>로그 읽기</h3>
@@ -321,12 +321,20 @@
         </tbody>
       </table>
       <p>QR이 없는 슬롯이 있으면 저장 전에 <strong>QR 있는 값만 반출</strong> 또는 <strong>전체 슬롯 반출</strong>을 선택합니다. 이미지 포함 반출은 QR ID를 파일명으로 사용하므로, 먼저 QR 매칭 상태를 확인하세요.</p>
+      <h3>Tip 관리와 Word 체크시트</h3>
+      <p>세 가지 <code>Save CSV</code> 메뉴는 모두 CSV 옆에 카세트(ATX 폴더)마다 <code>{PO}_{수량}M_{Type}.docx</code> 체크시트를 함께 만듭니다. 체크시트에는 Unit/Type, Tip별 SEM 이미지와 스펙 표, 1(L)~N(R) Frequency/Q-Factor(10M은 10열, 12M은 12열), 그리고 규격 한계로 판정한 <code>4. Frequency Sweep</code> Pass/Fail이 들어갑니다. 나머지 체크 항목은 수기로 표시합니다.</p>
+      <ol>
+        <li>상단 <code>Tip 관리…</code>를 엽니다. 왼쪽 목록에는 Manual Tip 카탈로그, 저장된 프로필, 현재 열린 ATX 폴더의 Probe Type이 함께 보입니다. Tip 이름은 ATX 폴더 이름의 Probe Type(예: <code>P2601001_12M_AC160</code> → <code>AC160</code>)과 같아야 합니다.</li>
+        <li>오른쪽에서 <code>Type 표기명</code>(체크시트의 정식 모델명, 예 <code>AC160TS</code>), <code>SEM 이미지</code>(찾아보기), <code>스펙 표 양식</code>(min/typ/max 또는 Nominal Value/Specified Range)과 항목 행을 입력하고 <code>저장</code>합니다. 이미지는 저장할 때 프로그램 데이터 폴더로 복사되므로 원본 위치가 바뀌어도 됩니다.</li>
+        <li>프로필이 없는 Tip은 로그에 <code>프로필 없음 — Word 체크시트 생략</code>으로 남고 CSV만 저장됩니다.</li>
+      </ol>
       <h3>서버 업로드</h3>
       <ol>
-        <li>CSV Export 화면의 <code>Login</code>으로 서버 계정에 로그인합니다. 성공하면 서버 상태가 <code>Connected</code>로 바뀝니다.</li>
-        <li><code>Upload</code> 메뉴에서 <code>Upload CSV</code>, <code>Upload CSV + Images</code>, 또는 머지 업로드를 선택합니다.</li>
+        <li>하단 상태 바의 <code>● Server</code> 칩을 눌러 <code>서버 설정</code>을 열고 <code>1. 로그인</code>에서 서버 ID와 비밀번호를 입력한 뒤 <code>로그인</code>합니다. 성공하면 칩이 <code>로그인됨 (ID)</code>으로 바뀝니다. 비밀번호는 저장되지 않으며 ID만 기억됩니다.</li>
+        <li><code>Upload</code> 메뉴에서 <code>Upload CSV</code>, <code>Upload CSV + Images</code>, 또는 머지 업로드를 선택합니다. 로그인이 안 돼 있으면 서버 설정 창이 먼저 열리고, 로그인되면 자동으로 닫힌 뒤 업로드가 이어집니다.</li>
         <li>기존 서버 데이터를 고치는 작업은 <code>Update CSV (서버 수정)</code> 또는 <code>Update CSV + Images (서버 수정)</code>를 사용합니다. 실행 전에 덮어쓰기 확인을 읽고 진행하세요.</li>
-        <li>세션이 만료되면 앱이 업로드를 중단하고 다시 로그인하도록 안내합니다. 업로드 결과는 이력의 Upload 상태에도 반영됩니다.</li>
+        <li>세션이 만료되면 칩이 <code>세션 만료</code>가 되고 앱이 업로드를 중단한 뒤 다시 로그인하도록 안내합니다. <code>세션 확인</code> 버튼으로 미리 점검할 수 있습니다. 업로드 결과는 이력의 Upload 상태에도 반영됩니다.</li>
+        <li><code>2. 서버 주소</code>에는 QR 2.0 서버(현재 업로드 대상)와 QR 2.1 서버(추후 지원)가 읽기 전용으로 표시됩니다. QR ID에 2.1 코드가 섞여 있으면 업로드 전에 차단되고 건수가 안내됩니다.</li>
       </ol>
       <div class="warn"><strong>Update 주의</strong><br><code>Update</code>는 서버에 이미 등록된 데이터를 현재 값으로 덮어쓰는 작업입니다. 대상 QR과 CSV를 확인한 뒤 실행하세요.</div>
     </section>
@@ -456,7 +464,9 @@
           <tr><td>QR 입력에 한글이 섞임</td><td>하단 QR 입력창과 슬롯 편집 QR ID 필드는 영문으로 고정되어 있습니다. 다른 입력창에 포커스가 있는 상태로 스캔했는지 확인합니다.</td></tr>
           <tr><td>다중 QR 스캔이 적용되지 않음</td><td>ATX 폴더를 먼저 열었는지, 같은 ATX 번호만 남겼는지, Reader가 연결됨인지 확인합니다. 상세 결과는 <code>판독 검토</code>에서 확인합니다.</td></tr>
           <tr><td>Inspection 런 폴더가 인식되지 않음</td><td><code>PSPD.txt</code>, <code>FreqSweep.txt</code>, <code>Vision.txt</code> 중 하나가 폴더 바로 아래에 있는지 확인합니다.</td></tr>
-          <tr><td>서버 업로드 실패</td><td><code>Connected</code> 상태와 세션 만료 여부를 확인하고 다시 로그인합니다. Update는 대상 CSV와 QR을 확인한 뒤 재시도합니다.</td></tr>
+          <tr><td>서버 업로드 실패</td><td>상태 바 <code>● Server</code> 칩이 <code>로그인됨</code>인지, <code>세션 만료</code>인지 확인하고 서버 설정 창에서 다시 로그인합니다. Update는 대상 CSV와 QR을 확인한 뒤 재시도합니다.</td></tr>
+          <tr><td>업로드 차단 — QR 버전 불일치</td><td>QR 2.1 등 2.0이 아닌 코드가 섞여 있습니다. 현재 서버는 QR 2.0만 받으므로 해당 카세트를 분리하고, 2.1 서버 지원은 추후 버전을 기다립니다.</td></tr>
+          <tr><td>Word 체크시트가 생성되지 않음</td><td>로그의 <code>Tip '…' 프로필 없음</code>을 확인하고 <code>Tip 관리…</code>에서 ATX 폴더의 Probe Type과 같은 이름으로 프로필을 등록합니다.</td></tr>
         </tbody>
       </table>
       <h3>일일 작업 종료 체크리스트</h3>

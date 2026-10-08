@@ -205,6 +205,13 @@ class UIBuilderMixin:
         )
         self.btn_theme_toggle.clicked.connect(self._toggle_theme)
 
+        # 업로드 서버 상태 칩 (클릭 → 서버 설정). 글자색·문구는 UploadMixin._update_server_chip 이 갱신
+        self.btn_server_status = QPushButton("● Server 미로그인")
+        self.btn_server_status.setCursor(Qt.PointingHandCursor)
+        self.btn_server_status.setToolTip("업로드 서버 로그인 상태 — 클릭하면 서버 설정을 엽니다")
+        self.btn_server_status.clicked.connect(lambda: self._open_server_settings())
+        self._statusbar.addPermanentWidget(self.btn_server_status)
+
         # 키엔스 다중 QR 리더기 상태 칩 (Theme 왼쪽, 클릭 → 리더기 설정). 글자색·문구는 QRReaderMixin._update_reader_chip 이 갱신
         self.btn_reader_status = QPushButton("● Reader 미연결")
         self.btn_reader_status.setCursor(Qt.PointingHandCursor)
@@ -596,6 +603,12 @@ class UIBuilderMixin:
 
         action_bar.addStretch()
 
+        # Tip 관리 — Tip 별 Type 표기명·SEM 이미지·스펙 표 (Save CSV 시 Word 체크시트에 사용)
+        self.btn_tip_profiles = QPushButton("Tip 관리…")
+        self.btn_tip_profiles.setToolTip("Tip 별 Type 표기명 · SEM 이미지 · 스펙 표 — Save CSV 시 폴더별 Word 체크시트에 들어갑니다")
+        self.btn_tip_profiles.clicked.connect(self._open_tip_profiles)
+        action_bar.addWidget(self.btn_tip_profiles)
+
         # Save CSV 드롭다운
         self.btn_save_csv = QToolButton()
         self.btn_save_csv.setText(" Save CSV ")
@@ -637,7 +650,7 @@ class UIBuilderMixin:
         # ── 좌우 분할 ──
         splitter = QSplitter(Qt.Horizontal)
 
-        # 좌측: 이미지 + 서버 상태
+        # 좌측: 이미지 (서버 로그인 상태는 상태 바 ● Server 칩 → 서버 설정 창)
         left = QWidget()
         left.setMinimumWidth(280)
         left_layout = QVBoxLayout(left)
@@ -648,20 +661,6 @@ class UIBuilderMixin:
         self.export_image_viewer = ImageViewer()
         img_layout.addWidget(self.export_image_viewer)
         left_layout.addWidget(img_group, 1)
-
-        # 서버 상태 행
-        server_row = QHBoxLayout()
-        self.lbl_server_status = QLabel("○ Disconnected")
-        self.lbl_server_status.setStyleSheet(f"color: {FG2};")
-        server_row.addWidget(self.lbl_server_status)
-        server_row.addStretch()
-
-        self.btn_server_toggle = QPushButton("Login")
-        self.btn_server_toggle.setFixedWidth(80)
-        self.btn_server_toggle.clicked.connect(self._do_login)
-        server_row.addWidget(self.btn_server_toggle)
-
-        left_layout.addLayout(server_row)
 
         splitter.addWidget(left)
 

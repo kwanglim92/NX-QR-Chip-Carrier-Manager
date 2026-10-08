@@ -104,7 +104,7 @@ def _hint(text: str, wrap: bool = False) -> QLabel:
 class _SectionNav(QListWidget):
     """좌측 TOC 사이드바. 항목마다 '번호. 제목'(굵게) + 설명(작게) 두 줄, 현재 섹션은 좌측 액센트 바 + 액센트 제목."""
 
-    def __init__(self, parent: QWidget | None = None) -> None:
+    def __init__(self, parent: QWidget | None = None, sections: list[tuple[str, str, str]] = SECTIONS) -> None:
         super().__init__(parent)
         self.setFixedWidth(250)
         self.setFrameShape(QFrame.NoFrame)
@@ -119,7 +119,7 @@ class _SectionNav(QListWidget):
             QListWidget::item:selected {{ background: {BG3}; border-left: 3px solid {ACCENT}; }}
         """)
         self._titles: list[QLabel] = []
-        for i, (_key, title, desc) in enumerate(SECTIONS, 1):
+        for i, (_key, title, desc) in enumerate(sections, 1):
             item = QListWidgetItem()
             item.setToolTip(f"{title} — {desc}")
             self.addItem(item)

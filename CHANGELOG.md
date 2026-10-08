@@ -6,9 +6,17 @@
 - **리더기 연결 해제 / 연결 토글**: 리더기 설정 창 `1. 연결` 페이지의 `연결 테스트` 옆 버튼. `연결 해제` 는 접속을 끊고 백오프 재접속을 멈춰 리더기 없이 Inspection 등 다른 기능을 쓸 수 있게 하고, `연결` 은 현재 입력한 설정을 저장한 뒤 접속해 사용을 재개
 - **상태 칩 `사용 안함`**: 리더기를 쓰지 않는 상태(연결 해제, 앱 시작 시 자동 접속 꺼짐, 전송 방식이 LAN 이 아님)는 상태 바 `● Reader` 칩에 `미연결`/`재접속 중` 대신 `사용 안함` 으로 표시. `미연결`은 사용 중인데 끊긴 순간에만
 - **QR 입력창 영문 고정**: ATX/Manual 모드 하단 QR 입력창과 슬롯 편집 창의 QR ID 필드는 Windows 입력기가 한글이어도 IME 를 끄고 영문으로만 받아 바코드 스캔에 한글이 섞이지 않음 (`force_latin_input`)
+- **서버 설정 다이얼로그 + 상태 바 `● Server` 칩**: 업로드 서버 로그인을 리더기와 같은 구조로 분리. 상태 바(Reader 칩 왼쪽) `● Server` 칩이 `미로그인 / 로그인됨 (ID) / 세션 만료 / 업로드 중` 을 보여주고, 클릭하면 서버 설정 창 — `1. 로그인`(ID·비밀번호·[로그인][로그아웃][세션 확인]) · `2. 서버 주소`(읽기 전용: QR 2.0 `probe-info` 현재 대상, QR 2.1 `cantilever-info` 추후 지원). 비밀번호는 보내는 즉시 입력창을 비우고 저장하지 않음. 앱 종료 시 서버 세션 종료
+- **QR ID 디코더 + 업로드 버전 게이트** (`src/core/qr_code.py`): 16진수 10자리 QR ID 의 Encoding Major/Minor·생산연도·Probe Type·S/N 을 해독. 업로드 전 행의 QR 버전을 검사해 **2.0 외 버전(2.1 등)이 섞이면 경고창 후 업로드 차단**, 10자리 16진수가 아닌 코드는 경고 로그만 남기고 진행 (Save CSV 에는 적용 안 함)
+- **Word 체크시트 자동 생성**: `Save CSV` 의 세 메뉴(CSV Only · CSV + Images · 머지 후 저장) 모두 CSV 옆에 카세트(ATX 폴더)마다 `{PO}_{수량}M_{Type}.docx` 를 생성. 전체(합본) 범위면 원본 폴더별로. 내용 = Unit/Type, Tip 프로필의 SEM 이미지·스펙 표, 1(L)~N(R) Frequency/Q-Factor(10M/12M → 10/12열), `4. Frequency Sweep` Pass/Fail(규격 한계 기준, 없으면 □). 기본 템플릿 `assets/templates/check_sheet_base.docx` 를 zip 수준에서 편집(python-docx 불필요)
+- **`Tip 관리…`** (CSV Export 상단, Save CSV 왼쪽): Tip 별 Type 표기명 · SEM 이미지(썸네일, 저장 시 `tip_images/` 로 복사) · 스펙 표(양식 `min/typ/max` 또는 `Nominal Value/Specified Range`, 행 추가·삭제·이동). `app_settings.tip_profiles`. Tip 이름이 ATX 폴더 probe_type 과 같아야 Word 체크시트가 생성되며, 프로필이 없으면 로그 경고 후 생략
 
 ### Changed
 - 리더기 설정 `저장` 은 사용 중이면 새 설정으로 재접속하고, `사용 안함` 상태에서는 설정만 저장하고 접속하지 않음 (이전: 저장 = 항상 즉시 접속)
+- `Upload` 메뉴를 눌렀을 때 미로그인·세션 만료면 서버 설정 창의 로그인 섹션이 열리고, 로그인되면 자동으로 닫힌 뒤 업로드가 이어짐 (이전: 별도 ID/PW 소형 창)
+
+### Removed
+- CSV Export 좌하단 `○ Disconnected / Login` 행과 `src/ui/widgets/login_dialog.py` (서버 설정 창으로 대체)
 
 ## [2.4.0] - 2026-09-10
 

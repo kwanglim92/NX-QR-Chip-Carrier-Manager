@@ -110,6 +110,7 @@ class ChipCarrierManagerApp(
         # 리더기: 판독 중이면 LOFF 를 보내고 소켓을 닫는다 (재접속 없음)
         self._shutdown_qr_reader()
         self._shutdown_inspection()
+        self._shutdown_upload()
         # 종료 중 늦게 끝난 OCR 콜백이 닫힌 DB 연결에 쓰는 것을 방지:
         # 풀을 비우고 대기한 뒤, 남은 배치를 무효화한다(batch None 가드 활용).
         pool = getattr(self, "_ocr_pool", None)

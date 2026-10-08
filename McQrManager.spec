@@ -32,6 +32,8 @@ datas = [
     (str(ROOT / "third_party" / "tesseract"), "third_party/tesseract"),
     (str(ROOT / "docs" / "user-guide.html"), "docs"),
     (str(ROOT / "docs" / "assets" / "user-guide"), "docs/assets/user-guide"),
+    # Word 체크시트 템플릿 — word_check_sheet._project_root() 가 sys.executable.parent 기준으로 찾는다
+    (str(ROOT / "assets" / "templates"), "assets/templates"),
 ]
 
 
