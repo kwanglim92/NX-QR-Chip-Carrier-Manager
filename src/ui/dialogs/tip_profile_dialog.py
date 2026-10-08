@@ -51,7 +51,7 @@ class TipProfileDialog(QDialog):
         super().__init__(parent)
         self.setWindowTitle("Tip 관리")
         self.setModal(True)
-        self.resize(860, 520)
+        self.resize(880, 640)
         self._profiles: dict[str, dict] = normalize_tip_profiles(profiles)
         self._current: str | None = None
 
